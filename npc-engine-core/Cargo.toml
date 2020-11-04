@@ -1,0 +1,26 @@
+[package]
+name = "npc-engine-core"
+version = "0.1.0"
+authors = ["Sven Knobloch <knsven@student.ethz.ch>", "Stéphane Magnenat <stephanee.magnenat@inf.ethz.ch>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+rand = "~0.7"
+rand_chacha = "~0.2"
+log = "~0.4"
+serde = { version = "^1", features = [ "derive" ] }
+downcast-rs = "*"
+
+dot = { version = "~0.1", optional = true }
+palette = { version = "*", optional = true }
+
+[dev-dependencies]
+
+
+[features]
+default = []
+graphviz = [ "dot", "palette" ]
+heatmap = []
+

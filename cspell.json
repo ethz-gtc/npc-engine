@@ -1,0 +1,20 @@
+{
+	"version": "0.1",
+	"language": "en",
+	"words": [
+		"mcts",
+		"hasher",
+		"seedable",
+		"btreemap",
+		"btreemaps",
+		"dedup",
+		"Srgb",
+		"powi",
+		"backpropagate",
+		"backpropagation",
+		"rollout",
+		"rollouts",
+		"graphviz",
+		"chacha"
+	]
+}
