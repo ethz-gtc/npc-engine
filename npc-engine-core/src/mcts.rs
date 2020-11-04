@@ -1,8 +1,7 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::{collections::{BTreeMap, BTreeSet}, rc::Rc, cell::RefCell, rc::Weak};
 use std::f32;
 use std::hash::{Hash, Hasher};
 use std::ops::{Range};
-use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 use std::{fmt, mem};
 
@@ -188,8 +187,7 @@ impl<E: NpcEngine> MCTS<E> {
                         };
 
                         // Create edge from parent to child
-                        let edge =
-                            Edge::new(Mutex::new(EdgeInner::new(&node, &child_node, &agents)));
+                        let edge = new_edge(&node, &child_node, &agents);
 
                         let edges = nodes.get_mut(&node).unwrap();
                         edges.edges.insert(task, edge.clone());
@@ -210,7 +208,7 @@ impl<E: NpcEngine> MCTS<E> {
 
                 // New node is the current child node
                 node = {
-                    let edge = edge.lock().unwrap();
+                    let edge = edge.borrow();
                     edge.child.upgrade().unwrap()
                 };
 
@@ -370,7 +368,7 @@ impl<E: NpcEngine> MCTS<E> {
         path.drain(..).rev().for_each(|edge| {
             // Increment child node visit count
 
-            let edge = &mut *edge.lock().unwrap();
+            let edge = &mut edge.borrow_mut();
             edge.visits += 1;
 
             let parent = edge.parent.upgrade().unwrap();
@@ -532,7 +530,7 @@ impl<E: NpcEngine> MCTS<E> {
 }
 
 /// Strong atomic reference counted node
-pub type Node<E> = Arc<NodeInner<E>>;
+pub type Node<E> = Rc<NodeInner<E>>;
 
 /// Weak atomic reference counted node
 pub type WeakNode<E> = Weak<NodeInner<E>>;
@@ -708,7 +706,7 @@ impl<E: NpcEngine> Edges<E> {
     pub fn child_visits(&self) -> usize {
         self.edges
             .values()
-            .map(|edge| edge.lock().unwrap().visits)
+            .map(|edge| edge.borrow().visits)
             .sum()
     }
 
@@ -723,8 +721,8 @@ impl<E: NpcEngine> Edges<E> {
         self.edges
             .iter()
             .max_by(|(_, a), (_, b)| {
-                let a = a.lock().unwrap();
-                let b = b.lock().unwrap();
+                let a = a.borrow();
+                let b = b.borrow();
                 a.uct(agent, visits, exploration, range.clone())
                     .partial_cmp(&b.uct(agent, visits, exploration, range.clone()))
                     .unwrap()
@@ -738,7 +736,7 @@ impl<E: NpcEngine> Edges<E> {
         self.edges
             .values()
             .map(|edge| {
-                edge.try_lock()
+                edge.try_borrow()
                     .map(|edge| {
                         (
                             edge.visits,
@@ -771,14 +769,14 @@ impl<E: NpcEngine> Edges<E> {
 
         for (task, edge) in &self.edges {
             size += task_size(&**task);
-            size += edge.lock().unwrap().size();
+            size += edge.borrow().size();
         }
 
         size
     }
 }
 
-pub type Edge<E> = Arc<Mutex<EdgeInner<E>>>;
+pub type Edge<E> = Rc<RefCell<EdgeInner<E>>>;
 
 pub struct EdgeInner<E: NpcEngine> {
     pub parent: WeakNode<E>,
@@ -800,17 +798,17 @@ impl<E: NpcEngine> fmt::Debug for EdgeInner<E> {
     }
 }
 
-impl<E: NpcEngine> EdgeInner<E> {
-    pub fn new(parent: &Node<E>, child: &Node<E>, agents: &BTreeSet<AgentId>) -> Self {
-        EdgeInner {
-            parent: Node::downgrade(parent),
-            child: Node::downgrade(child),
-            visits: Default::default(),
-            values_total: agents.iter().map(|agent| (*agent, 0.)).collect(),
-            values_mean: agents.iter().map(|agent| (*agent, 0.)).collect(),
-        }
-    }
+pub fn new_edge<E: NpcEngine>(parent: &Node<E>, child: &Node<E>, agents: &BTreeSet<AgentId>) -> Edge<E> {
+    Rc::new(RefCell::new(EdgeInner {
+        parent: Node::downgrade(parent),
+        child: Node::downgrade(child),
+        visits: Default::default(),
+        values_total: agents.iter().map(|agent| (*agent, 0.)).collect(),
+        values_mean: agents.iter().map(|agent| (*agent, 0.)).collect(),
+    }))
+}
 
+impl<E: NpcEngine> EdgeInner<E> {
     /// Calculates the current UCT value for the edge.
     pub fn uct(
         &self,
@@ -1260,8 +1258,8 @@ mod value_tests {
         for i in 1..depth {
             let edges = mcts.nodes.get(&node).unwrap();
             assert_eq!(edges.edges.len(), 1);
-            let edge_lock = edges.edges.values().nth(0).unwrap();
-            let edge = edge_lock.lock().unwrap();
+            let edge_rc = edges.edges.values().nth(0).unwrap();
+            let edge = edge_rc.borrow();
 
             node = edge.child.upgrade().unwrap();
 
@@ -1476,14 +1474,12 @@ mod branching_tests {
             .edges
             .get(&(Box::new(TestTask(true)) as Box<dyn Task<TestEngine>>))
             .unwrap()
-            .lock()
-            .unwrap();
+            .borrow();
         let edge_b = edges
             .edges
             .get(&(Box::new(TestTask(false)) as Box<dyn Task<TestEngine>>))
             .unwrap()
-            .lock()
-            .unwrap();
+            .borrow();
 
         assert!(
             (edge_a.uct(
