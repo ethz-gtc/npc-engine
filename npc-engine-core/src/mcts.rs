@@ -905,7 +905,7 @@ mod graphviz {
 
             let edges = self.nodes.get(node).unwrap();
             for (_task, edge) in &edges.edges {
-                if let Ok(edge) = edge.try_lock() {
+                if let Ok(edge) = edge.try_borrow() {
                     // Prevent recursion
                     if let Some(child) = edge.child.upgrade() {
                         // TODO: Priority queue
@@ -937,7 +937,7 @@ mod graphviz {
                     let best_task = edges.best_task(node.agent, 0., range.clone()).unwrap();
                     let visits = edges.child_visits();
                     edges.edges.iter().for_each(|(obj, _edge)| {
-                        let edge = _edge.lock().unwrap();
+                        let edge = _edge.borrow();
 
                         let parent = edge.parent.upgrade().unwrap();
                         let child = edge.child.upgrade().unwrap();
@@ -987,7 +987,7 @@ mod graphviz {
         }
 
         fn node_id(&'a self, n: &Node<E>) -> Id<'a> {
-            Id::new(format!("_{:p}", n.deref())).unwrap()
+            Id::new(format!("_{:p}", Rc::as_ptr(n))).unwrap()
         }
 
         fn node_label(&'a self, n: &Node<E>) -> LabelText<'a> {
