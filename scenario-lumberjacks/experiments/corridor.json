@@ -1,0 +1,12 @@
+{
+    "$schema": "../experiment.schema.json#",
+    "base": "./base.json",
+    "trials": {
+        "trial-1": {},
+        "trial-2": {
+            "headless": {
+                "turns": 15
+            }
+        }
+    }
+}

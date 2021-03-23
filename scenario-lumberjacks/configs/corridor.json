@@ -1,0 +1,32 @@
+{
+    "$schema": "../config.schema.json",
+    "map": {
+        "generator": {
+            "file": {
+                "path": "../maps/corridor.png"
+            }
+        },
+        "tree-height": 2
+    },
+    "mcts": {
+        "visits": 5000,
+        "depth": 10,
+        "update": {
+            "bellman": {
+                "discount": 0.99
+            }
+        }
+    },
+    "agents": {
+        "objectives": true
+    },
+    "analytics": {
+        "graphs": true
+    },
+    "features": {
+        "watering": true
+    },
+    "display": {
+        "interactive": true
+    }
+}

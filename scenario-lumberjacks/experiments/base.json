@@ -1,0 +1,29 @@
+{
+    "$schema": "../config.schema.json",
+    "headless": {
+        "turns": 10
+    },
+    "map": {
+        "generator": {
+            "file": {
+                "path": "../maps/corridor3.png"
+            }
+        },
+        "tree-height": 3
+    },
+    "mcts": {
+        "exploration": 1.414,
+        "visits": 10000,
+        "update": {
+            "bellman": {
+                "discount": 0.95
+            }
+        }
+    },
+    "analytics": {
+        "serialization": true
+    },
+    "features": {
+        "barriers": true
+    }
+}
