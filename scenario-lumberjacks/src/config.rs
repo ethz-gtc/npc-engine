@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, num::NonZeroU8};
 use std::fmt;
 
 use serde::de::{MapAccess, Visitor};
@@ -35,11 +35,11 @@ pub enum GeneratorType {
 pub struct MapConfig {
     pub generator: GeneratorType,
     #[serde(default = "map_tree_height_default")]
-    pub tree_height: u8,
+    pub tree_height: NonZeroU8,
 }
 
-fn map_tree_height_default() -> u8 {
-    3
+fn map_tree_height_default() -> NonZeroU8 {
+    NonZeroU8::new(3).unwrap()
 }
 
 #[derive(Serialize, Deserialize)]

@@ -1,9 +1,14 @@
-use std::fmt;
+use std::{fmt, num::NonZeroU8};
 use std::hash::{Hash, Hasher};
 
 use npc_engine_core::{AgentId, StateRef, StateRefMut, Task};
 
 use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile, DIRECTIONS};
+
+// SAFETY: this is safe as 1 is non-zero. This is actually a work-around the fact
+// that Option::unwrap() is currently not const, but we need a constant in the match arm below.
+// See the related Rust issue: https://github.com/rust-lang/rust/issues/67441
+const NON_ZERO_U8_1: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(1) };
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Chop {
@@ -33,11 +38,11 @@ impl Task<Lumberjacks> for Chop {
             state.set_action(agent, Action::Chop(self.direction));
 
             match state.get_tile_ref_mut(x, y) {
-                Some(tile @ Tile::Tree(1)) => {
+                Some(tile @ Tile::Tree(NON_ZERO_U8_1)) => {
                     *tile = Tile::Empty;
                 }
                 Some(Tile::Tree(height)) => {
-                    *height -= 1;
+                    *height = NonZeroU8::new(height.get() - 1).unwrap();
                 }
                 _ => return None,
             }

@@ -1,4 +1,4 @@
-use std::char;
+use std::{char, num::NonZeroU8};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
@@ -164,7 +164,7 @@ impl fmt::Debug for TileMapSnapshot {
                 string.push(match tile {
                     Tile::Empty => '+',
                     Tile::Agent(_) => '@',
-                    Tile::Tree(height) => char::from_digit(*height as _, 10).unwrap(),
+                    Tile::Tree(height) => char::from_digit(height.get().into(), 10).unwrap(),
                     Tile::Barrier => 'B',
                     Tile::Impassable => 'X',
                     Tile::Well => 'W',
@@ -180,7 +180,7 @@ impl fmt::Debug for TileMapSnapshot {
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Tile {
-    Tree(u8),
+    Tree(NonZeroU8),
     Agent(AgentId),
     Impassable,
     Barrier,
@@ -197,7 +197,7 @@ impl Default for Tile {
 impl Tile {
     fn sprite(&self) -> Option<String> {
         match self {
-            Tile::Tree(height) => Some(format!("Tree{}_3", height.min(&3))),
+            Tile::Tree(height) => Some(format!("Tree{}_3", height.get().min(3))),
             Tile::Agent(agent) => Some(if agent.0 % 2 == 0 {
                 "OrangeRight".to_owned()
             } else {

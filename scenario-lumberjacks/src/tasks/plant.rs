@@ -1,4 +1,4 @@
-use std::fmt;
+use std::{fmt, num::NonZeroU8};
 use std::hash::{Hash, Hasher};
 
 use npc_engine_core::{AgentId, StateRef, StateRefMut, Task};
@@ -34,7 +34,7 @@ impl Task<Lumberjacks> for Plant {
 
             match state.get_tile_ref_mut(x, y) {
                 Some(tile @ Tile::Empty) => {
-                    *tile = Tile::Tree(1);
+                    *tile = Tile::Tree(NonZeroU8::new(1).unwrap());
                 }
                 _ => return None,
             }
