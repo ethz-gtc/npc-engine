@@ -354,7 +354,7 @@ impl<E: NpcEngine> MCTS<E> {
         let fitnesses = node.fitnesses.clone();
         let values = values
             .iter()
-            .map(|(agent, (_, fitness))| (*agent, *fitness))
+            .map(|(agent, (_, value))| (*agent, *value))
             .collect();
 
         log::trace!("Rollout: {:?}, {:?}, {:?}", num_rollouts, fitnesses, values);
