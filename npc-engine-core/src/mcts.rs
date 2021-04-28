@@ -383,7 +383,15 @@ impl<E: NpcEngine> MCTS<E> {
 
             // Iterate all agents on edge
             q_values.iter_mut().for_each(|(&agent, q_value)| {
-                let parent_fitness = parent.fitnesses.get(&agent).copied().unwrap_or_default();
+                let parent_fitness = parent.fitnesses.get(&agent).copied().unwrap_or_else(|| {
+                    E::value(
+                        StateRef::Snapshot {
+                            snapshot,
+                            diff: parent.diff(),
+                        },
+                        agent,
+                    )
+                });
                 let child_fitness = child.fitnesses.get(&agent).copied().unwrap_or_else(|| {
                     E::value(
                         StateRef::Snapshot {
