@@ -7,10 +7,7 @@ use ggez::Context;
 use npc_engine_core::{AgentId, StateRef, StateRefMut};
 use serde::Serialize;
 
-use crate::{
-    config, Action, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, Tile, TileMap,
-    TileMapDiff, TileMapSnapshot, DIRECTIONS, SPRITE_SIZE,
-};
+use crate::{Action, AgentInventory, DIRECTIONS, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, SPRITE_SIZE, Tile, TileMap, TileMapDiff, TileMapSnapshot, config};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -395,8 +392,19 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
             StateRefMut::State { state } => {
                 state.inventory.0.entry(agent).or_default().wood += 1;
             }
-            StateRefMut::Snapshot { diff, .. } => {
-                diff.inventory.0.entry(agent).or_default().wood += 1;
+            StateRefMut::Snapshot { snapshot, diff, .. } => {
+                // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
+                // but for the water it is an override (= diff.water), so we need to fetch the
+                // water from the snapshot when we create a new inventory diff
+                diff.inventory.0.entry(agent).or_insert_with(
+                    || AgentInventory {
+                        wood: 0,
+                        water: snapshot.inventory.0
+                            .get(&agent)
+                            .map(|inv| inv.water)
+                            .unwrap_or_default()
+                    }
+                ).wood += 1;
             }
         }
     }
@@ -406,8 +414,19 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
             StateRefMut::State { state } => {
                 state.inventory.0.get_mut(&agent).unwrap().wood -= 1;
             }
-            StateRefMut::Snapshot { diff, .. } => {
-                diff.inventory.0.entry(agent).or_default().wood -= 1;
+            StateRefMut::Snapshot { snapshot, diff, .. } => {
+                // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
+                // but for the water it is an override (= diff.water), so we need to fetch the
+                // water from the snapshot when we create a new inventory diff
+                diff.inventory.0.entry(agent).or_insert_with(
+                    || AgentInventory {
+                        wood: 0,
+                        water: snapshot.inventory.0
+                            .get(&agent)
+                            .map(|inv| inv.water)
+                            .unwrap_or_default()
+                    }
+                ).wood -= 1;
             }
         }
     }
