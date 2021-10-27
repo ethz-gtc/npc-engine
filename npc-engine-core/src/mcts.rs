@@ -13,19 +13,46 @@ use crate::{AgentId, NpcEngine, SeededHashMap, SeededHashSet, StateRef, StateRef
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
 
+/// Estimator of state-value function: takes state of explored node and returns the estimated values
+pub trait StateValueEstimator<E: NpcEngine> {
+    fn estimate(
+        &mut self,
+        rnd: &mut ChaCha8Rng,
+        config: &MCTSConfiguration,
+        snapshot: &E::Snapshot,
+        node: &Node<E>,
+        depth: u32,
+        agent: AgentId, // agent of the MCTS
+        agents: BTreeSet<AgentId> // agents in this node: TODO: see if we can extract from node
+    ) -> BTreeMap<AgentId, f32>;
+}
+
+/// Represents the configuration of an MCTS instance
+/// * visits:
+/// * depth:
+/// * exploration:
+/// * retention:
+/// * discount:
+/// * seed:
+///
+#[derive(Clone, Debug)]
+pub struct MCTSConfiguration {
+    pub visits: u32,
+    pub depth: u32,
+    pub exploration: f32,
+    pub retention: f32,
+    pub discount: f32,
+    pub seed: Option<u64>,
+}
+
 pub struct MCTS<E: NpcEngine> {
     time: Duration,
 
     // Config
+    pub(crate) config: MCTSConfiguration,
+    state_value_estimator: Box<dyn StateValueEstimator<E>>,
     seed: u64,
-    agent: AgentId,
-    max_visits: usize,
-    max_depth: usize,
-    exploration: f32,
-    discount: f32,
-
-    #[allow(unused)]
-    retention: f32,
+    pub(crate) agent: AgentId,
 
     // Nodes
     pub root: Node<E>,
@@ -74,12 +101,20 @@ impl<E: NpcEngine> MCTS<E> {
         let mut path = Vec::new();
 
         let start = Instant::now();
-        for _ in 0..self.max_visits {
+        for _ in 0..self.config.visits {
             // Execute tree policy
             let (depth, agents, leaf) = self.tree_policy(self.root.clone(), &mut path);
 
             // Execute default policy
-            let rollout_values = self.default_policy(depth, agents, &leaf);
+            let rollout_values = self.state_value_estimator.estimate(
+                &mut self.rng,
+                &self.config,
+                &self.snapshot,
+                &leaf,
+                depth,
+                self.agent,
+                agents
+            );
 
             // Backpropagate results
             self.backpropagation(&mut path, rollout_values);
@@ -100,7 +135,7 @@ impl<E: NpcEngine> MCTS<E> {
         &mut self,
         root: Node<E>,
         path: &mut Vec<Edge<E>>,
-    ) -> (usize, BTreeSet<AgentId>, Node<E>) {
+    ) -> (u32, BTreeSet<AgentId>, Node<E>) {
         // Find agents for current turn
         let mut agents = BTreeSet::new();
         E::agents(
@@ -119,7 +154,7 @@ impl<E: NpcEngine> MCTS<E> {
         seen_nodes.insert(node.clone());
 
         // Execute selection until at most `max_depth`
-        for depth in 0..self.max_depth {
+        for depth in 0..self.config.depth {
             let mut iter = agents
                 .iter()
                 .chain(agents.iter())
@@ -201,7 +236,7 @@ impl<E: NpcEngine> MCTS<E> {
 
                 // Node is fully expanded, perform selection
                 let task = edges
-                    .best_task(node.agent, self.exploration, range)
+                    .best_task(node.agent, self.config.exploration, range)
                     .expect("No valid task!");
                 log::trace!("{:?} - Select action: {}", agent, task);
                 let edge = edges.edges.get(&task).unwrap().clone();
@@ -217,7 +252,7 @@ impl<E: NpcEngine> MCTS<E> {
 
                 // If node is already seen, prevent cycle
                 if !seen_nodes.insert(node.clone()) {
-                    return (self.max_depth, agents, node);
+                    return (self.config.depth, agents, node);
                 }
             }
 
@@ -233,20 +268,201 @@ impl<E: NpcEngine> MCTS<E> {
             );*/
         }
 
-        (self.max_depth, agents, node)
+        (self.config.depth, agents, node)
     }
 
-    /// MCTS default policy. Performs the simulation phase.
-    fn default_policy(
-        &mut self,
-        depth: usize,
-        mut agents: BTreeSet<AgentId>,
-        node: &Node<E>,
-    ) -> BTreeMap<AgentId, f32> {
-        let rng = &mut self.rng;
-        let snapshot = &self.snapshot;
+    /// MCTS backpropagation phase.
+    fn backpropagation(&mut self, path: &mut Vec<Edge<E>>, rollout_values: BTreeMap<AgentId, f32>) {
+        // Backtracking
+        path.drain(..).rev().for_each(|edge| {
+            // Increment child node visit count
 
-        let root_agent = self.agent;
+            let edge = &mut edge.borrow_mut();
+            edge.visits += 1;
+
+            let parent = edge.parent.upgrade().unwrap();
+            let child = edge.child.upgrade().unwrap();
+            let visits = edge.visits;
+            let child_edges = self.nodes.get(&child).unwrap();
+
+            let q_values = &mut edge.values_mean;
+            let global_scores = &mut self.global_scores;
+            let discount = self.config.discount;
+            let snapshot = &self.snapshot;
+
+            // Iterate all agents on edge
+            q_values.iter_mut().for_each(|(&agent, q_value)| {
+                let parent_fitness = parent.fitnesses.get(&agent).copied().unwrap_or_else(|| {
+                    E::value(
+                        StateRef::Snapshot {
+                            snapshot,
+                            diff: parent.diff(),
+                        },
+                        agent,
+                    )
+                });
+                let child_fitness = child.fitnesses.get(&agent).copied().unwrap_or_else(|| {
+                    E::value(
+                        StateRef::Snapshot {
+                            snapshot,
+                            diff: child.diff(),
+                        },
+                        agent,
+                    )
+                });
+
+                // Get current value from child, or rollout value if leaf node
+                let mut child_value =
+                    if let Some(value) = child_edges.value((visits, *q_value), agent) {
+                        value
+                    } else {
+                        rollout_values.get(&agent).copied().unwrap_or_default()
+                    };
+
+                // Only discount once per agent per turn
+                if agent == parent.agent {
+                    child_value *= discount;
+                }
+
+                // Use Bellman Equation
+                let value = child_fitness - parent_fitness + child_value;
+
+                // Update q value for edge
+                *q_value = value;
+
+                if agent == parent.agent {
+                    // Update global score for agent
+                    let global = global_scores.entry(parent.agent).or_insert_with(|| Range {
+                        start: f32::INFINITY,
+                        end: f32::NEG_INFINITY,
+                    });
+                    global.start = global.start.min(value);
+                    global.end = global.end.max(value);
+                }
+            });
+        });
+    }
+}
+
+impl<E: NpcEngine> MCTS<E> {
+    /// Instantiate a new search tree for the given state.
+    pub fn new(
+        state: &E::State,
+        agent: AgentId,
+        visits: u32,
+        depth: u32,
+        exploration: f32,
+        retention: f32,
+        discount: f32,
+        seed: Option<u64>,
+    ) -> Self {
+        let snapshot = E::derive(state, agent);
+
+        let root = Node::new(NodeInner::new(
+            &snapshot,
+            Default::default(),
+            agent,
+            Default::default(),
+        ));
+        let mut nodes = SeededHashMap::default();
+        nodes.insert(root.clone(), Edges::new(&root, &snapshot));
+
+        let cur_seed = seed.unwrap_or_else(|| thread_rng().next_u64());
+
+        MCTS {
+            time: Duration::default(),
+            config: MCTSConfiguration {
+                visits,
+                depth,
+                exploration,
+                retention,
+                discount,
+                seed,
+            },
+            state_value_estimator: Box::new(DefaultPolicyEstimator {}),
+            seed: cur_seed,
+            agent,
+            root,
+            nodes,
+            global_scores: Default::default(),
+            snapshot,
+            rng: ChaCha8Rng::seed_from_u64(cur_seed)
+        }
+    }
+
+    // Returns the agent the tree searches for.
+    pub fn agent(&self) -> AgentId {
+        self.agent
+    }
+
+    // Returns the range of minimum and maximum global values.
+    fn min_max_range(&self, agent: AgentId) -> Range<f32> {
+        self.global_scores
+            .get(&agent)
+            .cloned()
+            .unwrap_or(Range { start: 0., end: 0. })
+    }
+
+    // Returns iterator over all nodes and edges in the tree.
+    pub fn nodes(&self) -> impl Iterator<Item = (&Node<E>, &Edges<E>)> {
+        self.nodes.iter()
+    }
+
+    // Returns the edges associated with a given node.
+    pub fn edges(&self, node: &Node<E>) -> Option<&Edges<E>> {
+        self.nodes.get(node)
+    }
+
+    // Returns the seed of the tree.
+    pub fn seed(&self) -> u64 {
+        self.seed
+    }
+
+    // Returns the number of nodes
+    pub fn node_count(&self) -> usize {
+        self.nodes.len()
+    }
+
+    // Returns the number of nodes
+    pub fn edge_count(&self) -> usize {
+        self.nodes.values().map(|edges| edges.edges.len()).sum()
+    }
+
+    // Returns the duration of the last run
+    pub fn time(&self) -> Duration {
+        self.time
+    }
+
+    // Returns the size of MCTS struct
+    pub fn size(&self, task_size: fn(&dyn Task<E>) -> usize) -> usize {
+        let mut size = 0;
+
+        size += mem::size_of::<Self>();
+
+        for (node, edges) in &self.nodes {
+            size += node.size(task_size);
+            size += edges.size(task_size);
+        }
+
+        size += self.global_scores.len() * mem::size_of::<(AgentId, Range<f32>)>();
+
+        size
+    }
+}
+
+struct DefaultPolicyEstimator {}
+impl<E: NpcEngine> StateValueEstimator<E> for DefaultPolicyEstimator {
+    /// MCTS default policy. Performs the simulation phase.
+    fn estimate(
+        &mut self,
+        rng: &mut ChaCha8Rng,
+        config: &MCTSConfiguration,
+        snapshot: &E::Snapshot,
+        node: &Node<E>,
+        depth: u32,
+        root_agent: AgentId,
+        mut agents: BTreeSet<AgentId>,
+    ) -> BTreeMap<AgentId, f32> {
         let mut start_agent = node.agent;
 
         let mut diff = node.diff.clone();
@@ -264,7 +480,7 @@ impl<E: NpcEngine> MCTS<E> {
         let mut discount = 1.0;
 
         // Perform rollouts for remaining depth
-        for rollout in 1..=(self.max_depth - depth) {
+        for rollout in 1..=(config.depth - depth) {
             let iter = agents
                 .iter()
                 .chain(agents.iter())
@@ -348,7 +564,7 @@ impl<E: NpcEngine> MCTS<E> {
             start_agent = root_agent;
 
             // Increment discount
-            discount *= self.discount;
+            discount *= config.discount;
         }
 
         let fitnesses = node.fitnesses.clone();
@@ -360,180 +576,6 @@ impl<E: NpcEngine> MCTS<E> {
         log::trace!("Rollout: {:?}, {:?}, {:?}", num_rollouts, fitnesses, values);
 
         values
-    }
-
-    /// MCTS backpropagation phase.
-    fn backpropagation(&mut self, path: &mut Vec<Edge<E>>, rollout_values: BTreeMap<AgentId, f32>) {
-        // Backtracking
-        path.drain(..).rev().for_each(|edge| {
-            // Increment child node visit count
-
-            let edge = &mut edge.borrow_mut();
-            edge.visits += 1;
-
-            let parent = edge.parent.upgrade().unwrap();
-            let child = edge.child.upgrade().unwrap();
-            let visits = edge.visits;
-            let child_edges = self.nodes.get(&child).unwrap();
-
-            let q_values = &mut edge.values_mean;
-            let global_scores = &mut self.global_scores;
-            let discount = self.discount;
-            let snapshot = &self.snapshot;
-
-            // Iterate all agents on edge
-            q_values.iter_mut().for_each(|(&agent, q_value)| {
-                let parent_fitness = parent.fitnesses.get(&agent).copied().unwrap_or_else(|| {
-                    E::value(
-                        StateRef::Snapshot {
-                            snapshot,
-                            diff: parent.diff(),
-                        },
-                        agent,
-                    )
-                });
-                let child_fitness = child.fitnesses.get(&agent).copied().unwrap_or_else(|| {
-                    E::value(
-                        StateRef::Snapshot {
-                            snapshot,
-                            diff: child.diff(),
-                        },
-                        agent,
-                    )
-                });
-
-                // Get current value from child, or rollout value if leaf node
-                let mut child_value =
-                    if let Some(value) = child_edges.value((visits, *q_value), agent) {
-                        value
-                    } else {
-                        rollout_values.get(&agent).copied().unwrap_or_default()
-                    };
-
-                // Only discount once per agent per turn
-                if agent == parent.agent {
-                    child_value *= discount;
-                }
-
-                // Use Bellman Equation
-                let value = child_fitness - parent_fitness + child_value;
-
-                // Update q value for edge
-                *q_value = value;
-
-                if agent == parent.agent {
-                    // Update global score for agent
-                    let global = global_scores.entry(parent.agent).or_insert_with(|| Range {
-                        start: f32::INFINITY,
-                        end: f32::NEG_INFINITY,
-                    });
-                    global.start = global.start.min(value);
-                    global.end = global.end.max(value);
-                }
-            });
-        });
-    }
-}
-
-impl<E: NpcEngine> MCTS<E> {
-    /// Instantiate a new search tree for the given state.
-    pub fn new(
-        state: &E::State,
-        agent: AgentId,
-        max_visits: usize,
-        max_depth: usize,
-        exploration: f32,
-        retention: f32,
-        discount: f32,
-        seed: Option<u64>,
-    ) -> Self {
-        let snapshot = E::derive(state, agent);
-
-        let root = Node::new(NodeInner::new(
-            &snapshot,
-            Default::default(),
-            agent,
-            Default::default(),
-        ));
-        let mut nodes = SeededHashMap::default();
-        nodes.insert(root.clone(), Edges::new(&root, &snapshot));
-
-        let seed = seed.unwrap_or_else(|| thread_rng().next_u64());
-
-        MCTS {
-            time: Duration::default(),
-            seed,
-            agent,
-            max_visits,
-            max_depth,
-            exploration,
-            retention,
-            root,
-            nodes,
-            global_scores: Default::default(),
-            snapshot,
-            discount,
-            rng: ChaCha8Rng::seed_from_u64(seed),
-        }
-    }
-
-    // Returns the agent the tree searches for.
-    pub fn agent(&self) -> AgentId {
-        self.agent
-    }
-
-    // Returns the range of minimum and maximum global values.
-    fn min_max_range(&self, agent: AgentId) -> Range<f32> {
-        self.global_scores
-            .get(&agent)
-            .cloned()
-            .unwrap_or(Range { start: 0., end: 0. })
-    }
-
-    // Returns iterator over all nodes and edges in the tree.
-    pub fn nodes(&self) -> impl Iterator<Item = (&Node<E>, &Edges<E>)> {
-        self.nodes.iter()
-    }
-
-    // Returns the edges associated with a given node.
-    pub fn edges(&self, node: &Node<E>) -> Option<&Edges<E>> {
-        self.nodes.get(node)
-    }
-
-    // Returns the seed of the tree.
-    pub fn seed(&self) -> u64 {
-        self.seed
-    }
-
-    // Returns the number of nodes
-    pub fn node_count(&self) -> usize {
-        self.nodes.len()
-    }
-
-    // Returns the number of nodes
-    pub fn edge_count(&self) -> usize {
-        self.nodes.values().map(|edges| edges.edges.len()).sum()
-    }
-
-    // Returns the duration of the last run
-    pub fn time(&self) -> Duration {
-        self.time
-    }
-
-    // Returns the size of MCTS struct
-    pub fn size(&self, task_size: fn(&dyn Task<E>) -> usize) -> usize {
-        let mut size = 0;
-
-        size += mem::size_of::<Self>();
-
-        for (node, edges) in &self.nodes {
-            size += node.size(task_size);
-            size += edges.size(task_size);
-        }
-
-        size += self.global_scores.len() * mem::size_of::<(AgentId, Range<f32>)>();
-
-        size
     }
 }
 
@@ -968,7 +1010,7 @@ mod graphviz {
                                 best: obj == &best_task,
                                 visits: edge.visits,
                                 score: edge.values_mean.get(&node.agent).copied().unwrap_or(0.),
-                                uct: edge.uct(node.agent, visits, self.exploration, range.clone()),
+                                uct: edge.uct(node.agent, visits, self.config.exploration, range.clone()),
                                 uct_0: edge.uct(node.agent, visits, 0., range.clone()),
                                 reward,
                             });
@@ -1233,14 +1275,14 @@ mod value_tests {
 
     #[test]
     fn linear_bellman() {
-        let depth = 5;
-        let visits = 10_000;
+        let depth = 5usize;
+        let visits = 10_000usize;
         let agent = AgentId(0);
         let discount = 0.95;
 
         let world = State(0);
         let mut mcts =
-            MCTS::<TestEngine>::new(&world, AgentId(0), visits, depth, 1.414, 0., discount, None);
+            MCTS::<TestEngine>::new(&world, AgentId(0), visits as u32, depth as u32, 1.414, 0., discount, None);
 
         fn expected_value(discount: f32, depth: usize) -> f32 {
             let mut value = 0.;
@@ -1255,7 +1297,7 @@ mod value_tests {
         let task = mcts.run();
         assert!(task.downcast_ref::<TestTask>().is_some());
         // Check length is depth with root
-        assert_eq!(depth + 1, mcts.nodes.len());
+        assert_eq!((mcts.config.depth + 1) as usize, mcts.nodes.len());
 
         let mut node = mcts.root;
 
@@ -1271,7 +1313,7 @@ mod value_tests {
 
             node = edge.child.upgrade().unwrap();
 
-            assert_eq!(Diff(i), node.diff);
+            assert_eq!(Diff(i as usize), node.diff);
             assert_eq!(visits - i + 1, edge.visits);
             assert!(
                 (expected_value(discount, depth - i + 1) - *edge.values_mean.get(&agent).unwrap())
@@ -1460,14 +1502,14 @@ mod branching_tests {
 
     #[test]
     fn ucb() {
-        let depth = 1;
-        let visits = 10;
+        let depth = 1usize;
+        let visits = 10usize;
         let agent = AgentId(0);
         let exploration = 1.414;
 
         let state = State(Default::default());
         let mut mcts =
-            MCTS::<TestEngine>::new(&state, agent, visits, depth, exploration, 0., 0.95, None);
+            MCTS::<TestEngine>::new(&state, agent, visits as u32, depth as u32, exploration, 0., 0.95, None);
 
         let task = mcts.run();
         assert!(task.downcast_ref::<TestTask>().is_some());
@@ -2184,7 +2226,7 @@ mod sanity_tests {
                     let mut mcts = MCTS::<TestEngine>::new(
                         &state,
                         agent,
-                        visits,
+                        visits as u32,
                         depth as _,
                         exploration,
                         0.,

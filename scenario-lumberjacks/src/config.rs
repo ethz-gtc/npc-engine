@@ -165,9 +165,9 @@ impl Default for ActionWeightsConfig {
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct MCTSConfig {
-    pub visits: usize,
+    pub visits: u32,
     pub exploration: f32,
-    pub depth: usize,
+    pub depth: u32,
     pub retention: f32,
     pub discount: f32,
     pub seed: Option<u64>,
