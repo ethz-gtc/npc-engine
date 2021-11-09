@@ -9,7 +9,7 @@ use ggez::graphics::{Image, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{graphics, input::keyboard};
 use ggez::{Context, GameResult};
-use npc_engine_core::{AgentId, StateRefMut, Task, MCTS};
+use npc_engine_turn::{AgentId, StateRefMut, Task, MCTS};
 
 use crate::{
     agency_metric_hook, branching_metric_hook, config, diff_memory_metric_hook,

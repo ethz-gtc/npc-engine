@@ -4,7 +4,7 @@ use std::usize;
 use ggez::graphics;
 use ggez::graphics::Image;
 use ggez::Context;
-use npc_engine_core::{AgentId, StateRef, StateRefMut};
+use npc_engine_turn::{AgentId, StateRef, StateRefMut};
 use serde::Serialize;
 
 use crate::{Action, AgentInventory, DIRECTIONS, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, SPRITE_SIZE, Tile, TileMap, TileMapDiff, TileMapSnapshot, config};

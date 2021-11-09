@@ -6,7 +6,7 @@ use std::{fs, io, mem, process};
 
 use clap::{App, Arg};
 
-use npc_engine_core::{AgentId, Behavior, NpcEngine, StateRef};
+use npc_engine_turn::{AgentId, Behavior, NpcEngine, StateRef};
 use serde_json::Value;
 
 mod behaviors;

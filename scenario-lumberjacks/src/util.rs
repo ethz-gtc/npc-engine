@@ -8,7 +8,7 @@ use ggez::graphics::Color;
 use num_traits::{AsPrimitive, PrimInt};
 use serde::Serialize;
 
-use npc_engine_core::AgentId;
+use npc_engine_turn::AgentId;
 
 pub const SPRITE_SIZE: f32 = 32.;
 

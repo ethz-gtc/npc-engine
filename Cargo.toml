@@ -1,6 +1,7 @@
 [workspace]
 
 members = [
-    "npc-engine-core",
+    "npc-engine-common",
+    "npc-engine-turn",
     "scenario-lumberjacks"
 ] 

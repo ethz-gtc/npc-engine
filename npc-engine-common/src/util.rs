@@ -23,5 +23,5 @@ impl BuildHasher for SeededRandomState {
     }
 }
 
-pub(crate) type SeededHashMap<K, V> = std::collections::HashMap<K, V, SeededRandomState>;
-pub(crate) type SeededHashSet<V> = std::collections::HashSet<V, SeededRandomState>;
+pub type SeededHashMap<K, V> = std::collections::HashMap<K, V, SeededRandomState>;
+pub type SeededHashSet<V> = std::collections::HashSet<V, SeededRandomState>;

@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt;
 
-use npc_engine_core::{AgentId, Behavior, StateRef, Task};
+use npc_engine_turn::{AgentId, Behavior, StateRef, Task};
 
 use crate::{
     config, Barrier, Chop, Direction, Lumberjacks, Map2D, Move, Plant, Refill, State, Wait, Water,

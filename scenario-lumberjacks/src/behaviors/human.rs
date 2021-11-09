@@ -1,6 +1,6 @@
 use std::fmt;
 
-use npc_engine_core::{AgentId, Behavior, StateRef};
+use npc_engine_turn::{AgentId, Behavior, StateRef};
 
 use crate::Lumberjacks;
 

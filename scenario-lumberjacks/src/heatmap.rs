@@ -5,7 +5,7 @@ use ggez::graphics;
 use ggez::graphics::{Canvas, Color, DrawMode, Mesh, Rect};
 use image::png::PngEncoder;
 use image::{ColorType, ImageBuffer, Rgba};
-use npc_engine_core::StateRef;
+use npc_engine_turn::StateRef;
 
 use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, State, SPRITE_SIZE};
 

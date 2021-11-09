@@ -22,7 +22,7 @@ partitions = "~0.2"
 rayon = "^1.3"
 num-traits = "*"
 
-npc-engine-core = { path = "../npc-engine-core", features = [ "graphviz" ] }
+npc-engine-turn = { path = "../npc-engine-turn", features = [ "graphviz" ] }
 
 [lib]
 path = "./src/lib.rs"

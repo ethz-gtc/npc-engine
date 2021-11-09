@@ -9,7 +9,9 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::{thread_rng, Distribution, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
-use crate::{AgentId, NpcEngine, SeededHashMap, SeededHashSet, StateRef, StateRefMut, Task};
+use npc_engine_common::{SeededHashMap, SeededHashSet};
+
+use crate::{AgentId, NpcEngine, StateRef, StateRefMut, Task};
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
 

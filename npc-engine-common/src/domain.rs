@@ -3,19 +3,7 @@ use std::hash::Hash;
 use std::ops::Deref;
 use std::{fmt, mem};
 
-mod behavior;
-mod mcts;
-mod task;
-mod util;
-
-pub use behavior::*;
-pub use mcts::*;
-pub use task::*;
-pub use util::*;
-
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub struct AgentId(pub u32);
+use crate::{AgentId, Behavior, Task};
 
 // TODO: remove debug constraints
 pub trait NpcEngine: Sized + 'static {

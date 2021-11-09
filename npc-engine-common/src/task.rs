@@ -1,6 +1,7 @@
-use downcast_rs::{impl_downcast, Downcast};
 use std::fmt;
 use std::hash::{Hash, Hasher};
+
+use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{AgentId, NpcEngine, StateRef, StateRefMut};
 
@@ -49,3 +50,20 @@ impl<E: NpcEngine> PartialEq for Box<dyn Task<E>> {
 }
 
 impl<E: NpcEngine> Eq for Box<dyn Task<E>> {}
+
+#[macro_export]
+macro_rules! impl_task_boxed_methods {
+    ($e: ty) => {
+        fn box_clone(&self) -> Box<dyn Task<$e>> {
+            Box::new(self.clone())
+        }
+    
+        fn box_hash(&self, mut state: &mut dyn Hasher) {
+            self.hash(&mut state)
+        }
+    
+        fn box_eq(&self, other: &Box<dyn Task<$e>>) -> bool {
+            other.downcast_ref::<Self>().map_or(false, |other| self.eq(other))
+        }
+    };
+}

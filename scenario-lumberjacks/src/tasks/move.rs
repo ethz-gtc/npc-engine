@@ -1,7 +1,7 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use npc_engine_core::{AgentId, StateRef, StateRefMut, Task};
+use npc_engine_turn::{AgentId, StateRef, StateRefMut, Task};
 
 use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile};
 
