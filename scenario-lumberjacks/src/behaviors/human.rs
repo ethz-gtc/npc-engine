@@ -13,7 +13,7 @@ impl fmt::Display for Human {
 }
 
 impl Behavior<Lumberjacks> for Human {
-    fn predicate(&self, _state: StateRef<Lumberjacks>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _state: StateRef<Lumberjacks>, _agent: AgentId) -> bool {
         true
     }
 }

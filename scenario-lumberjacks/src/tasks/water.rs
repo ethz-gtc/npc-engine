@@ -43,7 +43,7 @@ impl Task<Lumberjacks> for Water {
         }
     }
 
-    fn valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
         state.get_water(agent)
             && if let Some((x, y)) = state.find_agent(agent) {
                 let (x, y) = self.direction.apply(x, y);

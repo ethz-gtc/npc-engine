@@ -6,49 +6,62 @@ use std::{fmt, mem};
 use crate::{AgentId, Behavior, Task};
 
 // TODO: remove debug constraints
-pub trait NpcEngine: Sized + 'static {
+/// A domain on which the MCTS planner can plan
+pub trait Domain: Sized + 'static {
+    /// World state: all data that can change in the course of the simulation.
     type State: std::fmt::Debug + Sized + 'static;
+    /// Possibly a smaller view of the `State`, as seen by a give agent.
     type Snapshot: std::fmt::Debug + Sized + 'static;
+    /// A compact set of changes towards a `Snapshot` that are accumulated throughout planning.
     type Diff: std::fmt::Debug + Default + Clone + Hash + Eq + 'static;
 
-    fn behaviors() -> &'static [&'static dyn Behavior<Self>];
+    /// Returns all behaviors available for this domain.
+    fn list_behaviors() -> &'static [&'static dyn Behavior<Self>];
 
-    fn derive(state: &Self::State, agent: AgentId) -> Self::Snapshot;
+    /// Derives a new `Snapshot` for the given agent from the given world state.
+    fn derive_snapshot(state: &Self::State, agent: AgentId) -> Self::Snapshot;
 
-    fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff);
+    /// Gets the current value of the given agent in the given world state.
+    fn get_current_value(state: StateRef<Self>, agent: AgentId) -> f32;
 
-    fn compatible(snapshot: &Self::Snapshot, other: &Self::Snapshot, agent: AgentId) -> bool;
+    /// Updates the list of agents which are in the horizon of the given agent in the given world state.
+    fn update_visible_agents(state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
 
-    fn value(state: StateRef<Self>, agent: AgentId) -> f32;
+    /// Gets all agents which are in the horizon of the given agent in the given world state.
+    fn get_visible_agents(state: StateRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
+        let mut agents = BTreeSet::new();
+        Self::update_visible_agents(state, agent, &mut agents);
+        agents
+    }
 
-    fn agents(state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
-
-    fn add_tasks<'a>(
+    /// Gets all possible valid tasks for a given agent in a given world state.
+    fn get_tasks<'a>(
         state: StateRef<'a, Self>,
-        agent: AgentId,
-        actions: &mut Vec<Box<dyn Task<Self>>>,
-    ) {
-        Self::behaviors()
+        agent: AgentId
+    ) -> Vec<Box<dyn Task<Self>>> {
+        let mut actions = Vec::new();
+        Self::list_behaviors()
             .iter()
-            .filter(|behavior| behavior.predicate(state, agent))
-            .for_each(|behavior| behavior.add_tasks(state, agent, actions));
+            .filter(|behavior| behavior.is_valid(state, agent))
+            .for_each(|behavior| behavior.add_tasks(state, agent, &mut actions));
 
         actions.dedup();
+        actions
     }
 }
 
-pub enum StateRef<'a, E: NpcEngine> {
+pub enum StateRef<'a, D: Domain> {
     State {
-        state: &'a E::State,
+        state: &'a D::State,
     },
     Snapshot {
-        snapshot: &'a E::Snapshot,
-        diff: &'a E::Diff,
+        snapshot: &'a D::Snapshot,
+        diff: &'a D::Diff,
     },
 }
 
-impl<E: NpcEngine> Copy for StateRef<'_, E> {}
-impl<E: NpcEngine> Clone for StateRef<'_, E> {
+impl<D: Domain> Copy for StateRef<'_, D> {}
+impl<D: Domain> Clone for StateRef<'_, D> {
     fn clone(&self) -> Self {
         match self {
             StateRef::State { state } => StateRef::State { state },
@@ -57,21 +70,21 @@ impl<E: NpcEngine> Clone for StateRef<'_, E> {
     }
 }
 
-impl<'a, E: NpcEngine> StateRef<'a, E> {
-    pub fn state(state: &'a E::State) -> Self {
+impl<'a, D: Domain> StateRef<'a, D> {
+    pub fn state(state: &'a D::State) -> Self {
         StateRef::State { state }
     }
 
-    pub fn snapshot(snapshot: &'a E::Snapshot, diff: &'a E::Diff) -> Self {
+    pub fn snapshot(snapshot: &'a D::Snapshot, diff: &'a D::Diff) -> Self {
         StateRef::Snapshot { snapshot, diff }
     }
 }
 
-impl<E: NpcEngine> fmt::Debug for StateRef<'_, E>
+impl<D: Domain> fmt::Debug for StateRef<'_, D>
 where
-    E::State: fmt::Debug,
-    E::Snapshot: fmt::Debug,
-    E::Diff: fmt::Debug,
+    D::State: fmt::Debug,
+    D::Snapshot: fmt::Debug,
+    D::Diff: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -85,28 +98,28 @@ where
     }
 }
 
-pub enum StateRefMut<'a, E: NpcEngine> {
+pub enum StateRefMut<'a, D: Domain> {
     State {
-        state: &'a mut E::State,
+        state: &'a mut D::State,
     },
     Snapshot {
-        snapshot: &'a E::Snapshot,
-        diff: &'a mut E::Diff,
+        snapshot: &'a D::Snapshot,
+        diff: &'a mut D::Diff,
     },
 }
 
-impl<'a, E: NpcEngine> StateRefMut<'a, E> {
-    pub fn state(state: &'a mut E::State) -> Self {
+impl<'a, D: Domain> StateRefMut<'a, D> {
+    pub fn state(state: &'a mut D::State) -> Self {
         StateRefMut::State { state }
     }
 
-    pub fn snapshot(snapshot: &'a E::Snapshot, diff: &'a mut E::Diff) -> Self {
+    pub fn snapshot(snapshot: &'a D::Snapshot, diff: &'a mut D::Diff) -> Self {
         StateRefMut::Snapshot { snapshot, diff }
     }
 }
 
-impl<'a, E: NpcEngine> Deref for StateRefMut<'a, E> {
-    type Target = StateRef<'a, E>;
+impl<'a, D: Domain> Deref for StateRefMut<'a, D> {
+    type Target = StateRef<'a, D>;
 
     fn deref(&self) -> &Self::Target {
         // Safety: StateRef and StateRefMut have the same memory layout

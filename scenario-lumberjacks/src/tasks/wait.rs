@@ -30,7 +30,7 @@ impl Task<Lumberjacks> for Wait {
         None
     }
 
-    fn valid(&self, _: StateRef<Lumberjacks>, _: AgentId) -> bool {
+    fn is_valid(&self, _: StateRef<Lumberjacks>, _: AgentId) -> bool {
         true
     }
 

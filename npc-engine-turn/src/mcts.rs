@@ -11,18 +11,18 @@ use rand_chacha::ChaCha8Rng;
 
 use npc_engine_common::{SeededHashMap, SeededHashSet};
 
-use crate::{AgentId, NpcEngine, StateRef, StateRefMut, Task};
+use crate::{AgentId, Domain, StateRef, StateRefMut, Task};
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
 
 /// Estimator of state-value function: takes state of explored node and returns the estimated values
-pub trait StateValueEstimator<E: NpcEngine> {
+pub trait StateValueEstimator<D: Domain> {
     fn estimate(
         &mut self,
         rnd: &mut ChaCha8Rng,
         config: &MCTSConfiguration,
-        snapshot: &E::Snapshot,
-        node: &Node<E>,
+        snapshot: &D::Snapshot,
+        node: &Node<D>,
         depth: u32,
         agent: AgentId, // agent of the MCTS
         agents: BTreeSet<AgentId> // agents in this node: TODO: see if we can extract from node
@@ -47,33 +47,33 @@ pub struct MCTSConfiguration {
     pub seed: Option<u64>,
 }
 
-pub struct MCTS<E: NpcEngine> {
+pub struct MCTS<D: Domain> {
     time: Duration,
 
     // Config
     pub(crate) config: MCTSConfiguration,
-    state_value_estimator: Box<dyn StateValueEstimator<E>>,
+    state_value_estimator: Box<dyn StateValueEstimator<D>>,
     seed: u64,
     pub(crate) agent: AgentId,
 
     // Nodes
-    pub root: Node<E>,
-    nodes: SeededHashMap<Node<E>, Edges<E>>,
+    pub root: Node<D>,
+    nodes: SeededHashMap<Node<D>, Edges<D>>,
 
     // Globals
     global_scores: BTreeMap<AgentId, Range<f32>>,
 
     // Snapshot
-    pub snapshot: E::Snapshot,
+    pub snapshot: D::Snapshot,
 
     // Rng
     rng: ChaCha8Rng,
 }
 
-impl<E: NpcEngine> MCTS<E> {
+impl<D: Domain> MCTS<D> {
     /// Update the MCTS internal state, deriving a new base snapshot from the given state and applying subtree reuse.
-    pub fn update(&mut self, state: &E::State, _tasks: &BTreeMap<AgentId, Box<dyn Task<E>>>) {
-        let snapshot = E::derive(state, self.agent);
+    pub fn update(&mut self, state: &D::State, _tasks: &BTreeMap<AgentId, Box<dyn Task<D>>>) {
+        let snapshot = D::derive_snapshot(state, self.agent);
 
         // Clear all nodes
         self.nodes.clear();
@@ -95,7 +95,7 @@ impl<E: NpcEngine> MCTS<E> {
     }
 
     /// Execute the MCTS search. Returns the current best task.
-    pub fn run(&mut self) -> Box<dyn Task<E>> {
+    pub fn run(&mut self) -> Box<dyn Task<D>> {
         // Reset globals
         self.global_scores.clear();
 
@@ -135,15 +135,13 @@ impl<E: NpcEngine> MCTS<E> {
     /// MCTS tree policy. Executes the `selection` and `expansion` phases.
     fn tree_policy(
         &mut self,
-        root: Node<E>,
-        path: &mut Vec<Edge<E>>,
-    ) -> (u32, BTreeSet<AgentId>, Node<E>) {
+        root: Node<D>,
+        path: &mut Vec<Edge<D>>,
+    ) -> (u32, BTreeSet<AgentId>, Node<D>) {
         // Find agents for current turn
-        let mut agents = BTreeSet::new();
-        E::agents(
+        let agents = D::get_visible_agents(
             StateRef::snapshot(&self.snapshot, &root.diff),
             self.agent,
-            &mut agents,
         );
 
         // Initial start agent is the current agent
@@ -179,7 +177,7 @@ impl<E: NpcEngine> MCTS<E> {
                         // Select task
                         let idx = weights.sample(&mut self.rng);
                         let task = tasks[idx].clone();
-                        debug_assert!(task.valid(StateRef::snapshot(&self.snapshot, &diff), agent));
+                        debug_assert!(task.is_valid(StateRef::snapshot(&self.snapshot, &diff), agent));
                         log::trace!("{:?} - Expand action: {}", agent, task);
 
                         // Updating weights returns an error if all weights are zero.
@@ -263,7 +261,7 @@ impl<E: NpcEngine> MCTS<E> {
             when expanding a node while the corresponding agent left the horizon.
             // Recalculate observed agents
             agents.clear();
-            E::agents(
+            D::agents(
                 StateRef::snapshot(&self.snapshot, &node.diff),
                 self.agent,
                 &mut agents,
@@ -274,7 +272,7 @@ impl<E: NpcEngine> MCTS<E> {
     }
 
     /// MCTS backpropagation phase.
-    fn backpropagation(&mut self, path: &mut Vec<Edge<E>>, rollout_values: BTreeMap<AgentId, f32>) {
+    fn backpropagation(&mut self, path: &mut Vec<Edge<D>>, rollout_values: BTreeMap<AgentId, f32>) {
         // Backtracking
         path.drain(..).rev().for_each(|edge| {
             // Increment child node visit count
@@ -295,7 +293,7 @@ impl<E: NpcEngine> MCTS<E> {
             // Iterate all agents on edge
             q_values.iter_mut().for_each(|(&agent, q_value)| {
                 let parent_fitness = parent.fitnesses.get(&agent).copied().unwrap_or_else(|| {
-                    E::value(
+                    D::get_current_value(
                         StateRef::Snapshot {
                             snapshot,
                             diff: parent.diff(),
@@ -304,7 +302,7 @@ impl<E: NpcEngine> MCTS<E> {
                     )
                 });
                 let child_fitness = child.fitnesses.get(&agent).copied().unwrap_or_else(|| {
-                    E::value(
+                    D::get_current_value(
                         StateRef::Snapshot {
                             snapshot,
                             diff: child.diff(),
@@ -346,10 +344,10 @@ impl<E: NpcEngine> MCTS<E> {
     }
 }
 
-impl<E: NpcEngine> MCTS<E> {
+impl<D: Domain> MCTS<D> {
     /// Instantiate a new search tree for the given state.
     pub fn new(
-        state: &E::State,
+        state: &D::State,
         agent: AgentId,
         visits: u32,
         depth: u32,
@@ -358,7 +356,7 @@ impl<E: NpcEngine> MCTS<E> {
         discount: f32,
         seed: Option<u64>,
     ) -> Self {
-        let snapshot = E::derive(state, agent);
+        let snapshot = D::derive_snapshot(state, agent);
 
         let root = Node::new(NodeInner::new(
             &snapshot,
@@ -406,12 +404,12 @@ impl<E: NpcEngine> MCTS<E> {
     }
 
     // Returns iterator over all nodes and edges in the tree.
-    pub fn nodes(&self) -> impl Iterator<Item = (&Node<E>, &Edges<E>)> {
+    pub fn nodes(&self) -> impl Iterator<Item = (&Node<D>, &Edges<D>)> {
         self.nodes.iter()
     }
 
     // Returns the edges associated with a given node.
-    pub fn edges(&self, node: &Node<E>) -> Option<&Edges<E>> {
+    pub fn edges(&self, node: &Node<D>) -> Option<&Edges<D>> {
         self.nodes.get(node)
     }
 
@@ -436,7 +434,7 @@ impl<E: NpcEngine> MCTS<E> {
     }
 
     // Returns the size of MCTS struct
-    pub fn size(&self, task_size: fn(&dyn Task<E>) -> usize) -> usize {
+    pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
         let mut size = 0;
 
         size += mem::size_of::<Self>();
@@ -453,14 +451,14 @@ impl<E: NpcEngine> MCTS<E> {
 }
 
 struct DefaultPolicyEstimator {}
-impl<E: NpcEngine> StateValueEstimator<E> for DefaultPolicyEstimator {
+impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
     /// MCTS default policy. Performs the simulation phase.
     fn estimate(
         &mut self,
         rng: &mut ChaCha8Rng,
         config: &MCTSConfiguration,
-        snapshot: &E::Snapshot,
-        node: &Node<E>,
+        snapshot: &D::Snapshot,
+        node: &Node<D>,
         depth: u32,
         root_agent: AgentId,
         mut agents: BTreeSet<AgentId>,
@@ -497,31 +495,33 @@ impl<E: NpcEngine> StateValueEstimator<E> for DefaultPolicyEstimator {
 
                 // Lazily fetch current fitness and accumulated value for current agent
                 let (last_fitness, total_value) = values.entry(agent).or_insert_with(|| {
-                    let fitness = E::value(StateRef::snapshot(snapshot, &diff), agent);
+                    let fitness = D::get_current_value(StateRef::snapshot(snapshot, &diff), agent);
                     (fitness, 0f32)
                 });
 
-                let mut tasks = Vec::new();
-                let weights;
-
                 // Check task map for existing task
-                match task_map.get(&agent) {
-                    Some(task) if task.valid(StateRef::snapshot(snapshot, &diff), agent) => {
+                let (tasks, weights) = match task_map.get(&agent) {
+                    Some(task) if task.is_valid(StateRef::snapshot(snapshot, &diff), agent) => {
                         // Task exists, only option
-                        weights = WeightedIndex::new(&[1.]).ok();
-                        tasks.push(task.box_clone());
+                        (
+                            vec![task.box_clone()],
+                            WeightedIndex::new(&[1.]).ok()
+                        )
                     }
                     _ => {
                         // No existing task, add all possible tasks
-                        E::add_tasks(StateRef::snapshot(snapshot, &diff), agent, &mut tasks);
+                        let tasks = D::get_tasks(StateRef::snapshot(snapshot, &diff), agent);
 
                         let weights_iter = tasks.iter().map(|task| {
                             task.weight(StateRef::snapshot(snapshot, &diff) as _, agent)
                         });
-
-                        weights = WeightedIndex::new(weights_iter).ok();
+                        let weights = WeightedIndex::new(weights_iter).ok();
+                        (
+                            tasks,
+                            weights
+                        )
                     }
-                }
+                };
 
                 if let Some(mut weights) = weights {
                     // Get random tas;, assert it is valid
@@ -532,7 +532,7 @@ impl<E: NpcEngine> StateValueEstimator<E> for DefaultPolicyEstimator {
                         task = &tasks[idx];
                         log::trace!("{:?} - Rollout: {}", agent, task);
 
-                        !task.valid(StateRef::snapshot(snapshot, &diff), agent)
+                        !task.is_valid(StateRef::snapshot(snapshot, &diff), agent)
                     } {
                         weights
                             .update_weights(&[(idx, &0.)])
@@ -549,7 +549,7 @@ impl<E: NpcEngine> StateValueEstimator<E> for DefaultPolicyEstimator {
                     }
 
                     // Update total value with discounted delta fitness
-                    let new_fitness = E::value(StateRef::snapshot(snapshot, &diff), agent);
+                    let new_fitness = D::get_current_value(StateRef::snapshot(snapshot, &diff), agent);
                     let delta_fitness = new_fitness - *last_fitness;
                     *total_value += delta_fitness * discount;
                     *last_fitness = new_fitness;
@@ -560,7 +560,7 @@ impl<E: NpcEngine> StateValueEstimator<E> for DefaultPolicyEstimator {
 
             // Recalculate agents
             agents.clear();
-            E::agents(StateRef::snapshot(snapshot, &diff), node.agent, &mut agents);
+            D::update_visible_agents(StateRef::snapshot(snapshot, &diff), node.agent, &mut agents);
 
             // Iterator has been exu
             start_agent = root_agent;
@@ -582,19 +582,19 @@ impl<E: NpcEngine> StateValueEstimator<E> for DefaultPolicyEstimator {
 }
 
 /// Strong atomic reference counted node
-pub type Node<E> = Rc<NodeInner<E>>;
+pub type Node<D> = Rc<NodeInner<D>>;
 
 /// Weak atomic reference counted node
-pub type WeakNode<E> = Weak<NodeInner<E>>;
+pub type WeakNode<D> = Weak<NodeInner<D>>;
 
-pub struct NodeInner<E: NpcEngine> {
-    pub diff: E::Diff,
+pub struct NodeInner<D: Domain> {
+    pub diff: D::Diff,
     pub agent: AgentId,
-    pub tasks: BTreeMap<AgentId, Box<dyn Task<E>>>,
+    pub tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
     pub fitnesses: BTreeMap<AgentId, f32>,
 }
 
-impl<E: NpcEngine> fmt::Debug for NodeInner<E> {
+impl<D: Domain> fmt::Debug for NodeInner<D> {
     fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("NodeInner")
             .field("diff", &self.diff)
@@ -605,23 +605,25 @@ impl<E: NpcEngine> fmt::Debug for NodeInner<E> {
     }
 }
 
-impl<E: NpcEngine> NodeInner<E> {
+impl<D: Domain> NodeInner<D> {
     pub fn new(
-        snapshot: &E::Snapshot,
-        diff: E::Diff,
+        snapshot: &D::Snapshot,
+        diff: D::Diff,
         agent: AgentId,
-        mut tasks: BTreeMap<AgentId, Box<dyn Task<E>>>,
+        mut tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
     ) -> Self {
         // Check validity of task for agent
         if let Some(task) = tasks.get(&agent) {
-            if !task.valid(StateRef::snapshot(snapshot, &diff), agent) {
+            if !task.is_valid(StateRef::snapshot(snapshot, &diff), agent) {
                 tasks.remove(&agent);
             }
         }
 
         // Get observable agents
-        let mut agents = BTreeSet::new();
-        E::agents(StateRef::snapshot(snapshot, &diff), agent, &mut agents);
+        let agents = D::get_visible_agents(
+            StateRef::snapshot(snapshot, &diff),
+            agent
+        );
 
         // Set child fitnesses
         let fitnesses = agents
@@ -629,7 +631,7 @@ impl<E: NpcEngine> NodeInner<E> {
             .map(|agent| {
                 (
                     *agent,
-                    E::value(StateRef::snapshot(snapshot, &diff), *agent),
+                    D::get_current_value(StateRef::snapshot(snapshot, &diff), *agent),
                 )
             })
             .collect();
@@ -648,12 +650,12 @@ impl<E: NpcEngine> NodeInner<E> {
     }
 
     /// Returns diff of current node.
-    pub fn diff(&self) -> &E::Diff {
+    pub fn diff(&self) -> &D::Diff {
         &self.diff
     }
 
     // Returns the size in bytes
-    pub fn size(&self, task_size: fn(&dyn Task<E>) -> usize) -> usize {
+    pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
         let mut size = 0;
 
         size += mem::size_of::<Self>();
@@ -667,7 +669,7 @@ impl<E: NpcEngine> NodeInner<E> {
     }
 }
 
-impl<E: NpcEngine> Hash for NodeInner<E> {
+impl<D: Domain> Hash for NodeInner<D> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
         self.agent.hash(hasher);
         self.diff.hash(hasher);
@@ -675,44 +677,36 @@ impl<E: NpcEngine> Hash for NodeInner<E> {
     }
 }
 
-impl<E: NpcEngine> PartialEq for NodeInner<E> {
+impl<D: Domain> PartialEq for NodeInner<D> {
     fn eq(&self, other: &Self) -> bool {
         self.agent.eq(&other.agent) && self.diff.eq(&other.diff) && self.tasks.eq(&other.tasks)
     }
 }
 
-impl<E: NpcEngine> Eq for NodeInner<E> {}
+impl<D: Domain> Eq for NodeInner<D> {}
 
-pub struct Edges<E: NpcEngine> {
+pub struct Edges<D: Domain> {
     branching_factor: usize,
-    weights: Option<(WeightedIndex<f32>, Vec<Box<dyn Task<E>>>)>,
-    edges: SeededHashMap<Box<dyn Task<E>>, Edge<E>>,
+    weights: Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>,
+    edges: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
 }
 
-impl<'a, E: NpcEngine> IntoIterator for &'a Edges<E> {
-    type Item = (&'a Box<dyn Task<E>>, &'a Edge<E>);
-    type IntoIter = std::collections::hash_map::Iter<'a, Box<dyn Task<E>>, Edge<E>>;
+impl<'a, D: Domain> IntoIterator for &'a Edges<D> {
+    type Item = (&'a Box<dyn Task<D>>, &'a Edge<D>);
+    type IntoIter = std::collections::hash_map::Iter<'a, Box<dyn Task<D>>, Edge<D>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.edges.iter()
     }
 }
 
-impl<E: NpcEngine> Edges<E> {
-    fn new(node: &Node<E>, snapshot: &E::Snapshot) -> Self {
-        // Get observable nodes
-        let mut agents = BTreeSet::new();
-        E::agents(
-            StateRef::snapshot(snapshot, &node.diff),
-            node.agent,
-            &mut agents,
-        );
-
-        // Branching factor of the node
+impl<D: Domain> Edges<D> {
+    fn new(node: &Node<D>, snapshot: &D::Snapshot) -> Self {
+       // Branching factor of the node
         let branching_factor;
 
         let weights = match node.tasks.get(&node.agent) {
-            Some(task) if task.valid(StateRef::snapshot(snapshot, &node.diff), node.agent) => {
+            Some(task) if task.is_valid(StateRef::snapshot(snapshot, &node.diff), node.agent) => {
                 branching_factor = 1;
 
                 let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
@@ -722,16 +716,14 @@ impl<E: NpcEngine> Edges<E> {
             }
             _ => {
                 // Get possible tasks
-                let mut possible_tasks = Vec::new();
-                E::add_tasks(
+                let mut possible_tasks = D::get_tasks(
                     StateRef::snapshot(snapshot, &node.diff),
-                    node.agent,
-                    &mut possible_tasks,
+                    node.agent
                 );
 
                 // Remove invalid tasks
                 possible_tasks.retain(|task| {
-                    task.valid(StateRef::snapshot(snapshot, &node.diff), node.agent)
+                    task.is_valid(StateRef::snapshot(snapshot, &node.diff), node.agent)
                 });
 
                 branching_factor = possible_tasks.len();
@@ -768,7 +760,7 @@ impl<E: NpcEngine> Edges<E> {
         agent: AgentId,
         exploration: f32,
         range: Range<f32>,
-    ) -> Option<Box<dyn Task<E>>> {
+    ) -> Option<Box<dyn Task<D>>> {
         let visits = self.child_visits();
         self.edges
             .iter()
@@ -808,7 +800,7 @@ impl<E: NpcEngine> Edges<E> {
         self.branching_factor
     }
 
-    pub fn size(&self, task_size: fn(&dyn Task<E>) -> usize) -> usize {
+    pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
         let mut size = 0;
 
         size += mem::size_of::<Self>();
@@ -828,17 +820,17 @@ impl<E: NpcEngine> Edges<E> {
     }
 }
 
-pub type Edge<E> = Rc<RefCell<EdgeInner<E>>>;
+pub type Edge<D> = Rc<RefCell<EdgeInner<D>>>;
 
-pub struct EdgeInner<E: NpcEngine> {
-    pub parent: WeakNode<E>,
-    pub child: WeakNode<E>,
+pub struct EdgeInner<D: Domain> {
+    pub parent: WeakNode<D>,
+    pub child: WeakNode<D>,
     pub visits: usize,
     pub values_total: SeededHashMap<AgentId, f32>,
     pub values_mean: SeededHashMap<AgentId, f32>,
 }
 
-impl<E: NpcEngine> fmt::Debug for EdgeInner<E> {
+impl<D: Domain> fmt::Debug for EdgeInner<D> {
     fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("EdgeInner")
             .field("parent", &self.parent)
@@ -850,7 +842,7 @@ impl<E: NpcEngine> fmt::Debug for EdgeInner<E> {
     }
 }
 
-pub fn new_edge<E: NpcEngine>(parent: &Node<E>, child: &Node<E>, agents: &BTreeSet<AgentId>) -> Edge<E> {
+pub fn new_edge<D: Domain>(parent: &Node<D>, child: &Node<D>, agents: &BTreeSet<AgentId>) -> Edge<D> {
     Rc::new(RefCell::new(EdgeInner {
         parent: Node::downgrade(parent),
         child: Node::downgrade(child),
@@ -860,7 +852,7 @@ pub fn new_edge<E: NpcEngine>(parent: &Node<E>, child: &Node<E>, agents: &BTreeS
     }))
 }
 
-impl<E: NpcEngine> EdgeInner<E> {
+impl<D: Domain> EdgeInner<D> {
     /// Calculates the current UCT value for the edge.
     pub fn uct(
         &self,
@@ -914,10 +906,10 @@ mod graphviz {
         }
     }
 
-    pub struct Edge<E: NpcEngine> {
-        parent: Node<E>,
-        child: Node<E>,
-        task: Box<dyn Task<E>>,
+    pub struct Edge<D: Domain> {
+        parent: Node<D>,
+        child: Node<D>,
+        task: Box<dyn Task<D>>,
         best: bool,
         visits: usize,
         score: f32,
@@ -926,7 +918,7 @@ mod graphviz {
         reward: f32,
     }
 
-    impl<E: NpcEngine> Clone for Edge<E> {
+    impl<D: Domain> Clone for Edge<D> {
         fn clone(&self) -> Self {
             Edge {
                 parent: self.parent.clone(),
@@ -942,11 +934,11 @@ mod graphviz {
         }
     }
 
-    impl<E: NpcEngine> MCTS<E> {
+    impl<D: Domain> MCTS<D> {
         fn add_relevant_nodes(
             &self,
-            nodes: &mut SeededHashSet<Node<E>>,
-            node: &Node<E>,
+            nodes: &mut SeededHashSet<Node<D>>,
+            node: &Node<D>,
             depth: usize,
         ) {
             if depth >= 3 {
@@ -968,15 +960,15 @@ mod graphviz {
         }
     }
 
-    impl<'a, E: NpcEngine> GraphWalk<'a, Node<E>, Edge<E>> for MCTS<E> {
-        fn nodes(&'a self) -> Nodes<'a, Node<E>> {
+    impl<'a, D: Domain> GraphWalk<'a, Node<D>, Edge<D>> for MCTS<D> {
+        fn nodes(&'a self) -> Nodes<'a, Node<D>> {
             let mut nodes = SeededHashSet::default();
             self.add_relevant_nodes(&mut nodes, &self.root, 0);
 
             Nodes::Owned(nodes.iter().cloned().collect::<Vec<_>>())
         }
 
-        fn edges(&'a self) -> Edges<'a, Edge<E>> {
+        fn edges(&'a self) -> Edges<'a, Edge<D>> {
             let mut nodes = SeededHashSet::default();
             self.add_relevant_nodes(&mut nodes, &self.root, 0);
 
@@ -1024,25 +1016,25 @@ mod graphviz {
             Edges::Owned(edge_vec)
         }
 
-        fn source(&'a self, edge: &Edge<E>) -> Node<E> {
+        fn source(&'a self, edge: &Edge<D>) -> Node<D> {
             edge.parent.clone()
         }
 
-        fn target(&'a self, edge: &Edge<E>) -> Node<E> {
+        fn target(&'a self, edge: &Edge<D>) -> Node<D> {
             edge.child.clone()
         }
     }
 
-    impl<'a, E: NpcEngine> Labeller<'a, Node<E>, Edge<E>> for MCTS<E> {
+    impl<'a, D: Domain> Labeller<'a, Node<D>, Edge<D>> for MCTS<D> {
         fn graph_id(&'a self) -> Id<'a> {
             Id::new(format!("agent_{}", self.agent.0)).unwrap()
         }
 
-        fn node_id(&'a self, n: &Node<E>) -> Id<'a> {
+        fn node_id(&'a self, n: &Node<D>) -> Id<'a> {
             Id::new(format!("_{:p}", Rc::as_ptr(n))).unwrap()
         }
 
-        fn node_label(&'a self, n: &Node<E>) -> LabelText<'a> {
+        fn node_label(&'a self, n: &Node<D>) -> LabelText<'a> {
             let edges = self.nodes.get(n).unwrap();
             let v = edges.value((0, 0.), n.agent);
 
@@ -1057,7 +1049,7 @@ mod graphviz {
             )))
         }
 
-        fn node_style(&'a self, node: &Node<E>) -> Style {
+        fn node_style(&'a self, node: &Node<D>) -> Style {
             if *node == self.root {
                 Style::Bold
             } else {
@@ -1065,7 +1057,7 @@ mod graphviz {
             }
         }
 
-        fn node_color(&'a self, node: &Node<E>) -> Option<LabelText<'a>> {
+        fn node_color(&'a self, node: &Node<D>) -> Option<LabelText<'a>> {
             let root_visits = self.nodes.get(&self.root).unwrap().child_visits();
             let visits = self.nodes.get(node).unwrap().child_visits();
 
@@ -1082,7 +1074,7 @@ mod graphviz {
             }
         }
 
-        fn edge_style(&'a self, edge: &Edge<E>) -> Style {
+        fn edge_style(&'a self, edge: &Edge<D>) -> Style {
             if edge.best {
                 Style::Bold
             } else {
@@ -1090,7 +1082,7 @@ mod graphviz {
             }
         }
 
-        fn edge_color(&'a self, edge: &Edge<E>) -> Option<LabelText<'a>> {
+        fn edge_color(&'a self, edge: &Edge<D>) -> Option<LabelText<'a>> {
             if edge.best {
                 Some(LabelText::LabelStr(Cow::Borrowed("red")))
             } else {
@@ -1098,7 +1090,7 @@ mod graphviz {
             }
         }
 
-        fn edge_label(&'a self, edge: &Edge<E>) -> LabelText<'a> {
+        fn edge_label(&'a self, edge: &Edge<D>) -> LabelText<'a> {
             LabelText::LabelStr(Cow::Owned(format!(
                 "{}\nN: {}, R: {:.2}, Q: {:.2}\nU: {:.2} ({:.2} + {:.2})",
                 edge.task,
@@ -1111,11 +1103,11 @@ mod graphviz {
             )))
         }
 
-        fn edge_start_arrow(&'a self, _e: &Edge<E>) -> Arrow {
+        fn edge_start_arrow(&'a self, _e: &Edge<D>) -> Arrow {
             Arrow::none()
         }
 
-        fn edge_end_arrow(&'a self, _e: &Edge<E>) -> Arrow {
+        fn edge_end_arrow(&'a self, _e: &Edge<D>) -> Arrow {
             Arrow::normal()
         }
 
@@ -1142,36 +1134,24 @@ mod value_tests {
     #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
     struct Diff(usize);
 
-    impl NpcEngine for TestEngine {
+    impl Domain for TestEngine {
         type State = State;
         type Snapshot = Snapshot;
         type Diff = Diff;
 
-        fn behaviors() -> &'static [&'static dyn Behavior<Self>] {
+        fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
             &[&TestBehavior]
         }
 
-        fn derive(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
+        fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
             Snapshot(state.0.clone())
         }
 
-        fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff) {
-            snapshot.0 += diff.0;
-        }
-
-        fn compatible(
-            _snapshot: &Self::Snapshot,
-            _other: &Self::Snapshot,
-            _agent: AgentId,
-        ) -> bool {
-            true
-        }
-
-        fn value(state: StateRef<Self>, _agent: AgentId) -> f32 {
+        fn get_current_value(state: StateRef<Self>, _agent: AgentId) -> f32 {
             state.value()
         }
 
-        fn agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        fn update_visible_agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
             agents.insert(agent);
         }
     }
@@ -1216,7 +1196,7 @@ mod value_tests {
     }
 
     impl Behavior<TestEngine> for TestBehavior {
-        fn tasks(
+        fn add_own_tasks(
             &self,
             _state: StateRef<TestEngine>,
             _agent: AgentId,
@@ -1225,7 +1205,7 @@ mod value_tests {
             tasks.push(Box::new(TestTask) as _);
         }
 
-        fn predicate(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -1244,7 +1224,7 @@ mod value_tests {
             1.
         }
 
-        fn valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
 
@@ -1345,36 +1325,24 @@ mod branching_tests {
     #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
     struct Diff(usize);
 
-    impl NpcEngine for TestEngine {
+    impl Domain for TestEngine {
         type State = State;
         type Snapshot = Snapshot;
         type Diff = Diff;
 
-        fn behaviors() -> &'static [&'static dyn Behavior<Self>] {
+        fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
             &[&TestBehaviorA, &TestBehaviorB]
         }
 
-        fn derive(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
+        fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
             Snapshot(state.0.clone())
         }
 
-        fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff) {
-            snapshot.0 += diff.0;
-        }
-
-        fn compatible(
-            _snapshot: &Self::Snapshot,
-            _other: &Self::Snapshot,
-            _agent: AgentId,
-        ) -> bool {
-            true
-        }
-
-        fn value(state: StateRef<Self>, _agent: AgentId) -> f32 {
+        fn get_current_value(state: StateRef<Self>, _agent: AgentId) -> f32 {
             state.value()
         }
 
-        fn agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        fn update_visible_agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
             agents.insert(agent);
         }
     }
@@ -1419,7 +1387,7 @@ mod branching_tests {
     }
 
     impl Behavior<TestEngine> for TestBehaviorA {
-        fn tasks(
+        fn add_own_tasks(
             &self,
             _state: StateRef<TestEngine>,
             _agent: AgentId,
@@ -1428,7 +1396,7 @@ mod branching_tests {
             tasks.push(Box::new(TestTask(true)) as _);
         }
 
-        fn predicate(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -1443,7 +1411,7 @@ mod branching_tests {
     }
 
     impl Behavior<TestEngine> for TestBehaviorB {
-        fn tasks(
+        fn add_own_tasks(
             &self,
             _state: StateRef<TestEngine>,
             _agent: AgentId,
@@ -1452,7 +1420,7 @@ mod branching_tests {
             tasks.push(Box::new(TestTask(false)) as _);
         }
 
-        fn predicate(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -1471,7 +1439,7 @@ mod branching_tests {
             1.
         }
 
-        fn valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
 
@@ -1582,36 +1550,24 @@ mod seeding_tests {
     #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
     struct Diff(usize);
 
-    impl NpcEngine for TestEngine {
+    impl Domain for TestEngine {
         type State = State;
         type Snapshot = Snapshot;
         type Diff = Diff;
 
-        fn behaviors() -> &'static [&'static dyn Behavior<Self>] {
+        fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
             &[&TestBehavior]
         }
 
-        fn derive(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
+        fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
             Snapshot(state.0.clone())
         }
 
-        fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff) {
-            snapshot.0 += diff.0;
-        }
-
-        fn compatible(
-            _snapshot: &Self::Snapshot,
-            _other: &Self::Snapshot,
-            _agent: AgentId,
-        ) -> bool {
-            true
-        }
-
-        fn value(state: StateRef<Self>, _agent: AgentId) -> f32 {
+        fn get_current_value(state: StateRef<Self>, _agent: AgentId) -> f32 {
             state.value()
         }
 
-        fn agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        fn update_visible_agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
             agents.insert(agent);
         }
     }
@@ -1656,7 +1612,7 @@ mod seeding_tests {
     }
 
     impl Behavior<TestEngine> for TestBehavior {
-        fn tasks(
+        fn add_own_tasks(
             &self,
             _state: StateRef<TestEngine>,
             _agent: AgentId,
@@ -1667,7 +1623,7 @@ mod seeding_tests {
             }
         }
 
-        fn predicate(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -1686,7 +1642,7 @@ mod seeding_tests {
             1.
         }
 
-        fn valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
 
@@ -1785,40 +1741,27 @@ mod sanity_tests {
             investment: isize,
         }
 
-        impl NpcEngine for TestEngine {
+        impl Domain for TestEngine {
             type State = State;
             type Snapshot = Snapshot;
             type Diff = Diff;
 
-            fn behaviors() -> &'static [&'static dyn Behavior<Self>] {
+            fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
                 &[&TestBehavior]
             }
 
-            fn derive(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
+            fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
                 Snapshot {
                     value: state.value,
                     investment: state.investment,
                 }
             }
 
-            fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff) {
-                snapshot.value += diff.value;
-                snapshot.investment += diff.investment;
-            }
-
-            fn compatible(
-                _snapshot: &Self::Snapshot,
-                _other: &Self::Snapshot,
-                _agent: AgentId,
-            ) -> bool {
-                true
-            }
-
-            fn value(state: StateRef<Self>, _agent: AgentId) -> f32 {
+            fn get_current_value(state: StateRef<Self>, _agent: AgentId) -> f32 {
                 state.value()
             }
 
-            fn agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+            fn update_visible_agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
                 agents.insert(agent);
             }
         }
@@ -1891,7 +1834,7 @@ mod sanity_tests {
         }
 
         impl Behavior<TestEngine> for TestBehavior {
-            fn tasks(
+            fn add_own_tasks(
                 &self,
                 _state: StateRef<TestEngine>,
                 _agent: AgentId,
@@ -1901,7 +1844,7 @@ mod sanity_tests {
                 tasks.push(Box::new(TestTaskDefer) as _);
             }
 
-            fn predicate(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
         }
@@ -1920,7 +1863,7 @@ mod sanity_tests {
                 1.
             }
 
-            fn valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 
@@ -1964,7 +1907,7 @@ mod sanity_tests {
                 1.
             }
 
-            fn valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 
@@ -2035,36 +1978,24 @@ mod sanity_tests {
             value: isize,
         }
 
-        impl NpcEngine for TestEngine {
+        impl Domain for TestEngine {
             type State = State;
             type Snapshot = Snapshot;
             type Diff = Diff;
 
-            fn behaviors() -> &'static [&'static dyn Behavior<Self>] {
+            fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
                 &[&TestBehavior]
             }
 
-            fn derive(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
+            fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
                 Snapshot { value: state.value }
             }
 
-            fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff) {
-                snapshot.value += diff.value;
-            }
-
-            fn compatible(
-                _snapshot: &Self::Snapshot,
-                _other: &Self::Snapshot,
-                _agent: AgentId,
-            ) -> bool {
-                true
-            }
-
-            fn value(state: StateRef<Self>, _agent: AgentId) -> f32 {
+            fn get_current_value(state: StateRef<Self>, _agent: AgentId) -> f32 {
                 state.value()
             }
 
-            fn agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+            fn update_visible_agents(_state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
                 agents.insert(agent);
             }
         }
@@ -2111,7 +2042,7 @@ mod sanity_tests {
         }
 
         impl Behavior<TestEngine> for TestBehavior {
-            fn tasks(
+            fn add_own_tasks(
                 &self,
                 _state: StateRef<TestEngine>,
                 _agent: AgentId,
@@ -2121,7 +2052,7 @@ mod sanity_tests {
                 tasks.push(Box::new(TestTaskNegative) as _);
             }
 
-            fn predicate(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
         }
@@ -2140,7 +2071,7 @@ mod sanity_tests {
                 1.
             }
 
-            fn valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 
@@ -2182,7 +2113,7 @@ mod sanity_tests {
                 1.
             }
 
-            fn valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 

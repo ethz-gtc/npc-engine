@@ -41,7 +41,7 @@ impl Task<Lumberjacks> for Barrier {
         }
     }
 
-    fn valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((x, y)) = state.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
             let empty = matches!(state.get_tile(x, y), Some(Tile::Empty));

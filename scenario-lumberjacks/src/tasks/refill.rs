@@ -31,7 +31,7 @@ impl Task<Lumberjacks> for Refill {
         None
     }
 
-    fn valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((x, y)) = state.find_agent(agent) {
             !state.get_water(agent)
                 && DIRECTIONS.iter().any(|direction| {

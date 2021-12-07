@@ -53,7 +53,7 @@ impl Task<Lumberjacks> for Move {
         }
     }
 
-    fn valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((mut x, mut y)) = state.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
                 let tmp = direction.apply(x, y);

@@ -6,7 +6,7 @@ use std::{fs, io, mem, process};
 
 use clap::{App, Arg};
 
-use npc_engine_turn::{AgentId, Behavior, NpcEngine, StateRef};
+use npc_engine_turn::{AgentId, Behavior, Domain, StateRef};
 use serde_json::Value;
 
 mod behaviors;
@@ -241,16 +241,16 @@ pub fn batch() -> bool {
 
 pub struct Lumberjacks;
 
-impl NpcEngine for Lumberjacks {
+impl Domain for Lumberjacks {
     type State = WorldState;
     type Snapshot = WorldSnapshot;
     type Diff = WorldDiff;
 
-    fn behaviors() -> &'static [&'static dyn Behavior<Self>] {
+    fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
         &[&Human, &Lumberjack]
     }
 
-    fn derive(state: &Self::State, agent: AgentId) -> Self::Snapshot {
+    fn derive_snapshot(state: &Self::State, agent: AgentId) -> Self::Snapshot {
         let (x, y) = StateRef::state(state).find_agent(agent).unwrap();
 
         let top = y - config().agents.snapshot_radius as isize;
@@ -291,7 +291,8 @@ impl NpcEngine for Lumberjacks {
             map,
         }
     }
-
+/*
+    // Note: apply is not used, so there is no need to require it
     fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff) {
         for (agent, AgentInventory { wood, water }) in &diff.inventory.0 {
             if let Some(inventory) = snapshot.inventory.0.get_mut(agent) {
@@ -303,8 +304,9 @@ impl NpcEngine for Lumberjacks {
         for ((x, y), tile) in &diff.map.tiles {
             snapshot.map.tiles[*y as usize][*x as usize] = *tile;
         }
-    }
-
+    }*/
+/*
+    // Note: this was used for fuzzy node reuse, but that is too complex for now
     fn compatible(snapshot: &Self::Snapshot, other: &Self::Snapshot, agent: AgentId) -> bool {
         let (y, x) = snapshot
             .map
@@ -369,8 +371,8 @@ impl NpcEngine for Lumberjacks {
             },
         )
     }
-
-    fn value(state: StateRef<Self>, agent: AgentId) -> f32 {
+ */
+    fn get_current_value(state: StateRef<Self>, agent: AgentId) -> f32 {
         if let Some((_, f)) = config().agents.behaviors.get(&(agent.0 as usize)) {
             f(state, agent)
         } else {
@@ -378,7 +380,7 @@ impl NpcEngine for Lumberjacks {
         }
     }
 
-    fn agents(state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+    fn update_visible_agents(state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
         if let Some((x, y)) = state.find_agent(agent) {
             if config().agents.plan_others {
                 agents.extend(

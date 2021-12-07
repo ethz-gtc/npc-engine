@@ -1,26 +1,27 @@
 use std::fmt;
 
-use crate::{AgentId, NpcEngine, StateRef, Task};
+use crate::{AgentId, Domain, StateRef, Task};
 
-pub trait Behavior<E: NpcEngine>: fmt::Display + 'static {
+/// A possibly-recursive set of possible tasks
+pub trait Behavior<D: Domain>: fmt::Display + 'static {
     /// Returns dependent behaviors.
-    fn behaviors(&self) -> &'static [&'static dyn Behavior<E>] {
+    fn get_dependent_behaviors(&self) -> &'static [&'static dyn Behavior<D>] {
         &[]
     }
 
-    /// Sets list of tasks for the given `state` and `agent`.
+    /// Collects valid tasks for the given agent in the given world state.
     #[allow(unused)]
-    fn tasks(&self, state: StateRef<E>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<E>>>) {}
+    fn add_own_tasks(&self, state: StateRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {}
 
-    /// Returns `true` if the behavior is valid for the given state and agent
-    fn predicate(&self, state: StateRef<E>, agent: AgentId) -> bool;
+    /// Returns if the behavior is valid for the given agent in the given world state.
+    fn is_valid(&self, state: StateRef<D>, agent: AgentId) -> bool;
 
-    /// Helper method to recursively add all tasks
-    fn add_tasks(&self, state: StateRef<E>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<E>>>) {
-        self.tasks(state, agent, tasks);
-        self.behaviors()
+    /// Helper method to recursively collect all valid tasks for the given agent in the given world state.
+    fn add_tasks(&self, state: StateRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {
+        self.add_own_tasks(state, agent, tasks);
+        self.get_dependent_behaviors()
             .iter()
-            .filter(|behavior| behavior.predicate(state, agent))
+            .filter(|behavior| behavior.is_valid(state, agent))
             .for_each(|behavior| behavior.add_tasks(state, agent, tasks));
     }
 }
