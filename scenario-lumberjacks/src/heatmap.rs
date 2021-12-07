@@ -45,7 +45,7 @@ pub fn heatmap_hook() -> PostMCTSHookFn {
                             let (x, y) = snapshot.find_agent(mcts.agent()).unwrap();
 
                             let visits = edge.visits;
-                            let score = edge.values_total.get(&mcts.agent()).copied().unwrap_or(0.);
+                            let score = edge.q_values.get(&mcts.agent()).copied().unwrap_or(0.);
                             let entry = positions
                                 .entry((x, y))
                                 .and_modify(|entry| {

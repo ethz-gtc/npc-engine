@@ -15,7 +15,7 @@ use crate::{AgentId, Domain, StateRef, StateRefMut, Task};
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
 
-/// Estimator of state-value function: takes state of explored node and returns the estimated values
+/// Estimator of state-value function: takes state of explored node and returns the estimated expected (discounted) values
 pub trait StateValueEstimator<D: Domain> {
     fn estimate(
         &mut self,
@@ -285,14 +285,14 @@ impl<D: Domain> MCTS<D> {
             let visits = edge.visits;
             let child_edges = self.nodes.get(&child).unwrap();
 
-            let q_values = &mut edge.values_mean;
+            let q_values = &mut edge.q_values;
             let global_scores = &mut self.global_scores;
             let discount = self.config.discount;
             let snapshot = &self.snapshot;
 
             // Iterate all agents on edge
-            q_values.iter_mut().for_each(|(&agent, q_value)| {
-                let parent_fitness = parent.fitnesses.get(&agent).copied().unwrap_or_else(|| {
+            q_values.iter_mut().for_each(|(&agent, q_value_ref)| {
+                let parent_current_value = parent.current_values.get(&agent).copied().unwrap_or_else(|| {
                     D::get_current_value(
                         StateRef::Snapshot {
                             snapshot,
@@ -301,7 +301,7 @@ impl<D: Domain> MCTS<D> {
                         agent,
                     )
                 });
-                let child_fitness = child.fitnesses.get(&agent).copied().unwrap_or_else(|| {
+                let child_current_value = child.current_values.get(&agent).copied().unwrap_or_else(|| {
                     D::get_current_value(
                         StateRef::Snapshot {
                             snapshot,
@@ -312,8 +312,8 @@ impl<D: Domain> MCTS<D> {
                 });
 
                 // Get current value from child, or rollout value if leaf node
-                let mut child_value =
-                    if let Some(value) = child_edges.value((visits, *q_value), agent) {
+                let mut child_q_value =
+                    if let Some(value) = child_edges.value((visits, *q_value_ref), agent) {
                         value
                     } else {
                         rollout_values.get(&agent).copied().unwrap_or_default()
@@ -321,14 +321,14 @@ impl<D: Domain> MCTS<D> {
 
                 // Only discount once per agent per turn
                 if agent == parent.agent {
-                    child_value *= discount;
+                    child_q_value *= discount;
                 }
 
                 // Use Bellman Equation
-                let value = child_fitness - parent_fitness + child_value;
+                let q_value = child_current_value - parent_current_value + child_q_value;
 
                 // Update q value for edge
-                *q_value = value;
+                *q_value_ref = q_value;
 
                 if agent == parent.agent {
                     // Update global score for agent
@@ -336,8 +336,8 @@ impl<D: Domain> MCTS<D> {
                         start: f32::INFINITY,
                         end: f32::NEG_INFINITY,
                     });
-                    global.start = global.start.min(value);
-                    global.end = global.end.max(value);
+                    global.start = global.start.min(q_value);
+                    global.end = global.end.max(q_value);
                 }
             });
         });
@@ -470,10 +470,13 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
         let mut num_rollouts = 0;
 
+        // In this map we collect at the same time both:
+        // - the current value (measured from state and replaced in the course of simulation)
+        // - the Q value (initially 0, updated in the course of simulation)
         let mut values = node
-            .fitnesses
+            .current_values
             .iter()
-            .map(|(&agent, &fitness)| (agent, (fitness, 0f32)))
+            .map(|(&agent, &current_value)| (agent, (current_value, 0f32)))
             .collect::<BTreeMap<_, _>>();
 
         // Current discount multiplier
@@ -493,10 +496,12 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 // Set current number of rollouts in case of early termination
                 num_rollouts = rollout;
 
-                // Lazily fetch current fitness and accumulated value for current agent
-                let (last_fitness, total_value) = values.entry(agent).or_insert_with(|| {
-                    let fitness = D::get_current_value(StateRef::snapshot(snapshot, &diff), agent);
-                    (fitness, 0f32)
+                // Lazily fetch current and estimated values for current agent
+                let (current_value, estimated_value) = values.entry(agent).or_insert_with(|| {
+                    (
+                        D::get_current_value(StateRef::snapshot(snapshot, &diff), agent),
+                        0f32
+                    )
                 });
 
                 // Check task map for existing task
@@ -511,7 +516,6 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                     _ => {
                         // No existing task, add all possible tasks
                         let tasks = D::get_tasks(StateRef::snapshot(snapshot, &diff), agent);
-
                         let weights_iter = tasks.iter().map(|task| {
                             task.weight(StateRef::snapshot(snapshot, &diff) as _, agent)
                         });
@@ -524,7 +528,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 };
 
                 if let Some(mut weights) = weights {
-                    // Get random tas;, assert it is valid
+                    // Get random task, assert it is valid
                     let mut idx;
                     let mut task;
                     while {
@@ -548,11 +552,10 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                         task_map.remove(&agent);
                     }
 
-                    // Update total value with discounted delta fitness
-                    let new_fitness = D::get_current_value(StateRef::snapshot(snapshot, &diff), agent);
-                    let delta_fitness = new_fitness - *last_fitness;
-                    *total_value += delta_fitness * discount;
-                    *last_fitness = new_fitness;
+                    // Update estimated value with discounted difference in current values
+                    let new_current_value = D::get_current_value(StateRef::snapshot(snapshot, &diff), agent);
+                    *estimated_value += (new_current_value - *current_value) * discount;
+                    *current_value = new_current_value;
                 } else {
                     break;
                 };
@@ -569,15 +572,15 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             discount *= config.discount;
         }
 
-        let fitnesses = node.fitnesses.clone();
-        let values = values
+        let current_values = node.current_values.clone();
+        let q_values = values
             .iter()
             .map(|(agent, (_, value))| (*agent, *value))
             .collect();
 
-        log::trace!("Rollout: {:?}, {:?}, {:?}", num_rollouts, fitnesses, values);
+        log::trace!("Rollout: {:?}, {:?}, {:?}", num_rollouts, current_values, q_values);
 
-        values
+        q_values
     }
 }
 
@@ -591,7 +594,7 @@ pub struct NodeInner<D: Domain> {
     pub diff: D::Diff,
     pub agent: AgentId,
     pub tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
-    pub fitnesses: BTreeMap<AgentId, f32>,
+    pub current_values: BTreeMap<AgentId, f32>,
 }
 
 impl<D: Domain> fmt::Debug for NodeInner<D> {
@@ -600,7 +603,7 @@ impl<D: Domain> fmt::Debug for NodeInner<D> {
             .field("diff", &self.diff)
             .field("agent", &self.agent)
             .field("tasks", &"...")
-            .field("fitnesses", &self.fitnesses)
+            .field("current_values", &self.current_values)
             .finish()
     }
 }
@@ -625,8 +628,8 @@ impl<D: Domain> NodeInner<D> {
             agent
         );
 
-        // Set child fitnesses
-        let fitnesses = agents
+        // Set child current values
+        let current_values = agents
             .iter()
             .map(|agent| {
                 (
@@ -640,7 +643,7 @@ impl<D: Domain> NodeInner<D> {
             agent,
             diff,
             tasks,
-            fitnesses,
+            current_values,
         }
     }
 
@@ -659,7 +662,7 @@ impl<D: Domain> NodeInner<D> {
         let mut size = 0;
 
         size += mem::size_of::<Self>();
-        size += self.fitnesses.len() * mem::size_of::<(AgentId, f32)>();
+        size += self.current_values.len() * mem::size_of::<(AgentId, f32)>();
 
         for (_, task) in &self.tasks {
             size += task_size(&**task);
@@ -784,7 +787,7 @@ impl<D: Domain> Edges<D> {
                     .map(|edge| {
                         (
                             edge.visits,
-                            edge.values_mean.get(&agent).copied().unwrap_or_default(),
+                            edge.q_values.get(&agent).copied().unwrap_or_default(),
                         )
                     })
                     .unwrap_or(fallback)
@@ -826,8 +829,7 @@ pub struct EdgeInner<D: Domain> {
     pub parent: WeakNode<D>,
     pub child: WeakNode<D>,
     pub visits: usize,
-    pub values_total: SeededHashMap<AgentId, f32>,
-    pub values_mean: SeededHashMap<AgentId, f32>,
+    pub q_values: SeededHashMap<AgentId, f32>,
 }
 
 impl<D: Domain> fmt::Debug for EdgeInner<D> {
@@ -836,8 +838,7 @@ impl<D: Domain> fmt::Debug for EdgeInner<D> {
             .field("parent", &self.parent)
             .field("child", &self.child)
             .field("visits", &self.visits)
-            .field("values_total", &self.values_total)
-            .field("values_mean", &self.values_mean)
+            .field("q_values", &self.q_values)
             .finish()
     }
 }
@@ -847,8 +848,7 @@ pub fn new_edge<D: Domain>(parent: &Node<D>, child: &Node<D>, agents: &BTreeSet<
         parent: Node::downgrade(parent),
         child: Node::downgrade(child),
         visits: Default::default(),
-        values_total: agents.iter().map(|agent| (*agent, 0.)).collect(),
-        values_mean: agents.iter().map(|agent| (*agent, 0.)).collect(),
+        q_values: agents.iter().map(|agent| (*agent, 0.)).collect(),
     }))
 }
 
@@ -862,12 +862,11 @@ impl<D: Domain> EdgeInner<D> {
         range: Range<f32>,
     ) -> f32 {
         // If parent is not present, this node is being reused and the parent leaves the horizon. Score doesn't matter
-        if let Some(value) = self.values_mean.get(&parent_agent) {
+        if let Some(q_value) = self.q_values.get(&parent_agent) {
             // Normalize the exploitation factor so it doesn't overshadow the exploration
-            (value - range.start) / (range.end - range.start).max(f32::EPSILON)
-                + exploration
-                    * ((parent_child_visits as f32).ln() / (self.visits as f32).max(f32::EPSILON))
-                        .sqrt()
+            let exploitation_value = (q_value - range.start) / (range.end - range.start).max(f32::EPSILON);
+            let exploration_value = ((parent_child_visits as f32).ln() / (self.visits as f32).max(f32::EPSILON)).sqrt();
+            exploitation_value + exploration * exploration_value
         } else {
             0.
         }
@@ -877,8 +876,7 @@ impl<D: Domain> EdgeInner<D> {
         let mut size = 0;
 
         size += mem::size_of::<Self>();
-        size += self.values_total.len() * mem::size_of::<(AgentId, f32)>();
-        size += self.values_mean.len() * mem::size_of::<(AgentId, f32)>();
+        size += self.q_values.len() * mem::size_of::<(AgentId, f32)>();
 
         size
     }
@@ -988,12 +986,12 @@ mod graphviz {
 
                         if nodes.contains(&child) {
                             let reward = child
-                                .fitnesses
+                                .current_values
                                 .get(&node.agent)
                                 .copied()
                                 .unwrap_or_default()
                                 - parent
-                                    .fitnesses
+                                    .current_values
                                     .get(&node.agent)
                                     .copied()
                                     .unwrap_or_default();
@@ -1003,7 +1001,7 @@ mod graphviz {
                                 task: obj.clone(),
                                 best: obj == &best_task,
                                 visits: edge.visits,
-                                score: edge.values_mean.get(&node.agent).copied().unwrap_or(0.),
+                                score: edge.q_values.get(&node.agent).copied().unwrap_or(0.),
                                 uct: edge.uct(node.agent, visits, self.config.exploration, range.clone()),
                                 uct_0: edge.uct(node.agent, visits, 0., range.clone()),
                                 reward,
@@ -1042,7 +1040,7 @@ mod graphviz {
                 "Agent {}\nV: {}\nFitnesses: {:?}",
                 n.agent.0,
                 v.map(|v| format!("{:.2}", v)).unwrap_or("None".to_owned()),
-                n.fitnesses
+                n.current_values
                     .iter()
                     .map(|(agent, value)| { (agent.0, *value) })
                     .collect::<SeededHashMap<_, _>>(),
@@ -1298,7 +1296,7 @@ mod value_tests {
             assert_eq!(Diff(i as usize), node.diff);
             assert_eq!(visits - i + 1, edge.visits);
             assert!(
-                (expected_value(discount, depth - i + 1) - *edge.values_mean.get(&agent).unwrap())
+                (expected_value(discount, depth - i + 1) - *edge.q_values.get(&agent).unwrap())
                     .abs()
                     < EPSILON
             );
