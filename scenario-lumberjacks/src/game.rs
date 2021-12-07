@@ -9,6 +9,8 @@ use ggez::graphics::{Image, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{graphics, input::keyboard};
 use ggez::{Context, GameResult};
+use npc_engine_turn::Domain;
+use npc_engine_turn::MCTSConfiguration;
 use npc_engine_turn::{AgentId, StateRefMut, Task, MCTS};
 
 use crate::{
@@ -79,19 +81,20 @@ impl GameState {
         let mcts = agents
             .iter()
             .map(|agent| {
-                let discount = config().mcts.discount;
-
+                let config = MCTSConfiguration {
+                    visits: config().mcts.visits,
+                    depth: config().mcts.depth,
+                    exploration: config().mcts.exploration,
+                    discount: config().mcts.discount,
+                    seed: Some(seed),
+                };
+                let snapshot = Lumberjacks::derive_snapshot(&world, *agent);
                 (
                     *agent,
                     MCTS::new(
-                        &world,
+                        snapshot,
                         *agent,
-                        config().mcts.visits,
-                        config().mcts.depth,
-                        config().mcts.exploration,
-                        config().mcts.retention,
-                        discount,
-                        Some(seed),
+                        config,
                     ),
                 )
             })

@@ -1,11 +1,13 @@
 mod task;
 mod domain;
 mod behavior;
+mod config;
 mod util;
 
 pub use domain::*;
 pub use task::*;
 pub use behavior::*;
+pub use config::*;
 pub use util::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]

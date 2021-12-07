@@ -9,9 +9,7 @@ use rand::distributions::WeightedIndex;
 use rand::prelude::{thread_rng, Distribution, RngCore, SeedableRng};
 use rand_chacha::ChaCha8Rng;
 
-use npc_engine_common::{SeededHashMap, SeededHashSet};
-
-use crate::{AgentId, Domain, StateRef, StateRefMut, Task};
+use crate::*;
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
 
@@ -25,43 +23,30 @@ pub trait StateValueEstimator<D: Domain> {
         node: &Node<D>,
         depth: u32,
         agent: AgentId, // agent of the MCTS
-        agents: BTreeSet<AgentId> // agents in this node: TODO: see if we can extract from node
     ) -> BTreeMap<AgentId, f32>;
 }
 
-/// Represents the configuration of an MCTS instance
-/// * visits:
-/// * depth:
-/// * exploration:
-/// * retention:
-/// * discount:
-/// * seed:
-///
-#[derive(Clone, Debug)]
-pub struct MCTSConfiguration {
-    pub visits: u32,
-    pub depth: u32,
-    pub exploration: f32,
-    pub retention: f32,
-    pub discount: f32,
-    pub seed: Option<u64>,
-}
 
+/// The state of a running planner instance
 pub struct MCTS<D: Domain> {
+    // Statistics
     time: Duration,
 
     // Config
     pub(crate) config: MCTSConfiguration,
     state_value_estimator: Box<dyn StateValueEstimator<D>>,
-    seed: u64,
+    early_stop_condition: Option<Box<EarlyStopCondition>>,
+
+    // Run-specific parameters
     pub(crate) agent: AgentId,
+    seed: u64,
 
     // Nodes
     pub root: Node<D>,
     nodes: SeededHashMap<Node<D>, Edges<D>>,
 
     // Globals
-    global_scores: BTreeMap<AgentId, Range<f32>>,
+    q_value_range: BTreeMap<AgentId, Range<f32>>,
 
     // Snapshot
     pub snapshot: D::Snapshot,
@@ -97,15 +82,13 @@ impl<D: Domain> MCTS<D> {
     /// Execute the MCTS search. Returns the current best task.
     pub fn run(&mut self) -> Box<dyn Task<D>> {
         // Reset globals
-        self.global_scores.clear();
-
-        // Path through the tree, including root and leaf
-        let mut path = Vec::new();
+        self.q_value_range.clear();
 
         let start = Instant::now();
-        for _ in 0..self.config.visits {
+        let max_visits = self.config.visits;
+        for _ in 0..max_visits {
             // Execute tree policy
-            let (depth, agents, leaf) = self.tree_policy(self.root.clone(), &mut path);
+            let (depth, leaf, path) = self.tree_policy(self.root.clone());
 
             // Execute default policy
             let rollout_values = self.state_value_estimator.estimate(
@@ -114,12 +97,18 @@ impl<D: Domain> MCTS<D> {
                 &self.snapshot,
                 &leaf,
                 depth,
-                self.agent,
-                agents
+                self.agent
             );
 
             // Backpropagate results
-            self.backpropagation(&mut path, rollout_values);
+            self.backpropagation(path, rollout_values);
+
+            // Early stopping if told so by some user-defined condition
+            if let Some(early_stop_condition) = &self.early_stop_condition {
+                if early_stop_condition() {
+                    break;
+                }
+            }
         }
         self.time = start.elapsed();
 
@@ -136,8 +125,7 @@ impl<D: Domain> MCTS<D> {
     fn tree_policy(
         &mut self,
         root: Node<D>,
-        path: &mut Vec<Edge<D>>,
-    ) -> (u32, BTreeSet<AgentId>, Node<D>) {
+    ) -> (u32, Node<D>, Vec<Edge<D>>) {
         // Find agents for current turn
         let agents = D::get_visible_agents(
             StateRef::snapshot(&self.snapshot, &root.diff),
@@ -152,6 +140,9 @@ impl<D: Domain> MCTS<D> {
         // Maintain set of nodes seen to prevent cycles
         let mut seen_nodes = SeededHashSet::default();
         seen_nodes.insert(node.clone());
+
+        // Path through the tree, including root and leaf
+        let mut path = Vec::with_capacity(self.config.depth as usize * agents.len());
 
         // Execute selection until at most `max_depth`
         for depth in 0..self.config.depth {
@@ -230,7 +221,7 @@ impl<D: Domain> MCTS<D> {
                         // Push edge to path
                         path.push(edge);
 
-                        return (depth, agents, child_node);
+                        return (depth, child_node, path);
                     }
                 }
 
@@ -252,7 +243,7 @@ impl<D: Domain> MCTS<D> {
 
                 // If node is already seen, prevent cycle
                 if !seen_nodes.insert(node.clone()) {
-                    return (self.config.depth, agents, node);
+                    return (self.config.depth, node, path);
                 }
             }
 
@@ -268,11 +259,11 @@ impl<D: Domain> MCTS<D> {
             );*/
         }
 
-        (self.config.depth, agents, node)
+        (self.config.depth, node, path)
     }
 
     /// MCTS backpropagation phase.
-    fn backpropagation(&mut self, path: &mut Vec<Edge<D>>, rollout_values: BTreeMap<AgentId, f32>) {
+    fn backpropagation(&mut self, mut path: Vec<Edge<D>>, rollout_values: BTreeMap<AgentId, f32>) {
         // Backtracking
         path.drain(..).rev().for_each(|edge| {
             // Increment child node visit count
@@ -286,7 +277,7 @@ impl<D: Domain> MCTS<D> {
             let child_edges = self.nodes.get(&child).unwrap();
 
             let q_values = &mut edge.q_values;
-            let global_scores = &mut self.global_scores;
+            let q_value_range = &mut self.q_value_range;
             let discount = self.config.discount;
             let snapshot = &self.snapshot;
 
@@ -332,7 +323,7 @@ impl<D: Domain> MCTS<D> {
 
                 if agent == parent.agent {
                     // Update global score for agent
-                    let global = global_scores.entry(parent.agent).or_insert_with(|| Range {
+                    let global = q_value_range.entry(parent.agent).or_insert_with(|| Range {
                         start: f32::INFINITY,
                         end: f32::NEG_INFINITY,
                     });
@@ -347,17 +338,10 @@ impl<D: Domain> MCTS<D> {
 impl<D: Domain> MCTS<D> {
     /// Instantiate a new search tree for the given state.
     pub fn new(
-        state: &D::State,
+        snapshot: D::Snapshot,
         agent: AgentId,
-        visits: u32,
-        depth: u32,
-        exploration: f32,
-        retention: f32,
-        discount: f32,
-        seed: Option<u64>,
+        config: MCTSConfiguration,
     ) -> Self {
-        let snapshot = D::derive_snapshot(state, agent);
-
         let root = Node::new(NodeInner::new(
             &snapshot,
             Default::default(),
@@ -367,24 +351,18 @@ impl<D: Domain> MCTS<D> {
         let mut nodes = SeededHashMap::default();
         nodes.insert(root.clone(), Edges::new(&root, &snapshot));
 
-        let cur_seed = seed.unwrap_or_else(|| thread_rng().next_u64());
+        let cur_seed = config.seed.unwrap_or_else(|| thread_rng().next_u64());
 
         MCTS {
             time: Duration::default(),
-            config: MCTSConfiguration {
-                visits,
-                depth,
-                exploration,
-                retention,
-                discount,
-                seed,
-            },
+            config,
             state_value_estimator: Box::new(DefaultPolicyEstimator {}),
+            early_stop_condition: None,
             seed: cur_seed,
             agent,
             root,
             nodes,
-            global_scores: Default::default(),
+            q_value_range: Default::default(),
             snapshot,
             rng: ChaCha8Rng::seed_from_u64(cur_seed)
         }
@@ -397,7 +375,7 @@ impl<D: Domain> MCTS<D> {
 
     // Returns the range of minimum and maximum global values.
     fn min_max_range(&self, agent: AgentId) -> Range<f32> {
-        self.global_scores
+        self.q_value_range
             .get(&agent)
             .cloned()
             .unwrap_or(Range { start: 0., end: 0. })
@@ -444,7 +422,7 @@ impl<D: Domain> MCTS<D> {
             size += edges.size(task_size);
         }
 
-        size += self.global_scores.len() * mem::size_of::<(AgentId, Range<f32>)>();
+        size += self.q_value_range.len() * mem::size_of::<(AgentId, Range<f32>)>();
 
         size
     }
@@ -461,9 +439,13 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         node: &Node<D>,
         depth: u32,
         root_agent: AgentId,
-        mut agents: BTreeSet<AgentId>,
     ) -> BTreeMap<AgentId, f32> {
         let mut start_agent = node.agent;
+        let mut agents: BTreeSet<AgentId> = node.current_values
+            .keys()
+            .map(|agent| *agent)
+            .collect()
+        ;
 
         let mut diff = node.diff.clone();
         let mut task_map = node.tasks.clone();
@@ -1255,16 +1237,24 @@ mod value_tests {
 
     #[test]
     fn linear_bellman() {
-        let depth = 5usize;
-        let visits = 10_000usize;
+        const CONFIG: MCTSConfiguration = MCTSConfiguration {
+            visits: 10_000,
+            depth: 5,
+            exploration: 1.414,
+            discount: 0.95,
+            seed: None
+        };
         let agent = AgentId(0);
-        let discount = 0.95;
 
         let world = State(0);
-        let mut mcts =
-            MCTS::<TestEngine>::new(&world, AgentId(0), visits as u32, depth as u32, 1.414, 0., discount, None);
+        let snapshot = TestEngine::derive_snapshot(&world, agent);
+        let mut mcts = MCTS::<TestEngine>::new(
+            snapshot,
+            agent,
+            CONFIG,
+        );
 
-        fn expected_value(discount: f32, depth: usize) -> f32 {
+        fn expected_value(discount: f32, depth: u32) -> f32 {
             let mut value = 0.;
 
             for _ in 0..depth {
@@ -1277,7 +1267,7 @@ mod value_tests {
         let task = mcts.run();
         assert!(task.downcast_ref::<TestTask>().is_some());
         // Check length is depth with root
-        assert_eq!((mcts.config.depth + 1) as usize, mcts.nodes.len());
+        assert_eq!((CONFIG.depth + 1) as usize, mcts.nodes.len());
 
         let mut node = mcts.root;
 
@@ -1285,7 +1275,7 @@ mod value_tests {
             assert_eq!(Diff(0), node.diff);
         }
 
-        for i in 1..depth {
+        for i in 1..CONFIG.depth {
             let edges = mcts.nodes.get(&node).unwrap();
             assert_eq!(edges.edges.len(), 1);
             let edge_rc = edges.edges.values().nth(0).unwrap();
@@ -1294,9 +1284,9 @@ mod value_tests {
             node = edge.child.upgrade().unwrap();
 
             assert_eq!(Diff(i as usize), node.diff);
-            assert_eq!(visits - i + 1, edge.visits);
+            assert_eq!((CONFIG.visits - i + 1) as usize, edge.visits);
             assert!(
-                (expected_value(discount, depth - i + 1) - *edge.q_values.get(&agent).unwrap())
+                (expected_value(CONFIG.discount, CONFIG.depth - i + 1) - *edge.q_values.get(&agent).unwrap())
                     .abs()
                     < EPSILON
             );
@@ -1470,19 +1460,24 @@ mod branching_tests {
 
     #[test]
     fn ucb() {
-        let depth = 1usize;
-        let visits = 10usize;
+        const CONFIG: MCTSConfiguration = MCTSConfiguration {
+            visits: 10,
+            depth: 1,
+            exploration: 1.414,
+            discount: 0.95,
+            seed: None
+        };
         let agent = AgentId(0);
-        let exploration = 1.414;
 
         let state = State(Default::default());
+        let snapshot = TestEngine::derive_snapshot(&state, agent);
         let mut mcts =
-            MCTS::<TestEngine>::new(&state, agent, visits as u32, depth as u32, exploration, 0., 0.95, None);
+            MCTS::<TestEngine>::new(snapshot, agent, CONFIG);
 
         let task = mcts.run();
         assert!(task.downcast_ref::<TestTask>().is_some());
         // Check length is depth with root
-        assert_eq!(depth + 1, mcts.nodes.len());
+        assert_eq!((CONFIG.depth + 1) as usize, mcts.nodes.len());
 
         let node = mcts.root;
         let edges = mcts.nodes.get(&node).unwrap();
@@ -1503,7 +1498,7 @@ mod branching_tests {
             (edge_a.uct(
                 AgentId(0),
                 root_visits,
-                exploration,
+                CONFIG.exploration,
                 Range {
                     start: 0.0,
                     end: 1.0
@@ -1516,7 +1511,7 @@ mod branching_tests {
             (edge_b.uct(
                 AgentId(0),
                 root_visits,
-                exploration,
+                CONFIG.exploration,
                 Range {
                     start: 0.0,
                     end: 1.0
@@ -1530,8 +1525,6 @@ mod branching_tests {
 
 #[cfg(test)]
 mod seeding_tests {
-
-    use rand::{thread_rng, RngCore};
 
     use super::*;
 
@@ -1671,37 +1664,32 @@ mod seeding_tests {
 
     #[test]
     fn seed() {
+        let agent = AgentId(0);
         for _ in 0..5 {
-            let depth = 10;
-            let visits = 1000;
-            let agent = AgentId(0);
-            let exploration = 1.414;
             let seed = thread_rng().next_u64();
-
+            let config = MCTSConfiguration {
+                visits: 1000,
+                depth: 10,
+                exploration: 1.414,
+                discount: 0.95,
+                seed: Some(seed),
+            };
             let state = State(Default::default());
+            let snapshot = TestEngine::derive_snapshot(&state, agent);
             let mut mcts = MCTS::<TestEngine>::new(
-                &state,
+                snapshot,
                 agent,
-                visits,
-                depth,
-                exploration,
-                0.,
-                0.95,
-                Some(seed),
+                config.clone(),
             );
 
             let result = mcts.run();
 
             for _ in 0..10 {
+                let snapshot = TestEngine::derive_snapshot(&state, agent);
                 let mut mcts = MCTS::<TestEngine>::new(
-                    &state,
+                    snapshot,
                     agent,
-                    visits,
-                    depth,
-                    exploration,
-                    0.,
-                    0.95,
-                    Some(seed),
+                    config.clone(),
                 );
 
                 assert!(result == mcts.run());
@@ -1937,17 +1925,25 @@ mod sanity_tests {
 
         #[test]
         fn deferment() {
-            let depth = 10;
-            let visits = 1000;
+            const CONFIG: MCTSConfiguration = MCTSConfiguration {
+                visits: 1000,
+                depth: 10,
+                exploration: 1.414,
+                discount: 0.95,
+                seed: None
+            };
             let agent = AgentId(0);
-            let exploration = 1.414;
 
             let state = State {
                 value: Default::default(),
                 investment: Default::default(),
             };
-            let mut mcts =
-                MCTS::<TestEngine>::new(&state, agent, visits, depth, exploration, 0., 0.95, None);
+            let snapshot = TestEngine::derive_snapshot(&state, agent);
+            let mut mcts = MCTS::<TestEngine>::new(
+                snapshot,
+                agent,
+                CONFIG
+            );
 
             let task = mcts.run();
             assert!(task.downcast_ref::<TestTaskDefer>().is_some());
@@ -2147,22 +2143,23 @@ mod sanity_tests {
                 let mut neg = 0;
 
                 for _ in 0..20 {
-                    let visits = 1.5f32.powi(depth) as usize / 10 + 100;
+                    let config = MCTSConfiguration {
+                        visits: 1.5f32.powi(depth as i32) as u32 / 10 + 100,
+                        depth,
+                        exploration: 1.414,
+                        discount: 0.95,
+                        seed: None
+                    };
                     let agent = AgentId(0);
-                    let exploration = 1.414;
 
                     let state = State {
                         value: Default::default(),
                     };
+                    let snapshot = TestEngine::derive_snapshot(&state, agent);
                     let mut mcts = MCTS::<TestEngine>::new(
-                        &state,
+                        snapshot,
                         agent,
-                        visits as u32,
-                        depth as _,
-                        exploration,
-                        0.,
-                        0.95,
-                        None,
+                        config,
                     );
 
                     let task = mcts.run();
