@@ -1,12 +1,12 @@
-use std::{collections::{BTreeMap, BTreeSet}, rc::Rc, cell::RefCell, rc::Weak};
+use std::{collections::{BTreeMap, BTreeSet}};
 use std::f32;
 use std::hash::{Hash, Hasher};
 use std::ops::{Range};
 use std::time::{Duration, Instant};
-use std::{fmt, mem};
+use std::mem;
 
-use rand::distributions::WeightedIndex;
-use rand::prelude::{thread_rng, Distribution, RngCore, SeedableRng};
+
+use rand::{prelude::{thread_rng, Distribution, RngCore, SeedableRng}, distributions::WeightedIndex};
 use rand_chacha::ChaCha8Rng;
 
 use crate::*;
@@ -162,7 +162,7 @@ impl<D: Domain> MCTS<D> {
                     let snapshot = &self.snapshot;
 
                     // If weights are non-empty, the node has not been fully expanded
-                    if let Some((weights, tasks)) = edges.weights.as_mut() {
+                    if let Some((weights, tasks)) = edges.unexpanded_tasks.as_mut() {
                         let mut diff = node.diff.clone();
 
                         // Select task
@@ -174,7 +174,7 @@ impl<D: Domain> MCTS<D> {
                         // Updating weights returns an error if all weights are zero.
                         if weights.update_weights(&[(idx, &0.)]).is_err() {
                             // All weights being zero implies the node is fully expanded
-                            edges.weights = None;
+                            edges.unexpanded_tasks = None;
                         }
 
                         let mut depth = depth;
@@ -216,7 +216,7 @@ impl<D: Domain> MCTS<D> {
                         let edge = new_edge(&node, &child_node, &agents);
 
                         let edges = nodes.get_mut(&node).unwrap();
-                        edges.edges.insert(task, edge.clone());
+                        edges.expanded_tasks.insert(task, edge.clone());
 
                         // Push edge to path
                         path.push(edge);
@@ -230,7 +230,7 @@ impl<D: Domain> MCTS<D> {
                     .best_task(node.agent, self.config.exploration, range)
                     .expect("No valid task!");
                 log::trace!("{:?} - Select action: {}", agent, task);
-                let edge = edges.edges.get(&task).unwrap().clone();
+                let edge = edges.expanded_tasks.get(&task).unwrap().clone();
 
                 // New node is the current child node
                 node = {
@@ -403,7 +403,7 @@ impl<D: Domain> MCTS<D> {
 
     // Returns the number of nodes
     pub fn edge_count(&self) -> usize {
-        self.nodes.values().map(|edges| edges.edges.len()).sum()
+        self.nodes.values().map(|edges| edges.expanded_tasks.len()).sum()
     }
 
     // Returns the duration of the last run
@@ -566,308 +566,11 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
     }
 }
 
-/// Strong atomic reference counted node
-pub type Node<D> = Rc<NodeInner<D>>;
-
-/// Weak atomic reference counted node
-pub type WeakNode<D> = Weak<NodeInner<D>>;
-
-pub struct NodeInner<D: Domain> {
-    pub diff: D::Diff,
-    pub agent: AgentId,
-    pub tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
-    pub current_values: BTreeMap<AgentId, f32>,
-}
-
-impl<D: Domain> fmt::Debug for NodeInner<D> {
-    fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("NodeInner")
-            .field("diff", &self.diff)
-            .field("agent", &self.agent)
-            .field("tasks", &"...")
-            .field("current_values", &self.current_values)
-            .finish()
-    }
-}
-
-impl<D: Domain> NodeInner<D> {
-    pub fn new(
-        snapshot: &D::Snapshot,
-        diff: D::Diff,
-        agent: AgentId,
-        mut tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
-    ) -> Self {
-        // Check validity of task for agent
-        if let Some(task) = tasks.get(&agent) {
-            if !task.is_valid(StateRef::snapshot(snapshot, &diff), agent) {
-                tasks.remove(&agent);
-            }
-        }
-
-        // Get observable agents
-        let agents = D::get_visible_agents(
-            StateRef::snapshot(snapshot, &diff),
-            agent
-        );
-
-        // Set child current values
-        let current_values = agents
-            .iter()
-            .map(|agent| {
-                (
-                    *agent,
-                    D::get_current_value(StateRef::snapshot(snapshot, &diff), *agent),
-                )
-            })
-            .collect();
-
-        NodeInner {
-            agent,
-            diff,
-            tasks,
-            current_values,
-        }
-    }
-
-    /// Returns agent who owns the node.
-    pub fn agent(&self) -> AgentId {
-        self.agent
-    }
-
-    /// Returns diff of current node.
-    pub fn diff(&self) -> &D::Diff {
-        &self.diff
-    }
-
-    // Returns the size in bytes
-    pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
-        let mut size = 0;
-
-        size += mem::size_of::<Self>();
-        size += self.current_values.len() * mem::size_of::<(AgentId, f32)>();
-
-        for (_, task) in &self.tasks {
-            size += task_size(&**task);
-        }
-
-        size
-    }
-}
-
-impl<D: Domain> Hash for NodeInner<D> {
-    fn hash<H: Hasher>(&self, hasher: &mut H) {
-        self.agent.hash(hasher);
-        self.diff.hash(hasher);
-        self.tasks.hash(hasher);
-    }
-}
-
-impl<D: Domain> PartialEq for NodeInner<D> {
-    fn eq(&self, other: &Self) -> bool {
-        self.agent.eq(&other.agent) && self.diff.eq(&other.diff) && self.tasks.eq(&other.tasks)
-    }
-}
-
-impl<D: Domain> Eq for NodeInner<D> {}
-
-pub struct Edges<D: Domain> {
-    branching_factor: usize,
-    weights: Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>,
-    edges: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
-}
-
-impl<'a, D: Domain> IntoIterator for &'a Edges<D> {
-    type Item = (&'a Box<dyn Task<D>>, &'a Edge<D>);
-    type IntoIter = std::collections::hash_map::Iter<'a, Box<dyn Task<D>>, Edge<D>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.edges.iter()
-    }
-}
-
-impl<D: Domain> Edges<D> {
-    fn new(node: &Node<D>, snapshot: &D::Snapshot) -> Self {
-       // Branching factor of the node
-        let branching_factor;
-
-        let weights = match node.tasks.get(&node.agent) {
-            Some(task) if task.is_valid(StateRef::snapshot(snapshot, &node.diff), node.agent) => {
-                branching_factor = 1;
-
-                let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
-
-                // Set existing child weights, only option
-                Some((weights, vec![task.clone()]))
-            }
-            _ => {
-                // Get possible tasks
-                let mut possible_tasks = D::get_tasks(
-                    StateRef::snapshot(snapshot, &node.diff),
-                    node.agent
-                );
-
-                // Remove invalid tasks
-                possible_tasks.retain(|task| {
-                    task.is_valid(StateRef::snapshot(snapshot, &node.diff), node.agent)
-                });
-
-                branching_factor = possible_tasks.len();
-
-                let weights =
-                    WeightedIndex::new(possible_tasks.iter().map(|task| {
-                        task.weight(StateRef::snapshot(snapshot, &node.diff), node.agent)
-                    }))
-                    .unwrap();
-
-                // Set weights
-                Some((weights, possible_tasks))
-            }
-        };
-
-        Edges {
-            branching_factor,
-            weights,
-            edges: Default::default(),
-        }
-    }
-
-    /// Returns the sum of all visits to the edges of this nodes.
-    pub fn child_visits(&self) -> usize {
-        self.edges
-            .values()
-            .map(|edge| edge.borrow().visits)
-            .sum()
-    }
-
-    /// Finds the best task with the given `exploration` factor and normalization `range`.
-    pub fn best_task(
-        &self,
-        agent: AgentId,
-        exploration: f32,
-        range: Range<f32>,
-    ) -> Option<Box<dyn Task<D>>> {
-        let visits = self.child_visits();
-        self.edges
-            .iter()
-            .max_by(|(_, a), (_, b)| {
-                let a = a.borrow();
-                let b = b.borrow();
-                a.uct(agent, visits, exploration, range.clone())
-                    .partial_cmp(&b.uct(agent, visits, exploration, range.clone()))
-                    .unwrap()
-            })
-            .map(|(k, _)| k.clone())
-    }
-
-    /// Returns the weighted average q value of all child edges.
-    /// `fallback` value is for self-referential edges.
-    pub fn value(&self, fallback: (usize, f32), agent: AgentId) -> Option<f32> {
-        self.edges
-            .values()
-            .map(|edge| {
-                edge.try_borrow()
-                    .map(|edge| {
-                        (
-                            edge.visits,
-                            edge.q_values.get(&agent).copied().unwrap_or_default(),
-                        )
-                    })
-                    .unwrap_or(fallback)
-            })
-            .fold(None, |acc, (visits, value)| match acc {
-                Some((sum, count)) => Some((sum + visits as f32 * value, count + visits)),
-                None => Some((visits as f32 * value, visits)),
-            })
-            .map(|(sum, count)| sum / count as f32)
-    }
-
-    pub fn branching_factor(&self) -> usize {
-        self.branching_factor
-    }
-
-    pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
-        let mut size = 0;
-
-        size += mem::size_of::<Self>();
-
-        if let Some((_, tasks)) = self.weights.as_ref() {
-            for task in tasks {
-                size += task_size(&**task);
-            }
-        }
-
-        for (task, edge) in &self.edges {
-            size += task_size(&**task);
-            size += edge.borrow().size();
-        }
-
-        size
-    }
-}
-
-pub type Edge<D> = Rc<RefCell<EdgeInner<D>>>;
-
-pub struct EdgeInner<D: Domain> {
-    pub parent: WeakNode<D>,
-    pub child: WeakNode<D>,
-    pub visits: usize,
-    pub q_values: SeededHashMap<AgentId, f32>,
-}
-
-impl<D: Domain> fmt::Debug for EdgeInner<D> {
-    fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("EdgeInner")
-            .field("parent", &self.parent)
-            .field("child", &self.child)
-            .field("visits", &self.visits)
-            .field("q_values", &self.q_values)
-            .finish()
-    }
-}
-
-pub fn new_edge<D: Domain>(parent: &Node<D>, child: &Node<D>, agents: &BTreeSet<AgentId>) -> Edge<D> {
-    Rc::new(RefCell::new(EdgeInner {
-        parent: Node::downgrade(parent),
-        child: Node::downgrade(child),
-        visits: Default::default(),
-        q_values: agents.iter().map(|agent| (*agent, 0.)).collect(),
-    }))
-}
-
-impl<D: Domain> EdgeInner<D> {
-    /// Calculates the current UCT value for the edge.
-    pub fn uct(
-        &self,
-        parent_agent: AgentId,
-        parent_child_visits: usize,
-        exploration: f32,
-        range: Range<f32>,
-    ) -> f32 {
-        // If parent is not present, this node is being reused and the parent leaves the horizon. Score doesn't matter
-        if let Some(q_value) = self.q_values.get(&parent_agent) {
-            // Normalize the exploitation factor so it doesn't overshadow the exploration
-            let exploitation_value = (q_value - range.start) / (range.end - range.start).max(f32::EPSILON);
-            let exploration_value = ((parent_child_visits as f32).ln() / (self.visits as f32).max(f32::EPSILON)).sqrt();
-            exploitation_value + exploration * exploration_value
-        } else {
-            0.
-        }
-    }
-
-    pub fn size(&self) -> usize {
-        let mut size = 0;
-
-        size += mem::size_of::<Self>();
-        size += self.q_values.len() * mem::size_of::<(AgentId, f32)>();
-
-        size
-    }
-}
 
 #[cfg(feature = "graphviz")]
 mod graphviz {
     use super::*;
-    use std::borrow::Cow;
+    use std::{borrow::Cow, sync::Arc};
 
     use dot::{Arrow, Edges, GraphWalk, Id, Kind, LabelText, Labeller, Nodes, Style};
 
@@ -928,7 +631,7 @@ mod graphviz {
             nodes.insert(node.clone());
 
             let edges = self.nodes.get(node).unwrap();
-            for (_task, edge) in &edges.edges {
+            for (_task, edge) in &edges.expanded_tasks {
                 if let Ok(edge) = edge.try_borrow() {
                     // Prevent recursion
                     if let Some(child) = edge.child.upgrade() {
@@ -956,11 +659,11 @@ mod graphviz {
             nodes.iter().for_each(|node| {
                 let edges = self.nodes.get(node).unwrap();
 
-                if !edges.edges.is_empty() {
+                if !edges.expanded_tasks.is_empty() {
                     let range = self.min_max_range(self.agent);
                     let best_task = edges.best_task(node.agent, 0., range.clone()).unwrap();
                     let visits = edges.child_visits();
-                    edges.edges.iter().for_each(|(obj, _edge)| {
+                    edges.expanded_tasks.iter().for_each(|(obj, _edge)| {
                         let edge = _edge.borrow();
 
                         let parent = edge.parent.upgrade().unwrap();
@@ -1011,7 +714,7 @@ mod graphviz {
         }
 
         fn node_id(&'a self, n: &Node<D>) -> Id<'a> {
-            Id::new(format!("_{:p}", Rc::as_ptr(n))).unwrap()
+            Id::new(format!("_{:p}", Arc::as_ptr(n))).unwrap()
         }
 
         fn node_label(&'a self, n: &Node<D>) -> LabelText<'a> {
@@ -1099,6 +802,8 @@ mod graphviz {
 
 #[cfg(test)]
 mod value_tests {
+    use std::fmt;
+
     use super::*;
 
     use crate::{Behavior, Task};
@@ -1277,8 +982,8 @@ mod value_tests {
 
         for i in 1..CONFIG.depth {
             let edges = mcts.nodes.get(&node).unwrap();
-            assert_eq!(edges.edges.len(), 1);
-            let edge_rc = edges.edges.values().nth(0).unwrap();
+            assert_eq!(edges.expanded_tasks.len(), 1);
+            let edge_rc = edges.expanded_tasks.values().nth(0).unwrap();
             let edge = edge_rc.borrow();
 
             node = edge.child.upgrade().unwrap();
@@ -1296,7 +1001,7 @@ mod value_tests {
 
 #[cfg(test)]
 mod branching_tests {
-    use std::ops::Range;
+    use std::{ops::Range, fmt};
 
     use super::*;
 
@@ -1484,12 +1189,12 @@ mod branching_tests {
         let root_visits = edges.child_visits();
 
         let edge_a = edges
-            .edges
+            .expanded_tasks
             .get(&(Box::new(TestTask(true)) as Box<dyn Task<TestEngine>>))
             .unwrap()
             .borrow();
         let edge_b = edges
-            .edges
+            .expanded_tasks
             .get(&(Box::new(TestTask(false)) as Box<dyn Task<TestEngine>>))
             .unwrap()
             .borrow();
@@ -1525,6 +1230,8 @@ mod branching_tests {
 
 #[cfg(test)]
 mod seeding_tests {
+
+    use std::fmt;
 
     use super::*;
 
@@ -1703,6 +1410,8 @@ mod sanity_tests {
     use super::*;
 
     mod deferment {
+        use std::fmt;
+
         use super::*;
 
         use crate::{Behavior, Task};
@@ -1951,6 +1660,8 @@ mod sanity_tests {
     }
 
     mod negative {
+        use std::fmt;
+
         use super::*;
 
         use crate::{Behavior, Task};
