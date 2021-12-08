@@ -1,10 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::usize;
+use std::ops::Deref;
+use std::mem;
 
 use ggez::graphics;
 use ggez::graphics::Image;
 use ggez::Context;
-use npc_engine_turn::{AgentId, StateRef, StateRefMut};
+use npc_engine_turn::{AgentId, SnapshotDiffRef, SnapshotDiffRefMut, Domain};
 use serde::Serialize;
 
 use crate::{Action, AgentInventory, DIRECTIONS, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, SPRITE_SIZE, Tile, TileMap, TileMapDiff, TileMapSnapshot, config};
@@ -80,8 +82,6 @@ pub trait State {
 
 pub trait StateMut {
     fn increment_time(&mut self);
-    fn set_action(&mut self, agent: AgentId, action: Action);
-    fn clear_action(&mut self, agent: AgentId);
     fn set_tile(&mut self, x: isize, y: isize, tile: Tile);
     fn get_tile_ref_mut(&mut self, x: isize, y: isize) -> Option<&mut Tile>;
     fn increment_inventory(&mut self, agent: AgentId);
@@ -89,10 +89,30 @@ pub trait StateMut {
     fn set_water(&mut self, agent: AgentId, value: bool);
 }
 
+pub(crate) enum StateRef<'a, D: Domain> {
+    State(&'a D::State),
+    Snapshot(SnapshotDiffRef<'a, D>),
+}
+
+pub(crate) enum StateRefMut<'a, D: Domain> {
+    State(&'a mut D::State),
+    Snapshot(SnapshotDiffRefMut<'a, D>),
+}
+
+impl<'a, D: Domain> Deref for StateRefMut<'a, D> {
+    type Target = StateRef<'a, D>;
+
+    fn deref(&self) -> &Self::Target {
+        // Safety: StateRef and StateRefMut have the same memory layout
+        // and casting from mutable to immutable is always safe
+        unsafe { mem::transmute(self) }
+    }
+}
+
 impl State for StateRef<'_, Lumberjacks> {
     fn get_tile(&self, x: isize, y: isize) -> Option<Tile> {
         match self {
-            StateRef::State { state } => {
+            StateRef::State(state) => {
                 if x >= 0 && x < state.map.width as isize && y >= 0 && y < state.map.height as isize
                 {
                     Some(state.map.tiles[y as usize][x as usize])
@@ -100,7 +120,7 @@ impl State for StateRef<'_, Lumberjacks> {
                     None
                 }
             }
-            StateRef::Snapshot { snapshot, diff } => {
+            StateRef::Snapshot(SnapshotDiffRef { snapshot, diff }) => {
                 let (x, y) = (x - snapshot.map.left, y - snapshot.map.top);
 
                 if x >= 0
@@ -122,7 +142,7 @@ impl State for StateRef<'_, Lumberjacks> {
 
     fn trees(&self) -> BTreeSet<(isize, isize)> {
         match self {
-            StateRef::State { state } => {
+            StateRef::State(state) => {
                 let mut set = BTreeSet::new();
                 for y in 0..state.map.height {
                     for x in 0..state.map.width {
@@ -133,7 +153,7 @@ impl State for StateRef<'_, Lumberjacks> {
                 }
                 set
             }
-            StateRef::Snapshot { snapshot, .. } => {
+            StateRef::Snapshot(SnapshotDiffRef { snapshot, diff }) => {
                 let mut set = BTreeSet::new();
                 let top = snapshot.map.top;
                 let left = snapshot.map.left;
@@ -151,13 +171,13 @@ impl State for StateRef<'_, Lumberjacks> {
 
     fn points_of_interest(&self, mut f: impl FnMut(isize, isize)) {
         let (start_x, end_x, start_y, end_y) = match self {
-            StateRef::State { state } => (
+            StateRef::State(state) => (
                 0isize,
                 state.map.width as isize,
                 0isize,
                 state.map.height as isize,
             ),
-            StateRef::Snapshot { snapshot, .. } => {
+            StateRef::Snapshot(SnapshotDiffRef { snapshot, diff }) => {
                 let extent = config().agents.snapshot_radius as isize * 2 + 1;
 
                 (
@@ -190,7 +210,7 @@ impl State for StateRef<'_, Lumberjacks> {
 
     fn find_agent(&self, agent: AgentId) -> Option<(isize, isize)> {
         match self {
-            StateRef::State { state } => {
+            StateRef::State(state) => {
                 for y in 0..state.map.height {
                     for x in 0..state.map.width {
                         if state.map.tiles[y][x] == Tile::Agent(agent) {
@@ -201,7 +221,7 @@ impl State for StateRef<'_, Lumberjacks> {
 
                 None
             }
-            StateRef::Snapshot { snapshot, diff } => {
+            StateRef::Snapshot(SnapshotDiffRef { snapshot, diff }) => {
                 if let Some(pos) = diff.map.agents_pos.get(&agent) {
                     return Some(*pos);
                 }
@@ -225,8 +245,8 @@ impl State for StateRef<'_, Lumberjacks> {
 
     fn get_inventory(&self, agent: AgentId) -> usize {
         match self {
-            StateRef::State { state } => state.inventory.0.get(&agent).unwrap().wood as usize,
-            StateRef::Snapshot { snapshot, diff } => {
+            StateRef::State(state) => state.inventory.0.get(&agent).unwrap().wood as usize,
+            StateRef::Snapshot(SnapshotDiffRef { snapshot, diff }) => {
                 (snapshot.inventory.0.get(&agent).unwrap().wood
                     + diff
                         .inventory
@@ -240,13 +260,13 @@ impl State for StateRef<'_, Lumberjacks> {
 
     fn get_total_inventory(&self) -> usize {
         match self {
-            StateRef::State { state } => state
+            StateRef::State(state) => state
                 .inventory
                 .0
                 .values()
                 .map(|inv| inv.wood)
                 .sum::<isize>() as usize,
-            StateRef::Snapshot { snapshot, diff } => {
+            StateRef::Snapshot(SnapshotDiffRef { snapshot, diff }) => {
                 (snapshot
                     .inventory
                     .0
@@ -261,13 +281,13 @@ impl State for StateRef<'_, Lumberjacks> {
 
     fn get_water(&self, agent: AgentId) -> bool {
         match self {
-            StateRef::State { state } => state
+            StateRef::State(state) => state
                 .inventory
                 .0
                 .get(&agent)
                 .map(|inv| inv.water)
                 .unwrap_or_default(),
-            StateRef::Snapshot { snapshot, diff } => diff
+            StateRef::Snapshot(SnapshotDiffRef { snapshot, diff }) => diff
                 .inventory
                 .0
                 .get(&agent)
@@ -301,26 +321,8 @@ impl State for StateRef<'_, Lumberjacks> {
 impl StateMut for StateRefMut<'_, Lumberjacks> {
     fn increment_time(&mut self) {
         match self {
-            StateRefMut::Snapshot { diff, .. } => {
+            StateRefMut::Snapshot(SnapshotDiffRefMut { diff, .. }) => {
                 diff.ctr += 1;
-            }
-            _ => {}
-        }
-    }
-
-    fn set_action(&mut self, agent: AgentId, action: Action) {
-        match self {
-            StateRefMut::State { state } => {
-                state.actions.insert(agent, action);
-            }
-            _ => {}
-        }
-    }
-
-    fn clear_action(&mut self, agent: AgentId) {
-        match self {
-            StateRefMut::State { state } => {
-                state.actions.remove(&agent);
             }
             _ => {}
         }
@@ -328,13 +330,13 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
 
     fn set_tile(&mut self, x: isize, y: isize, tile: Tile) {
         match self {
-            StateRefMut::State { state } => {
+            StateRefMut::State(state) => {
                 if x >= 0 && x < state.map.width as isize && y >= 0 && y < state.map.height as isize
                 {
                     state.map.tiles[y as usize][x as usize] = tile;
                 }
             }
-            StateRefMut::Snapshot { snapshot, diff } => {
+            StateRefMut::Snapshot(SnapshotDiffRefMut { snapshot, diff }) => {
                 if let Tile::Agent(agent) = tile {
                     diff.map.agents_pos.insert(agent, (x, y));
                 }
@@ -358,7 +360,7 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
 
     fn get_tile_ref_mut(&mut self, x: isize, y: isize) -> Option<&mut Tile> {
         match self {
-            StateRefMut::State { state } => {
+            StateRefMut::State(state) => {
                 if x >= 0 && x < state.map.width as isize && y >= 0 && y < state.map.height as isize
                 {
                     Some(&mut state.map.tiles[y as usize][x as usize])
@@ -366,7 +368,7 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
                     None
                 }
             }
-            StateRefMut::Snapshot { snapshot, diff } => {
+            StateRefMut::Snapshot(SnapshotDiffRefMut { snapshot, diff }) => {
                 let (x, y) = (x - snapshot.map.left, y - snapshot.map.top);
 
                 if x >= 0
@@ -389,10 +391,10 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
 
     fn increment_inventory(&mut self, agent: AgentId) {
         match self {
-            StateRefMut::State { state } => {
+            StateRefMut::State(state) => {
                 state.inventory.0.entry(agent).or_default().wood += 1;
             }
-            StateRefMut::Snapshot { snapshot, diff, .. } => {
+            StateRefMut::Snapshot(SnapshotDiffRefMut { snapshot, diff }) => {
                 // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
                 // but for the water it is an override (= diff.water), so we need to fetch the
                 // water from the snapshot when we create a new inventory diff
@@ -411,10 +413,10 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
 
     fn decrement_inventory(&mut self, agent: AgentId) {
         match self {
-            StateRefMut::State { state } => {
+            StateRefMut::State(state) => {
                 state.inventory.0.get_mut(&agent).unwrap().wood -= 1;
             }
-            StateRefMut::Snapshot { snapshot, diff, .. } => {
+            StateRefMut::Snapshot(SnapshotDiffRefMut { snapshot, diff }) => {
                 // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
                 // but for the water it is an override (= diff.water), so we need to fetch the
                 // water from the snapshot when we create a new inventory diff
@@ -433,10 +435,10 @@ impl StateMut for StateRefMut<'_, Lumberjacks> {
 
     fn set_water(&mut self, agent: AgentId, value: bool) {
         match self {
-            StateRefMut::State { state } => {
+            StateRefMut::State(state) => {
                 state.inventory.0.get_mut(&agent).unwrap().water = value;
             }
-            StateRefMut::Snapshot { diff, .. } => {
+            StateRefMut::Snapshot(SnapshotDiffRefMut { snapshot, diff }) => {
                 diff.inventory.0.entry(agent).or_default().water = value;
             }
         }

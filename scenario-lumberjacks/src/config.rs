@@ -6,9 +6,9 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use npc_engine_turn::{AgentId, StateRef};
+use npc_engine_turn::AgentId;
 
-use crate::fitnesses;
+use crate::{fitnesses, StateRef};
 use crate::Lumberjacks;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,7 +53,7 @@ pub struct AgentsConfig {
         deserialize_with = "behavior_deserializer",
         serialize_with = "behavior_serializer"
     )]
-    pub behaviors: HashMap<usize, (String, fn(StateRef<Lumberjacks>, AgentId) -> f32)>,
+    pub(crate) behaviors: HashMap<usize, (String, fn(StateRef<Lumberjacks>, AgentId) -> f32)>,
 }
 
 impl fmt::Debug for AgentsConfig {

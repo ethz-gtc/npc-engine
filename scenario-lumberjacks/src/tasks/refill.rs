@@ -1,9 +1,9 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, StateRef, StateRefMut, Task};
+use npc_engine_turn::{AgentId, Task, SnapshotDiffRef, SnapshotDiffRefMut, Domain};
 
-use crate::{config, Action, Lumberjacks, State, StateMut, Tile, DIRECTIONS};
+use crate::{config, Action, Direction, Lumberjacks, State, StateMut, StateRef, StateRefMut, Tile, DIRECTIONS};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Refill;
@@ -15,23 +15,30 @@ impl fmt::Display for Refill {
 }
 
 impl Task<Lumberjacks> for Refill {
-    fn weight(&self, _: StateRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.refill
     }
 
     fn execute(
         &self,
-        mut state: StateRefMut<Lumberjacks>,
+        mut snapshot: SnapshotDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
+        // FIXME: cleanup compat code
+        let mut state = StateRefMut::Snapshot(snapshot);
         state.increment_time();
 
-        state.set_action(agent, Action::Refill);
         state.set_water(agent, true);
         None
     }
 
-    fn is_valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn display_action(&self) -> <Lumberjacks as Domain>::DisplayAction {
+        Action::Refill
+    }
+
+    fn is_valid(&self, snapshot: SnapshotDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+        // FIXME: cleanup compat code
+        let state = StateRef::Snapshot(snapshot);
         if let Some((x, y)) = state.find_agent(agent) {
             !state.get_water(agent)
                 && DIRECTIONS.iter().any(|direction| {

@@ -1,6 +1,6 @@
 use std::{ops::Range, mem, sync::Arc, cell::RefCell, fmt, collections::BTreeSet};
 
-use crate::{Domain, AgentId, SeededHashMap, Task, StateRef, Node, WeakNode};
+use crate::{Domain, AgentId, SeededHashMap, Task, SnapshotDiffRef, Node, WeakNode};
 
 use rand::distributions::WeightedIndex;
 
@@ -26,7 +26,7 @@ impl<D: Domain> Edges<D> {
         let branching_factor;
 
         let unexpanded_edges = match node.tasks.get(&node.agent) {
-            Some(task) if task.is_valid(StateRef::snapshot(snapshot, &node.diff), node.agent) => {
+            Some(task) if task.is_valid(SnapshotDiffRef::new(snapshot, &node.diff), node.agent) => {
                 branching_factor = 1;
 
                 let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
@@ -37,20 +37,20 @@ impl<D: Domain> Edges<D> {
             _ => {
                 // Get possible tasks
                 let tasks = D::get_tasks(
-                    StateRef::snapshot(snapshot, &node.diff),
+                    SnapshotDiffRef::new(snapshot, &node.diff),
                     node.agent
                 );
 
                 // Safety-check that all tasks are valid (to be disabled once enough unit tests are in place)
 				for task in &tasks {
-					assert!(task.is_valid(StateRef::snapshot(snapshot, &node.diff), node.agent));
+					assert!(task.is_valid(SnapshotDiffRef::new(snapshot, &node.diff), node.agent));
 				}
 
                 branching_factor = tasks.len();
 
                 let weights =
                     WeightedIndex::new(tasks.iter().map(|task| {
-                        task.weight(StateRef::snapshot(snapshot, &node.diff), node.agent)
+                        task.weight(SnapshotDiffRef::new(snapshot, &node.diff), node.agent)
                     }))
                     .unwrap();
 
@@ -142,6 +142,7 @@ impl<D: Domain> Edges<D> {
 
 pub type Edge<D> = Arc<RefCell<EdgeInner<D>>>;
 
+// FIXME: unpub
 pub struct EdgeInner<D: Domain> {
     pub parent: WeakNode<D>,
     pub child: WeakNode<D>,

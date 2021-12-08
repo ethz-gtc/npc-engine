@@ -1,6 +1,6 @@
 use std::fmt;
 
-use npc_engine_turn::{AgentId, Behavior, StateRef};
+use npc_engine_turn::{AgentId, Behavior, SnapshotDiffRef};
 
 use crate::Lumberjacks;
 
@@ -13,7 +13,7 @@ impl fmt::Display for Human {
 }
 
 impl Behavior<Lumberjacks> for Human {
-    fn is_valid(&self, _state: StateRef<Lumberjacks>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _state: SnapshotDiffRef<Lumberjacks>, _agent: AgentId) -> bool {
         true
     }
 }

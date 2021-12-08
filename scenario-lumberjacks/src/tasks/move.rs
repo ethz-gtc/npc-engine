@@ -1,9 +1,9 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, StateRef, StateRefMut, Task};
+use npc_engine_turn::{AgentId, Task, SnapshotDiffRef, SnapshotDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile};
+use crate::{config, Action, Direction, Lumberjacks, StateRef, StateRefMut, Tile, StateMut, State};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Move {
@@ -19,15 +19,17 @@ impl fmt::Display for Move {
 }
 
 impl Task<Lumberjacks> for Move {
-    fn weight(&self, _: StateRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.r#move
     }
 
     fn execute(
         &self,
-        mut state: StateRefMut<Lumberjacks>,
+        mut snapshot: SnapshotDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
+        // FIXME: cleanup compat code
+        let mut state = StateRefMut::Snapshot(snapshot);
         state.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
@@ -35,7 +37,6 @@ impl Task<Lumberjacks> for Move {
             let (_x, _y) = direction.apply(x, y);
             state.set_tile(x, y, Tile::Empty);
             state.set_tile(_x, _y, Tile::Agent(agent));
-            state.set_action(agent, Action::Walk(*direction));
 
             let path = self.path.iter().skip(1).copied().collect::<Vec<_>>();
 
@@ -53,7 +54,13 @@ impl Task<Lumberjacks> for Move {
         }
     }
 
-    fn is_valid(&self, state: StateRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn display_action(&self) -> <Lumberjacks as Domain>::DisplayAction {
+        Action::Walk(*self.path.first().unwrap())
+    }
+
+    fn is_valid(&self, snapshot: SnapshotDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+        // FIXME: cleanup compat code
+        let state = StateRef::Snapshot(snapshot);
         if let Some((mut x, mut y)) = state.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
                 let tmp = direction.apply(x, y);

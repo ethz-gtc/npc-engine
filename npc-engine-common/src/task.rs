@@ -3,17 +3,20 @@ use std::hash::{Hash, Hasher};
 
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::{AgentId, Domain, StateRef, StateRefMut};
+use crate::{AgentId, Domain, SnapshotDiffRef, SnapshotDiffRefMut};
 
 pub trait Task<D: Domain>: fmt::Display + Downcast + Send + Sync {
     /// Returns the relative weight of the task for the given agent in the given world state.
-    fn weight(&self, state: StateRef<D>, agent: AgentId) -> f32;
+    fn weight(&self, state: SnapshotDiffRef<D>, agent: AgentId) -> f32;
 
     /// Executes one step of the task for the given agent on the given world state.
-    fn execute(&self, state: StateRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
+    fn execute(&self, state: SnapshotDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
 
     /// Returns if the task is valid for the given agent in the given world state.
-    fn is_valid(&self, state: StateRef<D>, agent: AgentId) -> bool;
+    fn is_valid(&self, state: SnapshotDiffRef<D>, agent: AgentId) -> bool;
+
+    /// Returns the display actions corresponding to this task.
+    fn display_action(&self) -> D::DisplayAction;
 
     /// Utility method for cloning, since `Self: Clone` is not object-safe
     fn box_clone(&self) -> Box<dyn Task<D>>;

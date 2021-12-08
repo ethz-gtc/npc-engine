@@ -14,6 +14,8 @@ pub trait Domain: Sized + 'static {
     type Snapshot: std::fmt::Debug + Sized + 'static;
     /// A compact set of changes towards a `Snapshot` that are accumulated throughout planning.
     type Diff: std::fmt::Debug + Default + Clone + Hash + Eq + 'static;
+    /// A representation of a display action that can be fetched from a task.
+    type DisplayAction;
 
     /// Returns all behaviors available for this domain.
     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>];
@@ -21,14 +23,17 @@ pub trait Domain: Sized + 'static {
     /// Derives a new `Snapshot` for the given agent from the given world state.
     fn derive_snapshot(state: &Self::State, agent: AgentId) -> Self::Snapshot;
 
+    /// Applies a diff from a snapshot to the world state.
+    fn apply(state: &mut Self::State, snapshot: &Self::Snapshot, diff: &Self::Diff);
+
     /// Gets the current value of the given agent in the given world state.
-    fn get_current_value(state: StateRef<Self>, agent: AgentId) -> f32;
+    fn get_current_value(state: SnapshotDiffRef<Self>, agent: AgentId) -> f32;
 
     /// Updates the list of agents which are in the horizon of the given agent in the given world state.
-    fn update_visible_agents(state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
+    fn update_visible_agents(state: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
 
     /// Gets all agents which are in the horizon of the given agent in the given world state.
-    fn get_visible_agents(state: StateRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
+    fn get_visible_agents(state: SnapshotDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
         let mut agents = BTreeSet::new();
         Self::update_visible_agents(state, agent, &mut agents);
         agents
@@ -36,7 +41,7 @@ pub trait Domain: Sized + 'static {
 
     /// Gets all possible valid tasks for a given agent in a given world state.
     fn get_tasks<'a>(
-        state: StateRef<'a, Self>,
+        state: SnapshotDiffRef<'a, Self>,
         agent: AgentId
     ) -> Vec<Box<dyn Task<Self>>> {
         let mut actions = Vec::new();
@@ -50,79 +55,52 @@ pub trait Domain: Sized + 'static {
     }
 }
 
-pub enum StateRef<'a, D: Domain> {
-    State {
-        state: &'a D::State,
-    },
-    Snapshot {
-        snapshot: &'a D::Snapshot,
-        diff: &'a D::Diff,
-    },
+pub struct SnapshotDiffRef<'a, D: Domain> {
+    pub snapshot: &'a D::Snapshot, // FIXME: unpub
+    pub diff: &'a D::Diff, // FIXME: unpub
 }
-
-impl<D: Domain> Copy for StateRef<'_, D> {}
-impl<D: Domain> Clone for StateRef<'_, D> {
+impl<D: Domain> Copy for SnapshotDiffRef<'_, D> {}
+impl<D: Domain> Clone for SnapshotDiffRef<'_, D> {
     fn clone(&self) -> Self {
-        match self {
-            StateRef::State { state } => StateRef::State { state },
-            StateRef::Snapshot { snapshot, diff } => StateRef::Snapshot { snapshot, diff },
-        }
+        SnapshotDiffRef::new(self.snapshot, self.diff)
+    }
+}
+impl<'a, D: Domain> SnapshotDiffRef<'a, D> {
+    pub fn new(snapshot: &'a D::Snapshot, diff: &'a D::Diff) -> Self {
+        SnapshotDiffRef { snapshot, diff }
     }
 }
 
-impl<'a, D: Domain> StateRef<'a, D> {
-    pub fn state(state: &'a D::State) -> Self {
-        StateRef::State { state }
-    }
-
-    pub fn snapshot(snapshot: &'a D::Snapshot, diff: &'a D::Diff) -> Self {
-        StateRef::Snapshot { snapshot, diff }
-    }
-}
-
-impl<D: Domain> fmt::Debug for StateRef<'_, D>
+impl<D: Domain> fmt::Debug for SnapshotDiffRef<'_, D>
 where
     D::State: fmt::Debug,
     D::Snapshot: fmt::Debug,
     D::Diff: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            StateRef::State { state } => f.debug_tuple("State").field(state).finish(),
-            StateRef::Snapshot { snapshot, diff } => f
-                .debug_struct("Snapshot")
-                .field("Snapshot", snapshot)
-                .field("Diff", diff)
-                .finish(),
-        }
+        f
+            .debug_struct("SnapshotDiffRef")
+            .field("Snapshot", self.snapshot)
+            .field("Diff", self.diff)
+            .finish()
     }
 }
 
-pub enum StateRefMut<'a, D: Domain> {
-    State {
-        state: &'a mut D::State,
-    },
-    Snapshot {
-        snapshot: &'a D::Snapshot,
-        diff: &'a mut D::Diff,
-    },
+pub struct SnapshotDiffRefMut<'a, D: Domain> {
+    pub snapshot: &'a D::Snapshot, // FIXME: unpub
+    pub diff: &'a mut D::Diff, // FIXME: unpub
 }
-
-impl<'a, D: Domain> StateRefMut<'a, D> {
-    pub fn state(state: &'a mut D::State) -> Self {
-        StateRefMut::State { state }
-    }
-
-    pub fn snapshot(snapshot: &'a D::Snapshot, diff: &'a mut D::Diff) -> Self {
-        StateRefMut::Snapshot { snapshot, diff }
+impl<'a, D: Domain> SnapshotDiffRefMut<'a, D> {
+    pub fn new(snapshot: &'a D::Snapshot, diff: &'a mut D::Diff) -> Self {
+        SnapshotDiffRefMut { snapshot, diff }
     }
 }
 
-impl<'a, D: Domain> Deref for StateRefMut<'a, D> {
-    type Target = StateRef<'a, D>;
+impl<'a, D: Domain> Deref for SnapshotDiffRefMut<'a, D> {
+    type Target = SnapshotDiffRef<'a, D>;
 
     fn deref(&self) -> &Self::Target {
-        // Safety: StateRef and StateRefMut have the same memory layout
+        // Safety: SnapshotDiffRef and SnapshotDiffRefMut have the same memory layout
         // and casting from mutable to immutable is always safe
         unsafe { mem::transmute(self) }
     }

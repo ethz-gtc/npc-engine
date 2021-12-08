@@ -1,9 +1,9 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, StateRef, StateRefMut, Task};
+use npc_engine_turn::{AgentId, Task, SnapshotDiffRef, SnapshotDiffRefMut, Domain};
 
-use crate::{config, Action, Lumberjacks, StateMut};
+use crate::{config, Action, Lumberjacks, State, StateRef, StateRefMut, StateMut};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Wait;
@@ -15,22 +15,27 @@ impl fmt::Display for Wait {
 }
 
 impl Task<Lumberjacks> for Wait {
-    fn weight(&self, _: StateRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.wait
     }
 
     fn execute(
         &self,
-        mut state: StateRefMut<Lumberjacks>,
+        mut snapshot: SnapshotDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
+        // FIXME: cleanup compat code
+        let mut state = StateRefMut::Snapshot(snapshot);
         state.increment_time();
 
-        state.set_action(agent, Action::Wait);
         None
     }
 
-    fn is_valid(&self, _: StateRef<Lumberjacks>, _: AgentId) -> bool {
+    fn display_action(&self) -> <Lumberjacks as Domain>::DisplayAction {
+        Action::Wait
+    }
+
+    fn is_valid(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> bool {
         true
     }
 

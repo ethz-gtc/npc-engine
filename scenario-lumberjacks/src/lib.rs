@@ -6,7 +6,7 @@ use std::{fs, io, mem, process};
 
 use clap::{App, Arg};
 
-use npc_engine_turn::{AgentId, Behavior, Domain, StateRef};
+use npc_engine_turn::{AgentId, Behavior, Domain, SnapshotDiffRef};
 use serde_json::Value;
 
 mod behaviors;
@@ -245,13 +245,14 @@ impl Domain for Lumberjacks {
     type State = WorldState;
     type Snapshot = WorldSnapshot;
     type Diff = WorldDiff;
+    type DisplayAction = Action;
 
     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
         &[&Human, &Lumberjack]
     }
 
     fn derive_snapshot(state: &Self::State, agent: AgentId) -> Self::Snapshot {
-        let (x, y) = StateRef::state(state).find_agent(agent).unwrap();
+        let (x, y) = StateRef::State(state).find_agent(agent).unwrap();
 
         let top = y - config().agents.snapshot_radius as isize;
         let left = x - config().agents.snapshot_radius as isize;
@@ -291,20 +292,25 @@ impl Domain for Lumberjacks {
             map,
         }
     }
-/*
-    // Note: apply is not used, so there is no need to require it
-    fn apply(snapshot: &mut Self::Snapshot, diff: &Self::Diff) {
+
+    fn apply(state: &mut Self::State, snapshot: &Self::Snapshot, diff: &Self::Diff) {
         for (agent, AgentInventory { wood, water }) in &diff.inventory.0 {
-            if let Some(inventory) = snapshot.inventory.0.get_mut(agent) {
+            if let Some(inventory) = state.inventory.0.get_mut(agent) {
                 inventory.wood = inventory.wood + *wood;
                 inventory.water = *water;
             }
         }
 
         for ((x, y), tile) in &diff.map.tiles {
-            snapshot.map.tiles[*y as usize][*x as usize] = *tile;
+            let dest_y = y + snapshot.map.top;
+            let dest_x = x + snapshot.map.left;
+            if (dest_y >= 0 && dest_y < state.map.height as isize)
+                && (dest_x >= 0 && dest_x < state.map.width as isize)
+            {
+                state.map.tiles[dest_y as usize][dest_x as usize] = *tile;
+            }
         }
-    }*/
+    }
 /*
     // Note: this was used for fuzzy node reuse, but that is too complex for now
     fn compatible(snapshot: &Self::Snapshot, other: &Self::Snapshot, agent: AgentId) -> bool {
@@ -372,7 +378,9 @@ impl Domain for Lumberjacks {
         )
     }
  */
-    fn get_current_value(state: StateRef<Self>, agent: AgentId) -> f32 {
+    fn get_current_value(snapshot: SnapshotDiffRef<Self>, agent: AgentId) -> f32 {
+        // FIXME: cleanup compat code
+        let state = StateRef::Snapshot(snapshot);
         if let Some((_, f)) = config().agents.behaviors.get(&(agent.0 as usize)) {
             f(state, agent)
         } else {
@@ -380,7 +388,9 @@ impl Domain for Lumberjacks {
         }
     }
 
-    fn update_visible_agents(state: StateRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+    fn update_visible_agents(snapshot: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        // FIXME: cleanup compat code
+        let state = StateRef::Snapshot(snapshot);
         if let Some((x, y)) = state.find_agent(agent) {
             if config().agents.plan_others {
                 agents.extend(
@@ -392,7 +402,7 @@ impl Domain for Lumberjacks {
                 agents.insert(agent);
             }
         } else {
-            unreachable!("{:?}", state);
+            unreachable!("{:?}", snapshot);
         }
     }
 }

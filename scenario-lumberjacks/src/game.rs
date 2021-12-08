@@ -11,8 +11,11 @@ use ggez::{graphics, input::keyboard};
 use ggez::{Context, GameResult};
 use npc_engine_turn::Domain;
 use npc_engine_turn::MCTSConfiguration;
-use npc_engine_turn::{AgentId, StateRefMut, Task, MCTS};
+use npc_engine_turn::SnapshotDiffRefMut;
+use npc_engine_turn::{AgentId, Task, MCTS};
 
+use crate::StateRefMut;
+use crate::WorldDiff;
 use crate::{
     agency_metric_hook, branching_metric_hook, config, diff_memory_metric_hook,
     features_metric_hook, graph_hook, heatmap_hook, islands_metric_hook,
@@ -289,7 +292,10 @@ impl GameState {
         });
 
         let objectives = &mut self.objectives;
-        objective.execute(StateRefMut::state(world), agent);
+        let mut diff = WorldDiff::default();
+        objective.execute(SnapshotDiffRefMut::new(&mcts.snapshot, &mut diff), agent);
+        Lumberjacks::apply(world, &mcts.snapshot, &diff);
+        world.actions.insert(agent, objective.display_action());
         objectives.insert(agent, objective);
 
         self.post_world_hooks.iter_mut().for_each(|f| {

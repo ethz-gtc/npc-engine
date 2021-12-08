@@ -2,11 +2,11 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt;
 
-use npc_engine_turn::{AgentId, Behavior, StateRef, Task};
+use npc_engine_turn::{AgentId, Behavior, SnapshotDiffRef, Task};
 
 use crate::{
     config, Barrier, Chop, Direction, Lumberjacks, Map2D, Move, Plant, Refill, State, Wait, Water,
-    DIRECTIONS,
+    DIRECTIONS, StateRef,
 };
 
 pub struct Lumberjack;
@@ -164,12 +164,17 @@ fn wavefront_pathfind(
 }
 
 impl Behavior<Lumberjacks> for Lumberjack {
+    fn is_valid(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> bool {
+        true
+    }
     fn add_own_tasks(
         &self,
-        state: StateRef<Lumberjacks>,
+        snapshot: SnapshotDiffRef<Lumberjacks>,
         agent: AgentId,
         tasks: &mut Vec<Box<dyn Task<Lumberjacks>>>,
     ) {
+        // FIXME: cleanup compat code
+        let state = StateRef::Snapshot(snapshot);
         if let Some((x, y)) = state.find_agent(agent) {
             if config().agents.tasks {
                 // Movement
@@ -213,7 +218,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
                                 y: target_y as _,
                             };
 
-                            if task.is_valid(state, agent) {
+                            if task.is_valid(snapshot, agent) {
                                 tasks.push(Box::new(task));
                             }
                         }
@@ -239,7 +244,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
 
             // Chopping
             for &direction in DIRECTIONS {
-                if (Chop { direction }).is_valid(state, agent) {
+                if (Chop { direction }).is_valid(snapshot, agent) {
                     tasks.push(Box::new(Chop { direction }));
                 }
             }
@@ -247,7 +252,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
             // Barriers
             if config().features.barriers && state.get_inventory(agent) > 0 {
                 for &direction in DIRECTIONS {
-                    if (Barrier { direction }).is_valid(state, agent) {
+                    if (Barrier { direction }).is_valid(snapshot, agent) {
                         tasks.push(Box::new(Barrier { direction }));
                     }
                 }
@@ -257,12 +262,12 @@ impl Behavior<Lumberjacks> for Lumberjack {
             if config().features.watering {
                 if state.get_water(agent) {
                     for &direction in DIRECTIONS {
-                        if (Water { direction }.is_valid(state, agent)) {
+                        if (Water { direction }.is_valid(snapshot, agent)) {
                             tasks.push(Box::new(Water { direction }));
                         }
                     }
                 } else {
-                    if Refill.is_valid(state, agent) {
+                    if Refill.is_valid(snapshot, agent) {
                         tasks.push(Box::new(Refill))
                     }
                 }
@@ -271,7 +276,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
             // Planting
             if config().features.planting && state.get_inventory(agent) > 0 {
                 for &direction in DIRECTIONS {
-                    if (Plant { direction }).is_valid(state, agent) {
+                    if (Plant { direction }).is_valid(snapshot, agent) {
                         tasks.push(Box::new(Plant { direction }));
                     }
                 }
@@ -284,9 +289,5 @@ impl Behavior<Lumberjacks> for Lumberjack {
         } else {
             unreachable!()
         }
-    }
-
-    fn is_valid(&self, _: StateRef<Lumberjacks>, _: AgentId) -> bool {
-        true
     }
 }
