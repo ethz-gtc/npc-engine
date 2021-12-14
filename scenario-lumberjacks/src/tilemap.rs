@@ -94,7 +94,7 @@ impl TileMap {
                     Tile::Agent(agent) if actions.contains_key(&agent) => Some(format!(
                         "{}{}",
                         if agent.0 % 2 == 0 { "Orange" } else { "Yellow" },
-                        actions.get(&agent).unwrap().display(),
+                        actions.get(&agent).unwrap().sprite_name(),
                     )),
                     tile @ _ => tile.sprite(),
                 };

@@ -158,8 +158,14 @@ pub enum Action {
     Wait,
 }
 
+impl fmt::Display for Action {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl Action {
-    pub fn display(&self) -> &str {
+    pub fn sprite_name(&self) -> &str {
         match self {
             Action::Wait => "Right",
             Action::Walk(Direction::Up) => "Top",
