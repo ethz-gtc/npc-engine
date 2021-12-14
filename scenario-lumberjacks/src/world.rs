@@ -6,7 +6,7 @@ use std::mem;
 use ggez::graphics;
 use ggez::graphics::Image;
 use ggez::Context;
-use npc_engine_turn::{AgentId, StateDiffRef, StateDiffRefMut, Domain};
+use npc_engine_turn::{AgentId, StateDiffRef, StateDiffRefMut};
 use npc_engine_utils::GlobalDomain;
 use serde::Serialize;
 
@@ -95,6 +95,7 @@ pub(crate) enum GlobalStateRef<'a, D: GlobalDomain> {
     Snapshot(StateDiffRef<'a, D>),
 }
 
+// FIXME: cleanup this
 pub(crate) enum GlobalStateRefMut<'a, D: GlobalDomain> {
     State(&'a mut D::GlobalState),
     Snapshot(StateDiffRefMut<'a, D>),
@@ -154,7 +155,7 @@ impl State for GlobalStateRef<'_, Lumberjacks> {
                 }
                 set
             }
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff }) => {
+            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff: _ }) => {
                 let mut set = BTreeSet::new();
                 let top = snapshot.map.top;
                 let left = snapshot.map.left;
@@ -178,7 +179,7 @@ impl State for GlobalStateRef<'_, Lumberjacks> {
                 0isize,
                 state.map.height as isize,
             ),
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff }) => {
+            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff: _ }) => {
                 let extent = config().agents.snapshot_radius as isize * 2 + 1;
 
                 (
@@ -439,7 +440,7 @@ impl StateMut for GlobalStateRefMut<'_, Lumberjacks> {
             GlobalStateRefMut::State(state) => {
                 state.inventory.0.get_mut(&agent).unwrap().water = value;
             }
-            GlobalStateRefMut::Snapshot(StateDiffRefMut { initial_state: snapshot, diff }) => {
+            GlobalStateRefMut::Snapshot(StateDiffRefMut { initial_state: _, diff }) => {
                 diff.inventory.0.entry(agent).or_default().water = value;
             }
         }

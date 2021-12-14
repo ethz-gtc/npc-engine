@@ -19,28 +19,28 @@ pub trait Domain: Sized + 'static {
     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>];
 
     /// Gets the current value of the given agent in the given world state.
-    fn get_current_value(state: StateDiffRef<Self>, agent: AgentId) -> f32;
+    fn get_current_value(state_diff: StateDiffRef<Self>, agent: AgentId) -> f32;
 
     /// Updates the list of agents which are in the horizon of the given agent in the given world state.
-    fn update_visible_agents(state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
+    fn update_visible_agents(state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
 
     /// Gets all agents which are in the horizon of the given agent in the given world state.
-    fn get_visible_agents(state: StateDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
+    fn get_visible_agents(state_diff: StateDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
         let mut agents = BTreeSet::new();
-        Self::update_visible_agents(state, agent, &mut agents);
+        Self::update_visible_agents(state_diff, agent, &mut agents);
         agents
     }
 
     /// Gets all possible valid tasks for a given agent in a given world state.
     fn get_tasks<'a>(
-        state: StateDiffRef<'a, Self>,
+        state_diff: StateDiffRef<'a, Self>,
         agent: AgentId
     ) -> Vec<Box<dyn Task<Self>>> {
         let mut actions = Vec::new();
         Self::list_behaviors()
             .iter()
-            .filter(|behavior| behavior.is_valid(state, agent))
-            .for_each(|behavior| behavior.add_tasks(state, agent, &mut actions));
+            .filter(|behavior| behavior.is_valid(state_diff, agent))
+            .for_each(|behavior| behavior.add_tasks(state_diff, agent, &mut actions));
 
         actions.dedup();
         actions
@@ -58,8 +58,8 @@ impl<D: Domain> Clone for StateDiffRef<'_, D> {
     }
 }
 impl<'a, D: Domain> StateDiffRef<'a, D> {
-    pub fn new(snapshot: &'a D::State, diff: &'a D::Diff) -> Self {
-        StateDiffRef { initial_state: snapshot, diff }
+    pub fn new(state: &'a D::State, diff: &'a D::Diff) -> Self {
+        StateDiffRef { initial_state: state, diff }
     }
 }
 
@@ -82,8 +82,8 @@ pub struct StateDiffRefMut<'a, D: Domain> {
     pub diff: &'a mut D::Diff, // FIXME: unpub
 }
 impl<'a, D: Domain> StateDiffRefMut<'a, D> {
-    pub fn new(snapshot: &'a D::State, diff: &'a mut D::Diff) -> Self {
-        StateDiffRefMut { initial_state: snapshot, diff }
+    pub fn new(state: &'a D::State, diff: &'a mut D::Diff) -> Self {
+        StateDiffRefMut { initial_state: state, diff }
     }
 }
 

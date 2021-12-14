@@ -23,11 +23,11 @@ impl Task<Lumberjacks> for Plant {
 
     fn execute(
         &self,
-        mut snapshot: StateDiffRefMut<Lumberjacks>,
+        state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(snapshot);
+        let mut state = GlobalStateRefMut::Snapshot(state_diff);
         state.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
@@ -52,9 +52,9 @@ impl Task<Lumberjacks> for Plant {
         Action::Plant(self.direction)
     }
 
-    fn is_valid(&self, snapshot: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(snapshot);
+        let state = GlobalStateRef::Snapshot(state_diff);
         if let Some((x, y)) = state.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
             matches!(state.get_tile(x, y), Some(Tile::Empty))

@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, GlobalStateRefMut, Tile, DIRECTIONS};
+use crate::{config, Action, Lumberjacks, State, StateMut, GlobalStateRef, GlobalStateRefMut, Tile, DIRECTIONS};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Refill;
@@ -21,11 +21,11 @@ impl Task<Lumberjacks> for Refill {
 
     fn execute(
         &self,
-        mut snapshot: StateDiffRefMut<Lumberjacks>,
+        state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(snapshot);
+        let mut state = GlobalStateRefMut::Snapshot(state_diff);
         state.increment_time();
 
         state.set_water(agent, true);
@@ -36,9 +36,9 @@ impl Task<Lumberjacks> for Refill {
         Action::Refill
     }
 
-    fn is_valid(&self, snapshot: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(snapshot);
+        let state = GlobalStateRef::Snapshot(state_diff);
         if let Some((x, y)) = state.find_agent(agent) {
             !state.get_water(agent)
                 && DIRECTIONS.iter().any(|direction| {
