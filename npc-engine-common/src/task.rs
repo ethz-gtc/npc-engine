@@ -7,13 +7,13 @@ use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut};
 
 pub trait Task<D: Domain>: fmt::Display + Downcast + Send + Sync {
     /// Returns the relative weight of the task for the given agent in the given world state.
-    fn weight(&self, state: StateDiffRef<D>, agent: AgentId) -> f32;
+    fn weight(&self, state_diff: StateDiffRef<D>, agent: AgentId) -> f32;
 
     /// Executes one step of the task for the given agent on the given world state.
-    fn execute(&self, state: StateDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
+    fn execute(&self, state_diff: StateDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
 
     /// Returns if the task is valid for the given agent in the given world state.
-    fn is_valid(&self, state: StateDiffRef<D>, agent: AgentId) -> bool;
+    fn is_valid(&self, state_diff: StateDiffRef<D>, agent: AgentId) -> bool;
 
     /// Returns the display actions corresponding to this task.
     fn display_action(&self) -> D::DisplayAction;

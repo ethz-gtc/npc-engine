@@ -7,8 +7,8 @@ pub trait GlobalDomain: Domain {
     type GlobalState: std::fmt::Debug + Sized + 'static;
 
 	/// Derives a new local state for the given agent from the given global state.
-    fn derive_local_state(state: &Self::GlobalState, agent: AgentId) -> Self::State;
+    fn derive_local_state(global_state: &Self::GlobalState, agent: AgentId) -> Self::State;
 
     /// Applies a diff from a local state to the global state.
-    fn apply(state: &mut Self::GlobalState, snapshot: &Self::State, diff: &Self::Diff);
+    fn apply(global_state: &mut Self::GlobalState, snapshot: &Self::State, diff: &Self::Diff);
 }

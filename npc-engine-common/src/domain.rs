@@ -8,9 +8,9 @@ use crate::{AgentId, Behavior, Task};
 // TODO: remove debug constraints
 /// A domain on which the MCTS planner can plan
 pub trait Domain: Sized + 'static {
-    /// Possibly a smaller view of the `State`, as seen by a give agent.
+    /// The state the MCTS plans on.
     type State: std::fmt::Debug + Sized + 'static;
-    /// A compact set of changes towards a `Snapshot` that are accumulated throughout planning.
+    /// A compact set of changes towards a `State` that are accumulated throughout planning.
     type Diff: std::fmt::Debug + Default + Clone + Hash + Eq + 'static;
     /// A representation of a display action that can be fetched from a task.
     type DisplayAction;
@@ -58,8 +58,8 @@ impl<D: Domain> Clone for StateDiffRef<'_, D> {
     }
 }
 impl<'a, D: Domain> StateDiffRef<'a, D> {
-    pub fn new(state: &'a D::State, diff: &'a D::Diff) -> Self {
-        StateDiffRef { initial_state: state, diff }
+    pub fn new(initial_state: &'a D::State, diff: &'a D::Diff) -> Self {
+        StateDiffRef { initial_state, diff }
     }
 }
 
@@ -82,8 +82,8 @@ pub struct StateDiffRefMut<'a, D: Domain> {
     pub diff: &'a mut D::Diff, // FIXME: unpub
 }
 impl<'a, D: Domain> StateDiffRefMut<'a, D> {
-    pub fn new(state: &'a D::State, diff: &'a mut D::Diff) -> Self {
-        StateDiffRefMut { initial_state: state, diff }
+    pub fn new(initial_state: &'a D::State, diff: &'a mut D::Diff) -> Self {
+        StateDiffRefMut { initial_state, diff }
     }
 }
 

@@ -1,3 +1,3 @@
-mod domain;
+mod global_domain;
 
-pub use domain::*;
+pub use global_domain::*;

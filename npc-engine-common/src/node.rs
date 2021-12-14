@@ -29,21 +29,21 @@ impl<D: Domain> fmt::Debug for NodeInner<D> {
 
 impl<D: Domain> NodeInner<D> {
     pub fn new(
-        snapshot: &D::State,
+        initial_state: &D::State,
         diff: D::Diff,
         agent: AgentId,
         mut tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
     ) -> Self {
         // Check validity of task for agent
         if let Some(task) = tasks.get(&agent) {
-            if !task.is_valid(StateDiffRef::new(snapshot, &diff), agent) {
+            if !task.is_valid(StateDiffRef::new(initial_state, &diff), agent) {
                 tasks.remove(&agent);
             }
         }
 
         // Get observable agents
         let agents = D::get_visible_agents(
-            StateDiffRef::new(snapshot, &diff),
+            StateDiffRef::new(initial_state, &diff),
             agent
         );
 
@@ -53,7 +53,7 @@ impl<D: Domain> NodeInner<D> {
             .map(|agent| {
                 (
                     *agent,
-                    D::get_current_value(StateDiffRef::new(snapshot, &diff), *agent),
+                    D::get_current_value(StateDiffRef::new(initial_state, &diff), *agent),
                 )
             })
             .collect();

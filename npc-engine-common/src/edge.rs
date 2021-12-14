@@ -21,12 +21,12 @@ impl<'a, D: Domain> IntoIterator for &'a Edges<D> {
 }
 
 impl<D: Domain> Edges<D> {
-    pub fn new(node: &Node<D>, snapshot: &D::State) -> Self {
+    pub fn new(node: &Node<D>, initial_state: &D::State) -> Self {
        // Branching factor of the node
         let branching_factor;
 
         let unexpanded_edges = match node.tasks.get(&node.agent) {
-            Some(task) if task.is_valid(StateDiffRef::new(snapshot, &node.diff), node.agent) => {
+            Some(task) if task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.agent) => {
                 branching_factor = 1;
 
                 let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
@@ -37,20 +37,20 @@ impl<D: Domain> Edges<D> {
             _ => {
                 // Get possible tasks
                 let tasks = D::get_tasks(
-                    StateDiffRef::new(snapshot, &node.diff),
+                    StateDiffRef::new(initial_state, &node.diff),
                     node.agent
                 );
 
                 // Safety-check that all tasks are valid (to be disabled once enough unit tests are in place)
 				for task in &tasks {
-					assert!(task.is_valid(StateDiffRef::new(snapshot, &node.diff), node.agent));
+					assert!(task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.agent));
 				}
 
                 branching_factor = tasks.len();
 
                 let weights =
                     WeightedIndex::new(tasks.iter().map(|task| {
-                        task.weight(StateDiffRef::new(snapshot, &node.diff), node.agent)
+                        task.weight(StateDiffRef::new(initial_state, &node.diff), node.agent)
                     }))
                     .unwrap();
 
