@@ -1,9 +1,9 @@
 use std::{fmt, num::NonZeroU8};
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, Task, SnapshotDiffRef, SnapshotDiffRefMut, Domain};
+use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, StateRef, StateRefMut, Tile, DIRECTIONS, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, GlobalStateRefMut, Tile, DIRECTIONS, StateMut, State};
 
 // SAFETY: this is safe as 1 is non-zero. This is actually a work-around the fact
 // that Option::unwrap() is currently not const, but we need a constant in the match arm below.
@@ -22,17 +22,17 @@ impl fmt::Display for Chop {
 }
 
 impl Task<Lumberjacks> for Chop {
-    fn weight(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.chop
     }
 
     fn execute(
         &self,
-        mut snapshot: SnapshotDiffRefMut<Lumberjacks>,
+        mut snapshot: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = StateRefMut::Snapshot(snapshot);
+        let mut state = GlobalStateRefMut::Snapshot(snapshot);
         state.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
@@ -69,9 +69,9 @@ impl Task<Lumberjacks> for Chop {
         Action::Chop(self.direction)
     }
 
-    fn is_valid(&self, snapshot: SnapshotDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, snapshot: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         // FIXME: cleanup compat code
-        let state = StateRef::Snapshot(snapshot);
+        let state = GlobalStateRef::Snapshot(snapshot);
         if let Some((x, y)) = state.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
             matches!(state.get_tile(x, y), Some(Tile::Tree(_)))

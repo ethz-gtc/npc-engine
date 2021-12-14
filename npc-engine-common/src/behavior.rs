@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::{AgentId, Domain, SnapshotDiffRef, Task};
+use crate::{AgentId, Domain, StateDiffRef, Task};
 
 /// A possibly-recursive set of possible tasks
 pub trait Behavior<D: Domain>: fmt::Display + 'static {
@@ -11,13 +11,13 @@ pub trait Behavior<D: Domain>: fmt::Display + 'static {
 
     /// Collects valid tasks for the given agent in the given world state.
     #[allow(unused)]
-    fn add_own_tasks(&self, state: SnapshotDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {}
+    fn add_own_tasks(&self, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {}
 
     /// Returns if the behavior is valid for the given agent in the given world state.
-    fn is_valid(&self, state: SnapshotDiffRef<D>, agent: AgentId) -> bool;
+    fn is_valid(&self, state: StateDiffRef<D>, agent: AgentId) -> bool;
 
     /// Helper method to recursively collect all valid tasks for the given agent in the given world state.
-    fn add_tasks(&self, state: SnapshotDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {
+    fn add_tasks(&self, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {
         self.add_own_tasks(state, agent, tasks);
         self.get_dependent_behaviors()
             .iter()

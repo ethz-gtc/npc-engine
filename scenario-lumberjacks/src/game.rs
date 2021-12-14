@@ -9,12 +9,11 @@ use ggez::graphics::{Image, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{graphics, input::keyboard};
 use ggez::{Context, GameResult};
-use npc_engine_turn::Domain;
 use npc_engine_turn::MCTSConfiguration;
-use npc_engine_turn::SnapshotDiffRefMut;
+use npc_engine_turn::StateDiffRefMut;
 use npc_engine_turn::{AgentId, Task, MCTS};
+use npc_engine_utils::GlobalDomain;
 
-use crate::StateRefMut;
 use crate::WorldDiff;
 use crate::{
     agency_metric_hook, branching_metric_hook, config, diff_memory_metric_hook,
@@ -32,7 +31,8 @@ pub struct GameState {
     run: Option<usize>,
     turn: usize,
     world: WorldState,
-    mcts: BTreeMap<AgentId, MCTS<Lumberjacks>>,
+    config: MCTSConfiguration,
+    // mcts: BTreeMap<AgentId, MCTS<Lumberjacks>>,
     agents: Vec<AgentId>,
     objectives: BTreeMap<AgentId, Box<dyn Task<Lumberjacks>>>,
     pre_world_hooks: Vec<Box<dyn FnMut(PreWorldHookArgs)>>,
@@ -81,28 +81,13 @@ impl GameState {
             );
         }
 
-        let mcts = agents
-            .iter()
-            .map(|agent| {
-                let config = MCTSConfiguration {
-                    visits: config().mcts.visits,
-                    depth: config().mcts.depth,
-                    exploration: config().mcts.exploration,
-                    discount: config().mcts.discount,
-                    seed: Some(seed),
-                };
-                let snapshot = Lumberjacks::derive_snapshot(&world, *agent);
-                (
-                    *agent,
-                    MCTS::new(
-                        snapshot,
-                        *agent,
-                        config,
-                    ),
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
-
+        let config = MCTSConfiguration {
+            visits: config().mcts.visits,
+            depth: config().mcts.depth,
+            exploration: config().mcts.exploration,
+            discount: config().mcts.discount,
+            seed: Some(seed),
+        };
         let objectives = BTreeMap::new();
 
         let mut state = GameState {
@@ -114,7 +99,7 @@ impl GameState {
             world,
             agents,
             objectives,
-            mcts,
+            config,
             pre_world_hooks: Default::default(),
             post_world_hooks: Default::default(),
             post_mcts_hooks: Default::default(),
@@ -267,17 +252,20 @@ impl GameState {
             });
         }
 
+        let world = &mut self.world;
         let agent = self.agents[self.current_agent];
-        let mcts = self.mcts.get_mut(&agent).unwrap();
+        let initial_state = Lumberjacks::derive_local_state(&world, agent);
+        let mut mcts = MCTS::new(
+            initial_state,
+            agent,
+            &self.objectives,
+            self.config.clone()
+        );
 
         println!("planning start, turn {} {:?}", turn, agent);
-        let objective = {
-            mcts.update(&self.world, &self.objectives);
-            mcts.run()
-        };
+        let objective = mcts.run();
         println!("planning end");
-
-        let world = &mut self.world;
+      
         self.post_mcts_hooks.iter_mut().for_each(|f| {
             f(PostMCTSHookArgs {
                 run,
@@ -286,15 +274,15 @@ impl GameState {
                 turn,
                 world,
                 agent,
-                mcts,
+                mcts: &mcts,
                 objective: objective.clone(),
             })
         });
 
         let objectives = &mut self.objectives;
         let mut diff = WorldDiff::default();
-        objective.execute(SnapshotDiffRefMut::new(&mcts.snapshot, &mut diff), agent);
-        Lumberjacks::apply(world, &mcts.snapshot, &diff);
+        objective.execute(StateDiffRefMut::new(&mcts.initial_state, &mut diff), agent);
+        Lumberjacks::apply(world, &mcts.initial_state, &diff);
         world.actions.insert(agent, objective.display_action());
         objectives.insert(agent, objective);
 

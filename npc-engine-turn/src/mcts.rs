@@ -19,7 +19,7 @@ pub trait StateValueEstimator<D: Domain> {
         &mut self,
         rnd: &mut ChaCha8Rng,
         config: &MCTSConfiguration,
-        snapshot: &D::Snapshot,
+        snapshot: &D::State,
         node: &Node<D>,
         depth: u32,
         agent: AgentId, // agent of the MCTS
@@ -48,35 +48,64 @@ pub struct MCTS<D: Domain> {
     // Globals
     q_value_range: BTreeMap<AgentId, Range<f32>>,
 
-    // Snapshot
-    pub snapshot: D::Snapshot,
+    // State before planning
+    pub initial_state: D::State,
 
     // Rng
     rng: ChaCha8Rng,
 }
 
 impl<D: Domain> MCTS<D> {
-    /// Update the MCTS internal state, deriving a new base snapshot from the given state and applying subtree reuse.
-    pub fn update(&mut self, state: &D::State, _tasks: &BTreeMap<AgentId, Box<dyn Task<D>>>) {
-        let snapshot = D::derive_snapshot(state, self.agent);
-
-        // Clear all nodes
-        self.nodes.clear();
+    /// Instantiate a new search tree for the given state.
+    pub fn new(
+        initial_state: D::State,
+        agent: AgentId,
+        _tasks: &BTreeMap<AgentId, Box<dyn Task<D>>>,
+        config: MCTSConfiguration,
+    ) -> Self {
+        // Prepare nodes
+        let mut nodes = SeededHashMap::with_capacity_and_hasher(
+            config.visits as usize + 1, // FIXME: add unit test to know if this should be visits or visits + 1
+            SeededRandomState::default()
+        );
 
         // Create new root node
-        self.root = Node::new(NodeInner::new(
-            &snapshot,
+        let root = Node::new(NodeInner::new(
+            &initial_state,
             Default::default(),
-            self.agent,
+            agent,
             Default::default(),
         ));
 
         // Insert new root node
-        self.nodes
-            .insert(self.root.clone(), Edges::new(&self.root, &snapshot));
+        nodes.insert(root.clone(), Edges::new(&root, &initial_state));
 
-        // Set new snapshot
-        self.snapshot = snapshot;
+        // Compute seed
+        let cur_seed = config.seed.unwrap_or_else(|| thread_rng().next_u64());
+
+        MCTS {
+            time: Duration::default(),
+            config,
+            state_value_estimator: Box::new(DefaultPolicyEstimator {}),
+            early_stop_condition: None,
+            seed: cur_seed,
+            agent,
+            root,
+            nodes,
+            q_value_range: Default::default(),
+            initial_state,
+            rng: ChaCha8Rng::seed_from_u64(cur_seed)
+        }
+    }
+
+    /// Return best task, using exploration value of 0
+    pub fn best_task_at_root(&self) -> Box<dyn Task<D>> {
+        let range = self.min_max_range(self.agent);
+        let edges = self.nodes.get(&self.root).unwrap();
+        edges
+            .best_task(self.agent, 0., range)
+            .expect("No valid task!")
+            .clone()
     }
 
     /// Execute the MCTS search. Returns the current best task.
@@ -94,7 +123,7 @@ impl<D: Domain> MCTS<D> {
             let rollout_values = self.state_value_estimator.estimate(
                 &mut self.rng,
                 &self.config,
-                &self.snapshot,
+                &self.initial_state,
                 &leaf,
                 depth,
                 self.agent
@@ -112,13 +141,7 @@ impl<D: Domain> MCTS<D> {
         }
         self.time = start.elapsed();
 
-        // Return best task, using exploration value of 0
-        let range = self.min_max_range(self.agent);
-        let edges = self.nodes.get(&self.root).unwrap();
-        edges
-            .best_task(self.agent, 0., range)
-            .expect("No valid task!")
-            .clone()
+        self.best_task_at_root()
     }
 
     /// MCTS tree policy. Executes the `selection` and `expansion` phases.
@@ -128,7 +151,7 @@ impl<D: Domain> MCTS<D> {
     ) -> (u32, Node<D>, Vec<Edge<D>>) {
         // Find agents for current turn
         let agents = D::get_visible_agents(
-            SnapshotDiffRef::new(&self.snapshot, &root.diff),
+            StateDiffRef::new(&self.initial_state, &root.diff),
             self.agent,
         );
 
@@ -159,7 +182,7 @@ impl<D: Domain> MCTS<D> {
                 let mut edges = nodes.get_mut(&node).unwrap();
 
                 {
-                    let snapshot = &self.snapshot;
+                    let snapshot = &self.initial_state;
 
                     // If weights are non-empty, the node has not been fully expanded
                     if let Some((weights, tasks)) = edges.unexpanded_tasks.as_mut() {
@@ -168,7 +191,7 @@ impl<D: Domain> MCTS<D> {
                         // Select task
                         let idx = weights.sample(&mut self.rng);
                         let task = tasks[idx].clone();
-                        debug_assert!(task.is_valid(SnapshotDiffRef::new(&self.snapshot, &diff), agent));
+                        debug_assert!(task.is_valid(StateDiffRef::new(&self.initial_state, &diff), agent));
                         log::trace!("{:?} - Expand action: {}", agent, task);
 
                         // Updating weights returns an error if all weights are zero.
@@ -189,7 +212,7 @@ impl<D: Domain> MCTS<D> {
                         // Set new task for current agent, if one exists
                         let mut tasks = node.tasks.clone();
                         if let Some(next_task) =
-                            task.execute(SnapshotDiffRefMut::new(&self.snapshot, &mut diff), agent)
+                            task.execute(StateDiffRefMut::new(&self.initial_state, &mut diff), agent)
                         {
                             tasks.insert(agent, next_task);
                         } else {
@@ -279,13 +302,13 @@ impl<D: Domain> MCTS<D> {
             let q_values = &mut edge.q_values;
             let q_value_range = &mut self.q_value_range;
             let discount = self.config.discount;
-            let snapshot = &self.snapshot;
+            let snapshot = &self.initial_state;
 
             // Iterate all agents on edge
             q_values.iter_mut().for_each(|(&agent, q_value_ref)| {
                 let parent_current_value = parent.current_values.get(&agent).copied().unwrap_or_else(|| {
                     D::get_current_value(
-                        SnapshotDiffRef::new(
+                        StateDiffRef::new(
                             snapshot,
                             parent.diff(),
                         ),
@@ -294,7 +317,7 @@ impl<D: Domain> MCTS<D> {
                 });
                 let child_current_value = child.current_values.get(&agent).copied().unwrap_or_else(|| {
                     D::get_current_value(
-                        SnapshotDiffRef::new(
+                        StateDiffRef::new(
                             snapshot,
                             child.diff(),
                         ),
@@ -332,40 +355,6 @@ impl<D: Domain> MCTS<D> {
                 }
             });
         });
-    }
-}
-
-impl<D: Domain> MCTS<D> {
-    /// Instantiate a new search tree for the given state.
-    pub fn new(
-        snapshot: D::Snapshot,
-        agent: AgentId,
-        config: MCTSConfiguration,
-    ) -> Self {
-        let root = Node::new(NodeInner::new(
-            &snapshot,
-            Default::default(),
-            agent,
-            Default::default(),
-        ));
-        let mut nodes = SeededHashMap::default();
-        nodes.insert(root.clone(), Edges::new(&root, &snapshot));
-
-        let cur_seed = config.seed.unwrap_or_else(|| thread_rng().next_u64());
-
-        MCTS {
-            time: Duration::default(),
-            config,
-            state_value_estimator: Box::new(DefaultPolicyEstimator {}),
-            early_stop_condition: None,
-            seed: cur_seed,
-            agent,
-            root,
-            nodes,
-            q_value_range: Default::default(),
-            snapshot,
-            rng: ChaCha8Rng::seed_from_u64(cur_seed)
-        }
     }
 
     // Returns the agent the tree searches for.
@@ -435,7 +424,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         &mut self,
         rng: &mut ChaCha8Rng,
         config: &MCTSConfiguration,
-        snapshot: &D::Snapshot,
+        snapshot: &D::State,
         node: &Node<D>,
         depth: u32,
         root_agent: AgentId,
@@ -481,14 +470,14 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 // Lazily fetch current and estimated values for current agent
                 let (current_value, estimated_value) = values.entry(agent).or_insert_with(|| {
                     (
-                        D::get_current_value(SnapshotDiffRef::new(snapshot, &diff), agent),
+                        D::get_current_value(StateDiffRef::new(snapshot, &diff), agent),
                         0f32
                     )
                 });
 
                 // Check task map for existing task
                 let (tasks, weights) = match task_map.get(&agent) {
-                    Some(task) if task.is_valid(SnapshotDiffRef::new(snapshot, &diff), agent) => {
+                    Some(task) if task.is_valid(StateDiffRef::new(snapshot, &diff), agent) => {
                         // Task exists, only option
                         (
                             vec![task.box_clone()],
@@ -497,9 +486,9 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                     }
                     _ => {
                         // No existing task, add all possible tasks
-                        let tasks = D::get_tasks(SnapshotDiffRef::new(snapshot, &diff), agent);
+                        let tasks = D::get_tasks(StateDiffRef::new(snapshot, &diff), agent);
                         let weights_iter = tasks.iter().map(|task| {
-                            task.weight(SnapshotDiffRef::new(snapshot, &diff) as _, agent)
+                            task.weight(StateDiffRef::new(snapshot, &diff) as _, agent)
                         });
                         let weights = WeightedIndex::new(weights_iter).ok();
                         (
@@ -518,7 +507,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                         task = &tasks[idx];
                         log::trace!("{:?} - Rollout: {}", agent, task);
 
-                        !task.is_valid(SnapshotDiffRef::new(snapshot, &diff), agent)
+                        !task.is_valid(StateDiffRef::new(snapshot, &diff), agent)
                     } {
                         weights
                             .update_weights(&[(idx, &0.)])
@@ -527,7 +516,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
                     // Execute task for agent
                     if let Some(task) =
-                        task.execute(SnapshotDiffRefMut::new(snapshot, &mut diff), agent)
+                        task.execute(StateDiffRefMut::new(snapshot, &mut diff), agent)
                     {
                         task_map.insert(agent, task);
                     } else {
@@ -535,7 +524,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                     }
 
                     // Update estimated value with discounted difference in current values
-                    let new_current_value = D::get_current_value(SnapshotDiffRef::new(snapshot, &diff), agent);
+                    let new_current_value = D::get_current_value(StateDiffRef::new(snapshot, &diff), agent);
                     *estimated_value += (new_current_value - *current_value) * discount;
                     *current_value = new_current_value;
                 } else {
@@ -545,7 +534,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
             // Recalculate agents
             agents.clear();
-            D::update_visible_agents(SnapshotDiffRef::new(snapshot, &diff), node.agent, &mut agents);
+            D::update_visible_agents(StateDiffRef::new(snapshot, &diff), node.agent, &mut agents);
 
             // Iterator has been exu
             start_agent = root_agent;
@@ -813,15 +802,11 @@ mod value_tests {
     #[derive(Debug)]
     pub(crate) struct State(usize);
 
-    #[derive(Debug)]
-    pub(crate) struct Snapshot(usize);
-
     #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
     pub(crate) struct Diff(usize);
 
     impl Domain for TestEngine {
         type State = State;
-        type Snapshot = Snapshot;
         type Diff = Diff;
         type DisplayAction = ();
 
@@ -829,19 +814,11 @@ mod value_tests {
             &[&TestBehavior]
         }
 
-        fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
-            Snapshot(state.0.clone())
-        }
-
-        fn apply(state: &mut Self::State, _snapshot: &Self::Snapshot, diff: &Self::Diff) {
-            state.0 = diff.0;
-        }
-
-        fn get_current_value(state: SnapshotDiffRef<Self>, _agent: AgentId) -> f32 {
+        fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> f32 {
             state.value()
         }
 
-        fn update_visible_agents(_state: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
             agents.insert(agent);
         }
     }
@@ -854,13 +831,13 @@ mod value_tests {
         fn increment(&mut self, agent: AgentId);
     }
 
-    impl TestState for SnapshotDiffRef<'_, TestEngine> {
+    impl TestState for StateDiffRef<'_, TestEngine> {
         fn value(&self) -> f32 {
-            self.snapshot.0 as f32 + self.diff.0 as f32
+            self.initial_state.0 as f32 + self.diff.0 as f32
         }
     }
 
-    impl TestStateMut for SnapshotDiffRefMut<'_, TestEngine> {
+    impl TestStateMut for StateDiffRefMut<'_, TestEngine> {
         fn increment(&mut self, _agent: AgentId) {
             self.diff.0 += 1;
         }
@@ -878,14 +855,14 @@ mod value_tests {
     impl Behavior<TestEngine> for TestBehavior {
         fn add_own_tasks(
             &self,
-            _state: SnapshotDiffRef<TestEngine>,
+            _state: StateDiffRef<TestEngine>,
             _agent: AgentId,
             tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
         ) {
             tasks.push(Box::new(TestTask) as _);
         }
 
-        fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -900,17 +877,17 @@ mod value_tests {
     }
 
     impl Task<TestEngine> for TestTask {
-        fn weight(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+        fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
             1.
         }
 
-        fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
 
         fn execute(
             &self,
-            mut state: SnapshotDiffRefMut<TestEngine>,
+            mut state: StateDiffRefMut<TestEngine>,
             agent: AgentId,
         ) -> Option<Box<dyn Task<TestEngine>>> {
             state.increment(agent);
@@ -951,10 +928,10 @@ mod value_tests {
         let agent = AgentId(0);
 
         let world = State(0);
-        let snapshot = TestEngine::derive_snapshot(&world, agent);
         let mut mcts = MCTS::<TestEngine>::new(
-            snapshot,
+            world,
             agent,
+            &BTreeMap::new(),
             CONFIG,
         );
 
@@ -1011,15 +988,11 @@ mod branching_tests {
     #[derive(Debug)]
     struct State(usize);
 
-    #[derive(Debug)]
-    struct Snapshot(usize);
-
     #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
     struct Diff(usize);
 
     impl Domain for TestEngine {
         type State = State;
-        type Snapshot = Snapshot;
         type Diff = Diff;
         type DisplayAction = ();
 
@@ -1027,19 +1000,11 @@ mod branching_tests {
             &[&TestBehaviorA, &TestBehaviorB]
         }
 
-        fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
-            Snapshot(state.0.clone())
-        }
-
-        fn apply(state: &mut Self::State, _snapshot: &Self::Snapshot, diff: &Self::Diff) {
-            state.0 = diff.0;
-        }
-
-        fn get_current_value(state: SnapshotDiffRef<Self>, _agent: AgentId) -> f32 {
+        fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> f32 {
             state.value()
         }
 
-        fn update_visible_agents(_state: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
             agents.insert(agent);
         }
     }
@@ -1052,13 +1017,13 @@ mod branching_tests {
         fn increment(&mut self, agent: AgentId);
     }
 
-    impl TestState for SnapshotDiffRef<'_, TestEngine> {
+    impl TestState for StateDiffRef<'_, TestEngine> {
         fn value(&self) -> f32 {
-            self.snapshot.0 as f32 + self.diff.0 as f32
+            self.initial_state.0 as f32 + self.diff.0 as f32
         }
     }
 
-    impl TestStateMut for SnapshotDiffRefMut<'_, TestEngine> {
+    impl TestStateMut for StateDiffRefMut<'_, TestEngine> {
         fn increment(&mut self, _agent: AgentId) {
             self.diff.0 += 1;
         }
@@ -1076,14 +1041,14 @@ mod branching_tests {
     impl Behavior<TestEngine> for TestBehaviorA {
         fn add_own_tasks(
             &self,
-            _state: SnapshotDiffRef<TestEngine>,
+            _state: StateDiffRef<TestEngine>,
             _agent: AgentId,
             tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
         ) {
             tasks.push(Box::new(TestTask(true)) as _);
         }
 
-        fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -1100,14 +1065,14 @@ mod branching_tests {
     impl Behavior<TestEngine> for TestBehaviorB {
         fn add_own_tasks(
             &self,
-            _state: SnapshotDiffRef<TestEngine>,
+            _state: StateDiffRef<TestEngine>,
             _agent: AgentId,
             tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
         ) {
             tasks.push(Box::new(TestTask(false)) as _);
         }
 
-        fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -1122,17 +1087,17 @@ mod branching_tests {
     }
 
     impl Task<TestEngine> for TestTask {
-        fn weight(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+        fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
             1.
         }
 
-        fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
 
         fn execute(
             &self,
-            mut state: SnapshotDiffRefMut<TestEngine>,
+            mut state: StateDiffRefMut<TestEngine>,
             agent: AgentId,
         ) -> Option<Box<dyn Task<TestEngine>>> {
             state.increment(agent);
@@ -1173,9 +1138,12 @@ mod branching_tests {
         let agent = AgentId(0);
 
         let state = State(Default::default());
-        let snapshot = TestEngine::derive_snapshot(&state, agent);
-        let mut mcts =
-            MCTS::<TestEngine>::new(snapshot, agent, CONFIG);
+        let mut mcts = MCTS::<TestEngine>::new(
+            state,
+            agent,
+            &BTreeMap::new(),
+            CONFIG
+        );
 
         let task = mcts.run();
         assert!(task.downcast_ref::<TestTask>().is_some());
@@ -1237,18 +1205,14 @@ mod seeding_tests {
 
     struct TestEngine;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone, Copy)]
     struct State(usize);
-
-    #[derive(Debug)]
-    struct Snapshot(usize);
 
     #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
     struct Diff(usize);
 
     impl Domain for TestEngine {
         type State = State;
-        type Snapshot = Snapshot;
         type Diff = Diff;
         type DisplayAction = ();
 
@@ -1256,19 +1220,11 @@ mod seeding_tests {
             &[&TestBehavior]
         }
 
-        fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
-            Snapshot(state.0.clone())
-        }
-
-        fn apply(state: &mut Self::State, _snapshot: &Self::Snapshot, diff: &Self::Diff) {
-            state.0 = diff.0;
-        }
-
-        fn get_current_value(state: SnapshotDiffRef<Self>, _agent: AgentId) -> f32 {
+        fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> f32 {
             state.value()
         }
 
-        fn update_visible_agents(_state: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
             agents.insert(agent);
         }
     }
@@ -1281,13 +1237,13 @@ mod seeding_tests {
         fn add_value(&mut self, agent: AgentId, amount: usize);
     }
 
-    impl TestState for SnapshotDiffRef<'_, TestEngine> {
+    impl TestState for StateDiffRef<'_, TestEngine> {
         fn value(&self) -> f32 {
-            self.snapshot.0 as f32 + self.diff.0 as f32
+            self.initial_state.0 as f32 + self.diff.0 as f32
         }
     }
 
-    impl TestStateMut for SnapshotDiffRefMut<'_, TestEngine> {
+    impl TestStateMut for StateDiffRefMut<'_, TestEngine> {
         fn add_value(&mut self, _agent: AgentId, amount: usize) {
             self.diff.0 += amount;
         }
@@ -1305,7 +1261,7 @@ mod seeding_tests {
     impl Behavior<TestEngine> for TestBehavior {
         fn add_own_tasks(
             &self,
-            _state: SnapshotDiffRef<TestEngine>,
+            _state: StateDiffRef<TestEngine>,
             _agent: AgentId,
             tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
         ) {
@@ -1314,7 +1270,7 @@ mod seeding_tests {
             }
         }
 
-        fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
     }
@@ -1329,17 +1285,17 @@ mod seeding_tests {
     }
 
     impl Task<TestEngine> for TestTask {
-        fn weight(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+        fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
             1.
         }
 
-        fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
             true
         }
 
         fn execute(
             &self,
-            mut state: SnapshotDiffRefMut<TestEngine>,
+            mut state: StateDiffRefMut<TestEngine>,
             agent: AgentId,
         ) -> Option<Box<dyn Task<TestEngine>>> {
             state.add_value(agent, self.0.min(1));
@@ -1379,20 +1335,20 @@ mod seeding_tests {
                 seed: Some(seed),
             };
             let state = State(Default::default());
-            let snapshot = TestEngine::derive_snapshot(&state, agent);
             let mut mcts = MCTS::<TestEngine>::new(
-                snapshot,
+                state,
                 agent,
+                &BTreeMap::new(),
                 config.clone(),
             );
 
             let result = mcts.run();
 
             for _ in 0..10 {
-                let snapshot = TestEngine::derive_snapshot(&state, agent);
                 let mut mcts = MCTS::<TestEngine>::new(
-                    snapshot,
+                    state,
                     agent,
+                    &BTreeMap::new(),
                     config.clone(),
                 );
 
@@ -1421,12 +1377,6 @@ mod sanity_tests {
             investment: isize,
         }
 
-        #[derive(Debug)]
-        struct Snapshot {
-            value: isize,
-            investment: isize,
-        }
-
         #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
         struct Diff {
             value: isize,
@@ -1435,7 +1385,6 @@ mod sanity_tests {
 
         impl Domain for TestEngine {
             type State = State;
-            type Snapshot = Snapshot;
             type Diff = Diff;
             type DisplayAction = ();
 
@@ -1443,23 +1392,11 @@ mod sanity_tests {
                 &[&TestBehavior]
             }
 
-            fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
-                Snapshot {
-                    value: state.value,
-                    investment: state.investment,
-                }
-            }
-
-            fn apply(state: &mut Self::State, _snapshot: &Self::Snapshot, diff: &Self::Diff) {
-                state.value = diff.value;
-                state.investment = diff.investment;
-            }
-
-            fn get_current_value(state: SnapshotDiffRef<Self>, _agent: AgentId) -> f32 {
+            fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> f32 {
                 state.value()
             }
 
-            fn update_visible_agents(_state: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+            fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
                 agents.insert(agent);
             }
         }
@@ -1474,13 +1411,13 @@ mod sanity_tests {
             fn redeem_deferred(&mut self);
         }
 
-        impl TestState for SnapshotDiffRef<'_, TestEngine> {
+        impl TestState for StateDiffRef<'_, TestEngine> {
             fn value(&self) -> f32 {
-                self.snapshot.value as f32 + self.diff.value as f32
+                self.initial_state.value as f32 + self.diff.value as f32
             }
         }
 
-        impl TestStateMut for SnapshotDiffRefMut<'_, TestEngine> {
+        impl TestStateMut for StateDiffRefMut<'_, TestEngine> {
             fn add_value(&mut self, amount: isize) {
                 self.diff.value += amount;
             }
@@ -1490,8 +1427,8 @@ mod sanity_tests {
             }
 
             fn redeem_deferred(&mut self) {
-                self.diff.value += 3 * (self.snapshot.investment + self.diff.investment);
-                self.diff.investment = 0 - self.snapshot.investment;
+                self.diff.value += 3 * (self.initial_state.investment + self.diff.investment);
+                self.diff.investment = 0 - self.initial_state.investment;
             }
         }
 
@@ -1507,7 +1444,7 @@ mod sanity_tests {
         impl Behavior<TestEngine> for TestBehavior {
             fn add_own_tasks(
                 &self,
-                _state: SnapshotDiffRef<TestEngine>,
+                _state: StateDiffRef<TestEngine>,
                 _agent: AgentId,
                 tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
             ) {
@@ -1515,7 +1452,7 @@ mod sanity_tests {
                 tasks.push(Box::new(TestTaskDefer) as _);
             }
 
-            fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
         }
@@ -1530,17 +1467,17 @@ mod sanity_tests {
         }
 
         impl Task<TestEngine> for TestTaskDirect {
-            fn weight(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+            fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
                 1.
             }
 
-            fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 
             fn execute(
                 &self,
-                mut state: SnapshotDiffRefMut<TestEngine>,
+                mut state: StateDiffRefMut<TestEngine>,
                 _agent: AgentId,
             ) -> Option<Box<dyn Task<TestEngine>>> {
                 state.redeem_deferred();
@@ -1578,17 +1515,17 @@ mod sanity_tests {
         }
 
         impl Task<TestEngine> for TestTaskDefer {
-            fn weight(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+            fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
                 1.
             }
 
-            fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 
             fn execute(
                 &self,
-                mut state: SnapshotDiffRefMut<TestEngine>,
+                mut state: StateDiffRefMut<TestEngine>,
                 _agent: AgentId,
             ) -> Option<Box<dyn Task<TestEngine>>> {
                 state.redeem_deferred();
@@ -1631,10 +1568,10 @@ mod sanity_tests {
                 value: Default::default(),
                 investment: Default::default(),
             };
-            let snapshot = TestEngine::derive_snapshot(&state, agent);
             let mut mcts = MCTS::<TestEngine>::new(
-                snapshot,
+                state,
                 agent,
+                &BTreeMap::new(),
                 CONFIG
             );
 
@@ -1657,11 +1594,6 @@ mod sanity_tests {
             value: isize,
         }
 
-        #[derive(Debug)]
-        struct Snapshot {
-            value: isize,
-        }
-
         #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
         struct Diff {
             value: isize,
@@ -1669,7 +1601,6 @@ mod sanity_tests {
 
         impl Domain for TestEngine {
             type State = State;
-            type Snapshot = Snapshot;
             type Diff = Diff;
             type DisplayAction = ();
 
@@ -1677,41 +1608,33 @@ mod sanity_tests {
                 &[&TestBehavior]
             }
 
-            fn derive_snapshot(state: &Self::State, _agent: AgentId) -> Self::Snapshot {
-                Snapshot { value: state.value }
-            }
-
-            fn apply(state: &mut Self::State, _snapshot: &Self::Snapshot, diff: &Self::Diff) {
-                state.value = diff.value;
-            }
-
-            fn get_current_value(state: SnapshotDiffRef<Self>, _agent: AgentId) -> f32 {
+            fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> f32 {
                 state.value()
             }
 
-            fn update_visible_agents(_state: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+            fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
                 agents.insert(agent);
             }
 
-            fn get_visible_agents(state: SnapshotDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
-        let mut agents = BTreeSet::new();
-        Self::update_visible_agents(state, agent, &mut agents);
-        agents
-    }
+            fn get_visible_agents(state: StateDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
+                let mut agents = BTreeSet::new();
+                Self::update_visible_agents(state, agent, &mut agents);
+                agents
+            }
 
             fn get_tasks<'a>(
-        state: SnapshotDiffRef<'a, Self>,
-        agent: AgentId
-    ) -> Vec<Box<dyn Task<Self>>> {
-        let mut actions = Vec::new();
-        Self::list_behaviors()
-            .iter()
-            .filter(|behavior| behavior.is_valid(state, agent))
-            .for_each(|behavior| behavior.add_tasks(state, agent, &mut actions));
+                state: StateDiffRef<'a, Self>,
+                agent: AgentId
+            ) -> Vec<Box<dyn Task<Self>>> {
+                let mut actions = Vec::new();
+                Self::list_behaviors()
+                    .iter()
+                    .filter(|behavior| behavior.is_valid(state, agent))
+                    .for_each(|behavior| behavior.add_tasks(state, agent, &mut actions));
 
-        actions.dedup();
-        actions
-    }
+                actions.dedup();
+                actions
+            }
         }
 
         trait TestState {
@@ -1722,13 +1645,13 @@ mod sanity_tests {
             fn add_value(&mut self, amount: isize);
         }
 
-        impl TestState for SnapshotDiffRef<'_, TestEngine> {
+        impl TestState for StateDiffRef<'_, TestEngine> {
             fn value(&self) -> f32 {
-                self.snapshot.value as f32 + self.diff.value as f32
+                self.initial_state.value as f32 + self.diff.value as f32
             }
         }
 
-        impl TestStateMut for SnapshotDiffRefMut<'_, TestEngine> {
+        impl TestStateMut for StateDiffRefMut<'_, TestEngine> {
             fn add_value(&mut self, amount: isize) {
                 self.diff.value += amount;
             }
@@ -1746,7 +1669,7 @@ mod sanity_tests {
         impl Behavior<TestEngine> for TestBehavior {
             fn add_own_tasks(
                 &self,
-                _state: SnapshotDiffRef<TestEngine>,
+                _state: StateDiffRef<TestEngine>,
                 _agent: AgentId,
                 tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
             ) {
@@ -1754,7 +1677,7 @@ mod sanity_tests {
                 tasks.push(Box::new(TestTaskNegative) as _);
             }
 
-            fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
         }
@@ -1769,17 +1692,17 @@ mod sanity_tests {
         }
 
         impl Task<TestEngine> for TestTaskNoop {
-            fn weight(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+            fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
                 1.
             }
 
-            fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 
             fn execute(
                 &self,
-                _state: SnapshotDiffRefMut<TestEngine>,
+                _state: StateDiffRefMut<TestEngine>,
                 _agent: AgentId,
             ) -> Option<Box<dyn Task<TestEngine>>> {
                 None
@@ -1815,17 +1738,17 @@ mod sanity_tests {
         }
 
         impl Task<TestEngine> for TestTaskNegative {
-            fn weight(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+            fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
                 1.
             }
 
-            fn is_valid(&self, _state: SnapshotDiffRef<TestEngine>, _agent: AgentId) -> bool {
+            fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
                 true
             }
 
             fn execute(
                 &self,
-                mut state: SnapshotDiffRefMut<TestEngine>,
+                mut state: StateDiffRefMut<TestEngine>,
                 _agent: AgentId,
             ) -> Option<Box<dyn Task<TestEngine>>> {
                 state.add_value(-1);
@@ -1871,10 +1794,10 @@ mod sanity_tests {
                     let state = State {
                         value: Default::default(),
                     };
-                    let snapshot = TestEngine::derive_snapshot(&state, agent);
                     let mut mcts = MCTS::<TestEngine>::new(
-                        snapshot,
+                        state,
                         agent,
+                        &BTreeMap::new(),
                         config,
                     );
 

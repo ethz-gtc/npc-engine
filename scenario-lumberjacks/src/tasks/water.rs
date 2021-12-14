@@ -1,9 +1,9 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, Task, SnapshotDiffRef, SnapshotDiffRefMut, Domain};
+use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, StateRef, StateRefMut, Tile};
+use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, GlobalStateRefMut, Tile};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Water {
@@ -17,17 +17,17 @@ impl fmt::Display for Water {
 }
 
 impl Task<Lumberjacks> for Water {
-    fn weight(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.water
     }
 
     fn execute(
         &self,
-        mut snapshot: SnapshotDiffRefMut<Lumberjacks>,
+        mut snapshot: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = StateRefMut::Snapshot(snapshot);
+        let mut state = GlobalStateRefMut::Snapshot(snapshot);
         state.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
@@ -48,9 +48,9 @@ impl Task<Lumberjacks> for Water {
         Action::Water(self.direction)
     }
 
-    fn is_valid(&self, snapshot: SnapshotDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, snapshot: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         // FIXME: cleanup compat code
-        let state = StateRef::Snapshot(snapshot);
+        let state = GlobalStateRef::Snapshot(snapshot);
         state.get_water(agent)
             && if let Some((x, y)) = state.find_agent(agent) {
                 let (x, y) = self.direction.apply(x, y);

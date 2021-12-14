@@ -8,7 +8,7 @@ use serde_json::Value;
 
 use npc_engine_turn::AgentId;
 
-use crate::{fitnesses, StateRef};
+use crate::{fitnesses, GlobalStateRef};
 use crate::Lumberjacks;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -53,7 +53,7 @@ pub struct AgentsConfig {
         deserialize_with = "behavior_deserializer",
         serialize_with = "behavior_serializer"
     )]
-    pub(crate) behaviors: HashMap<usize, (String, fn(StateRef<Lumberjacks>, AgentId) -> f32)>,
+    pub(crate) behaviors: HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>,
 }
 
 impl fmt::Debug for AgentsConfig {
@@ -77,14 +77,14 @@ impl fmt::Debug for AgentsConfig {
 
 fn behavior_deserializer<'de, D>(
     deserializer: D,
-) -> Result<HashMap<usize, (String, fn(StateRef<Lumberjacks>, AgentId) -> f32)>, D::Error>
+) -> Result<HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>, D::Error>
 where
     D: Deserializer<'de>,
 {
     struct BehaviorVisitor;
 
     impl<'de> Visitor<'de> for BehaviorVisitor {
-        type Value = HashMap<usize, (String, fn(StateRef<Lumberjacks>, AgentId) -> f32)>;
+        type Value = HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             write!(formatter, "a map of integers to behavior function names")
@@ -111,7 +111,7 @@ where
 }
 
 fn behavior_serializer<S>(
-    behaviors: &HashMap<usize, (String, fn(StateRef<Lumberjacks>, AgentId) -> f32)>,
+    behaviors: &HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where

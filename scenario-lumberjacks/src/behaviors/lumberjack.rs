@@ -2,11 +2,11 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt;
 
-use npc_engine_turn::{AgentId, Behavior, SnapshotDiffRef, Task};
+use npc_engine_turn::{AgentId, Behavior, StateDiffRef, Task};
 
 use crate::{
     config, Barrier, Chop, Direction, Lumberjacks, Map2D, Move, Plant, Refill, State, Wait, Water,
-    DIRECTIONS, StateRef,
+    DIRECTIONS, GlobalStateRef,
 };
 
 pub struct Lumberjack;
@@ -164,17 +164,17 @@ fn wavefront_pathfind(
 }
 
 impl Behavior<Lumberjacks> for Lumberjack {
-    fn is_valid(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> bool {
+    fn is_valid(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> bool {
         true
     }
     fn add_own_tasks(
         &self,
-        snapshot: SnapshotDiffRef<Lumberjacks>,
+        snapshot: StateDiffRef<Lumberjacks>,
         agent: AgentId,
         tasks: &mut Vec<Box<dyn Task<Lumberjacks>>>,
     ) {
         // FIXME: cleanup compat code
-        let state = StateRef::Snapshot(snapshot);
+        let state = GlobalStateRef::Snapshot(snapshot);
         if let Some((x, y)) = state.find_agent(agent) {
             if config().agents.tasks {
                 // Movement

@@ -1,6 +1,6 @@
 use std::{sync::{Arc, Weak}, collections::BTreeMap, fmt, mem, hash::{Hash, Hasher}};
 
-use crate::{Domain, AgentId, Task, SnapshotDiffRef};
+use crate::{Domain, AgentId, Task, StateDiffRef};
 
 /// Strong atomic reference counted node
 pub type Node<D> = Arc<NodeInner<D>>;
@@ -29,21 +29,21 @@ impl<D: Domain> fmt::Debug for NodeInner<D> {
 
 impl<D: Domain> NodeInner<D> {
     pub fn new(
-        snapshot: &D::Snapshot,
+        snapshot: &D::State,
         diff: D::Diff,
         agent: AgentId,
         mut tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
     ) -> Self {
         // Check validity of task for agent
         if let Some(task) = tasks.get(&agent) {
-            if !task.is_valid(SnapshotDiffRef::new(snapshot, &diff), agent) {
+            if !task.is_valid(StateDiffRef::new(snapshot, &diff), agent) {
                 tasks.remove(&agent);
             }
         }
 
         // Get observable agents
         let agents = D::get_visible_agents(
-            SnapshotDiffRef::new(snapshot, &diff),
+            StateDiffRef::new(snapshot, &diff),
             agent
         );
 
@@ -53,7 +53,7 @@ impl<D: Domain> NodeInner<D> {
             .map(|agent| {
                 (
                     *agent,
-                    D::get_current_value(SnapshotDiffRef::new(snapshot, &diff), *agent),
+                    D::get_current_value(StateDiffRef::new(snapshot, &diff), *agent),
                 )
             })
             .collect();

@@ -23,6 +23,7 @@ rayon = "^1.3"
 num-traits = "*"
 
 npc-engine-turn = { path = "../npc-engine-turn", features = [ "graphviz" ] }
+npc-engine-utils = { path = "../npc-engine-utils" }
 
 [lib]
 path = "./src/lib.rs"

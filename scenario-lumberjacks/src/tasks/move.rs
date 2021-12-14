@@ -1,9 +1,9 @@
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, Task, SnapshotDiffRef, SnapshotDiffRefMut, Domain};
+use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, StateRef, StateRefMut, Tile, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, GlobalStateRefMut, Tile, StateMut, State};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Move {
@@ -19,17 +19,17 @@ impl fmt::Display for Move {
 }
 
 impl Task<Lumberjacks> for Move {
-    fn weight(&self, _: SnapshotDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.r#move
     }
 
     fn execute(
         &self,
-        mut snapshot: SnapshotDiffRefMut<Lumberjacks>,
+        mut snapshot: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = StateRefMut::Snapshot(snapshot);
+        let mut state = GlobalStateRefMut::Snapshot(snapshot);
         state.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
@@ -58,9 +58,9 @@ impl Task<Lumberjacks> for Move {
         Action::Walk(*self.path.first().unwrap())
     }
 
-    fn is_valid(&self, snapshot: SnapshotDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, snapshot: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         // FIXME: cleanup compat code
-        let state = StateRef::Snapshot(snapshot);
+        let state = GlobalStateRef::Snapshot(snapshot);
         if let Some((mut x, mut y)) = state.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
                 let tmp = direction.apply(x, y);

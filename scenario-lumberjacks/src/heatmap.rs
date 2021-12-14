@@ -5,9 +5,9 @@ use ggez::graphics;
 use ggez::graphics::{Canvas, Color, DrawMode, Mesh, Rect};
 use image::png::PngEncoder;
 use image::{ColorType, ImageBuffer, Rgba};
-use npc_engine_turn::SnapshotDiffRef;
+use npc_engine_turn::StateDiffRef;
 
-use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, SPRITE_SIZE, StateRef, State};
+use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, SPRITE_SIZE, GlobalStateRef, State};
 
 // TODO
 pub fn heatmap_hook() -> PostMCTSHookFn {
@@ -40,8 +40,8 @@ pub fn heatmap_hook() -> PostMCTSHookFn {
                         let child = edge.child.upgrade().unwrap();
 
                         if child.agent() == agent {
-                            let snapshot = StateRef::Snapshot(
-                                SnapshotDiffRef::new(&mcts.snapshot, child.diff())
+                            let snapshot = GlobalStateRef::Snapshot(
+                                StateDiffRef::new(&mcts.initial_state, child.diff())
                             );
 
                             let (x, y) = snapshot.find_agent(mcts.agent()).unwrap();

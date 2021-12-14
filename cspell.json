@@ -2,19 +2,20 @@
 	"version": "0.1",
 	"language": "en",
 	"words": [
-		"mcts",
-		"hasher",
-		"seedable",
-		"btreemap",
-		"btreemaps",
-		"dedup",
-		"Srgb",
-		"powi",
 		"backpropagate",
 		"backpropagation",
+		"btreemap",
+		"btreemaps",
+		"chacha",
+		"dedup",
+		"graphviz",
+		"hasher",
+		"mcts",
+		"powi",
 		"rollout",
 		"rollouts",
-		"graphviz",
-		"chacha"
+		"seedable",
+		"Snapshotable",
+		"Srgb"
 	]
 }

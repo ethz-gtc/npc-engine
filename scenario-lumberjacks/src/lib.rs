@@ -6,7 +6,8 @@ use std::{fs, io, mem, process};
 
 use clap::{App, Arg};
 
-use npc_engine_turn::{AgentId, Behavior, Domain, SnapshotDiffRef};
+use npc_engine_turn::{AgentId, Behavior, Domain, StateDiffRef};
+use npc_engine_utils::GlobalDomain;
 use serde_json::Value;
 
 mod behaviors;
@@ -242,8 +243,7 @@ pub fn batch() -> bool {
 pub struct Lumberjacks;
 
 impl Domain for Lumberjacks {
-    type State = WorldState;
-    type Snapshot = WorldSnapshot;
+    type State = WorldSnapshot;
     type Diff = WorldDiff;
     type DisplayAction = Action;
 
@@ -251,8 +251,40 @@ impl Domain for Lumberjacks {
         &[&Human, &Lumberjack]
     }
 
-    fn derive_snapshot(state: &Self::State, agent: AgentId) -> Self::Snapshot {
-        let (x, y) = StateRef::State(state).find_agent(agent).unwrap();
+    fn get_current_value(snapshot: StateDiffRef<Self>, agent: AgentId) -> f32 {
+        // FIXME: cleanup compat code
+        let state = GlobalStateRef::Snapshot(snapshot);
+        if let Some((_, f)) = config().agents.behaviors.get(&(agent.0 as usize)) {
+            f(state, agent)
+        } else {
+            state.get_inventory(agent) as f32
+        }
+    }
+
+    fn update_visible_agents(snapshot: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        // FIXME: cleanup compat code
+        let state = GlobalStateRef::Snapshot(snapshot);
+        if let Some((x, y)) = state.find_agent(agent) {
+            if config().agents.plan_others {
+                agents.extend(
+                    state
+                        .find_nearby_agents(x, y, config().agents.horizon_radius)
+                        .into_iter(),
+                );
+            } else {
+                agents.insert(agent);
+            }
+        } else {
+            unreachable!("{:?}", snapshot);
+        }
+    }
+}
+
+impl GlobalDomain for Lumberjacks {
+    type GlobalState = WorldState;
+
+    fn derive_local_state(state: &Self::GlobalState, agent: AgentId) -> Self::State {
+        let (x, y) = GlobalStateRef::State(state).find_agent(agent).unwrap();
 
         let top = y - config().agents.snapshot_radius as isize;
         let left = x - config().agents.snapshot_radius as isize;
@@ -293,7 +325,7 @@ impl Domain for Lumberjacks {
         }
     }
 
-    fn apply(state: &mut Self::State, snapshot: &Self::Snapshot, diff: &Self::Diff) {
+    fn apply(state: &mut Self::GlobalState, snapshot: &Self::State, diff: &Self::Diff) {
         for (agent, AgentInventory { wood, water }) in &diff.inventory.0 {
             if let Some(inventory) = state.inventory.0.get_mut(agent) {
                 inventory.wood = inventory.wood + *wood;
@@ -311,7 +343,8 @@ impl Domain for Lumberjacks {
             }
         }
     }
-/*
+
+    /*
     // Note: this was used for fuzzy node reuse, but that is too complex for now
     fn compatible(snapshot: &Self::Snapshot, other: &Self::Snapshot, agent: AgentId) -> bool {
         let (y, x) = snapshot
@@ -377,32 +410,5 @@ impl Domain for Lumberjacks {
             },
         )
     }
- */
-    fn get_current_value(snapshot: SnapshotDiffRef<Self>, agent: AgentId) -> f32 {
-        // FIXME: cleanup compat code
-        let state = StateRef::Snapshot(snapshot);
-        if let Some((_, f)) = config().agents.behaviors.get(&(agent.0 as usize)) {
-            f(state, agent)
-        } else {
-            state.get_inventory(agent) as f32
-        }
-    }
-
-    fn update_visible_agents(snapshot: SnapshotDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
-        // FIXME: cleanup compat code
-        let state = StateRef::Snapshot(snapshot);
-        if let Some((x, y)) = state.find_agent(agent) {
-            if config().agents.plan_others {
-                agents.extend(
-                    state
-                        .find_nearby_agents(x, y, config().agents.horizon_radius)
-                        .into_iter(),
-                );
-            } else {
-                agents.insert(agent);
-            }
-        } else {
-            unreachable!("{:?}", snapshot);
-        }
-    }
+    */
 }

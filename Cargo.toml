@@ -3,5 +3,6 @@
 members = [
     "npc-engine-common",
     "npc-engine-turn",
+    "npc-engine-utils",
     "scenario-lumberjacks"
 ] 
