@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, GlobalStateRefMut, Tile, DIRECTIONS, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, Tile, DIRECTIONS, StateMut, State};
 
 // SAFETY: this is safe as 1 is non-zero. This is actually a work-around the fact
 // that Option::unwrap() is currently not const, but we need a constant in the match arm below.
@@ -28,17 +28,17 @@ impl Task<Lumberjacks> for Chop {
 
     fn execute(
         &self,
-        state_diff: StateDiffRefMut<Lumberjacks>,
+        mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(state_diff);
-        state.increment_time();
+        let state = GlobalStateRef::Snapshot(*state_diff);
+        state_diff.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
 
-            match state.get_tile_ref_mut(x, y) {
+            match state_diff.get_tile_ref_mut(x, y) {
                 Some(tile @ Tile::Tree(NON_ZERO_U8_1)) => {
                     *tile = Tile::Empty;
                 }
@@ -52,11 +52,11 @@ impl Task<Lumberjacks> for Chop {
                 for direction in DIRECTIONS {
                     let (x, y) = direction.apply(x, y);
                     if let Some(Tile::Agent(agent)) = state.get_tile(x, y) {
-                        state.increment_inventory(agent);
+                        state_diff.increment_inventory(agent);
                     }
                 }
             } else {
-                state.increment_inventory(agent);
+                state_diff.increment_inventory(agent);
             }
 
             None

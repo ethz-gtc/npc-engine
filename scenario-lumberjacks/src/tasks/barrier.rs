@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile, DIRECTIONS, GlobalStateRef, GlobalStateRefMut};
+use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile, DIRECTIONS, GlobalStateRef};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Barrier {
@@ -23,17 +23,17 @@ impl Task<Lumberjacks> for Barrier {
 
     fn execute(
         &self,
-        state_diff: StateDiffRefMut<Lumberjacks>,
+        mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(state_diff);
-        state.increment_time();
+        let state = GlobalStateRef::Snapshot(*state_diff);
+        state_diff.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
-            state.set_tile(x, y, Tile::Barrier);
-            state.decrement_inventory(agent);
+            state_diff.set_tile(x, y, Tile::Barrier);
+            state_diff.decrement_inventory(agent);
 
             None
         } else {

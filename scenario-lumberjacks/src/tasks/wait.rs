@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Lumberjacks, GlobalStateRefMut, StateMut};
+use crate::{config, Action, Lumberjacks, StateMut};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Wait;
@@ -21,12 +21,10 @@ impl Task<Lumberjacks> for Wait {
 
     fn execute(
         &self,
-        state_diff: StateDiffRefMut<Lumberjacks>,
+        mut state_diff: StateDiffRefMut<Lumberjacks>,
         _agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
-        // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(state_diff);
-        state.increment_time();
+        state_diff.increment_time();
 
         None
     }

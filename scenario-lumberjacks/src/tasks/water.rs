@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, GlobalStateRefMut, Tile};
+use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, Tile};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Water {
@@ -23,18 +23,18 @@ impl Task<Lumberjacks> for Water {
 
     fn execute(
         &self,
-        state_diff: StateDiffRefMut<Lumberjacks>,
+        mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(state_diff);
-        state.increment_time();
+        let state = GlobalStateRef::Snapshot(*state_diff);
+        state_diff.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
-            state.set_water(agent, false);
+            state_diff.set_water(agent, false);
 
             let (x, y) = self.direction.apply(x, y);
-            if let Some(Tile::Tree(height)) = state.get_tile_ref_mut(x, y) {
+            if let Some(Tile::Tree(height)) = state_diff.get_tile_ref_mut(x, y) {
                 *height = config().map.tree_height;
             }
 

@@ -1,7 +1,5 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::usize;
-use std::ops::Deref;
-use std::mem;
 
 use ggez::graphics;
 use ggez::graphics::Image;
@@ -93,22 +91,6 @@ pub trait StateMut {
 pub(crate) enum GlobalStateRef<'a, D: GlobalDomain> {
     State(&'a D::GlobalState),
     Snapshot(StateDiffRef<'a, D>),
-}
-
-// FIXME: cleanup this
-pub(crate) enum GlobalStateRefMut<'a, D: GlobalDomain> {
-    State(&'a mut D::GlobalState),
-    Snapshot(StateDiffRefMut<'a, D>),
-}
-
-impl<'a, D: GlobalDomain> Deref for GlobalStateRefMut<'a, D> {
-    type Target = GlobalStateRef<'a, D>;
-
-    fn deref(&self) -> &Self::Target {
-        // Safety: StateRef and StateRefMut have the same memory layout
-        // and casting from mutable to immutable is always safe
-        unsafe { mem::transmute(self) }
-    }
 }
 
 impl State for GlobalStateRef<'_, Lumberjacks> {
@@ -320,129 +302,85 @@ impl State for GlobalStateRef<'_, Lumberjacks> {
     }
 }
 
-impl StateMut for GlobalStateRefMut<'_, Lumberjacks> {
+impl StateMut for StateDiffRefMut<'_, Lumberjacks> {
     fn increment_time(&mut self) {
-        match self {
-            GlobalStateRefMut::Snapshot(StateDiffRefMut { diff, .. }) => {
-                diff.ctr += 1;
-            }
-            _ => {}
-        }
+        self.diff.ctr += 1;
     }
 
     fn set_tile(&mut self, x: isize, y: isize, tile: Tile) {
-        match self {
-            GlobalStateRefMut::State(state) => {
-                if x >= 0 && x < state.map.width as isize && y >= 0 && y < state.map.height as isize
-                {
-                    state.map.tiles[y as usize][x as usize] = tile;
-                }
-            }
-            GlobalStateRefMut::Snapshot(StateDiffRefMut { initial_state: snapshot, diff }) => {
-                if let Tile::Agent(agent) = tile {
-                    diff.map.agents_pos.insert(agent, (x, y));
-                }
+        if let Tile::Agent(agent) = tile {
+            self.diff.map.agents_pos.insert(agent, (x, y));
+        }
 
-                let (x, y) = (x - snapshot.map.left, y - snapshot.map.top);
+        let snapshot = self.initial_state;
+        let (x, y) = (x - snapshot.map.left, y - snapshot.map.top);
 
-                if x >= 0
-                    && x < (config().agents.snapshot_radius * 2 + 1) as isize
-                    && y >= 0
-                    && y < (config().agents.snapshot_radius * 2 + 1) as isize
-                {
-                    if snapshot.map.tiles[y as usize][x as usize] == tile {
-                        diff.map.tiles.remove(&(x, y));
-                    } else {
-                        diff.map.tiles.insert((x, y), tile);
-                    }
-                }
+        if x >= 0
+            && x < (config().agents.snapshot_radius * 2 + 1) as isize
+            && y >= 0
+            && y < (config().agents.snapshot_radius * 2 + 1) as isize
+        {
+            if snapshot.map.tiles[y as usize][x as usize] == tile {
+                self.diff.map.tiles.remove(&(x, y));
+            } else {
+                self.diff.map.tiles.insert((x, y), tile);
             }
         }
     }
 
     fn get_tile_ref_mut(&mut self, x: isize, y: isize) -> Option<&mut Tile> {
-        match self {
-            GlobalStateRefMut::State(state) => {
-                if x >= 0 && x < state.map.width as isize && y >= 0 && y < state.map.height as isize
-                {
-                    Some(&mut state.map.tiles[y as usize][x as usize])
-                } else {
-                    None
-                }
-            }
-            GlobalStateRefMut::Snapshot(StateDiffRefMut { initial_state: snapshot, diff }) => {
-                let (x, y) = (x - snapshot.map.left, y - snapshot.map.top);
+        let snapshot = self.initial_state;
+        let (x, y) = (x - snapshot.map.left, y - snapshot.map.top);
 
-                if x >= 0
-                    && x < (config().agents.snapshot_radius * 2 + 1) as isize
-                    && y >= 0
-                    && y < (config().agents.snapshot_radius * 2 + 1) as isize
-                {
-                    Some(
-                        diff.map
-                            .tiles
-                            .entry((x, y))
-                            .or_insert_with(|| snapshot.map.tiles[y as usize][x as usize]),
-                    )
-                } else {
-                    None
-                }
-            }
+        if x >= 0
+            && x < (config().agents.snapshot_radius * 2 + 1) as isize
+            && y >= 0
+            && y < (config().agents.snapshot_radius * 2 + 1) as isize
+        {
+            Some(
+                self.diff.map
+                    .tiles
+                    .entry((x, y))
+                    .or_insert_with(|| snapshot.map.tiles[y as usize][x as usize]),
+            )
+        } else {
+            None
         }
     }
 
     fn increment_inventory(&mut self, agent: AgentId) {
-        match self {
-            GlobalStateRefMut::State(state) => {
-                state.inventory.0.entry(agent).or_default().wood += 1;
+        let snapshot = self.initial_state;
+        // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
+        // but for the water it is an override (= diff.water), so we need to fetch the
+        // water from the snapshot when we create a new inventory diff
+        self.diff.inventory.0.entry(agent).or_insert_with(
+            || AgentInventory {
+                wood: 0,
+                water: snapshot.inventory.0
+                    .get(&agent)
+                    .map(|inv| inv.water)
+                    .unwrap_or_default()
             }
-            GlobalStateRefMut::Snapshot(StateDiffRefMut { initial_state: snapshot, diff }) => {
-                // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
-                // but for the water it is an override (= diff.water), so we need to fetch the
-                // water from the snapshot when we create a new inventory diff
-                diff.inventory.0.entry(agent).or_insert_with(
-                    || AgentInventory {
-                        wood: 0,
-                        water: snapshot.inventory.0
-                            .get(&agent)
-                            .map(|inv| inv.water)
-                            .unwrap_or_default()
-                    }
-                ).wood += 1;
-            }
-        }
+        ).wood += 1;
     }
 
     fn decrement_inventory(&mut self, agent: AgentId) {
-        match self {
-            GlobalStateRefMut::State(state) => {
-                state.inventory.0.get_mut(&agent).unwrap().wood -= 1;
+        let snapshot = self.initial_state;
+        // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
+        // but for the water it is an override (= diff.water), so we need to fetch the
+        // water from the snapshot when we create a new inventory diff
+        self.diff.inventory.0.entry(agent).or_insert_with(
+            || AgentInventory {
+                wood: 0,
+                water: snapshot.inventory.0
+                    .get(&agent)
+                    .map(|inv| inv.water)
+                    .unwrap_or_default()
             }
-            GlobalStateRefMut::Snapshot(StateDiffRefMut { initial_state: snapshot, diff }) => {
-                // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
-                // but for the water it is an override (= diff.water), so we need to fetch the
-                // water from the snapshot when we create a new inventory diff
-                diff.inventory.0.entry(agent).or_insert_with(
-                    || AgentInventory {
-                        wood: 0,
-                        water: snapshot.inventory.0
-                            .get(&agent)
-                            .map(|inv| inv.water)
-                            .unwrap_or_default()
-                    }
-                ).wood -= 1;
-            }
-        }
+        ).wood -= 1;
     }
 
     fn set_water(&mut self, agent: AgentId, value: bool) {
-        match self {
-            GlobalStateRefMut::State(state) => {
-                state.inventory.0.get_mut(&agent).unwrap().water = value;
-            }
-            GlobalStateRefMut::Snapshot(StateDiffRefMut { initial_state: _, diff }) => {
-                diff.inventory.0.entry(agent).or_default().water = value;
-            }
-        }
+        self.diff.inventory.0.entry(agent).or_default().water = value;
     }
 }

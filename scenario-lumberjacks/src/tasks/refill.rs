@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Lumberjacks, State, StateMut, GlobalStateRef, GlobalStateRefMut, Tile, DIRECTIONS};
+use crate::{config, Action, Lumberjacks, State, StateMut, GlobalStateRef, Tile, DIRECTIONS};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Refill;
@@ -21,14 +21,13 @@ impl Task<Lumberjacks> for Refill {
 
     fn execute(
         &self,
-        state_diff: StateDiffRefMut<Lumberjacks>,
+        mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(state_diff);
-        state.increment_time();
+        state_diff.increment_time();
 
-        state.set_water(agent, true);
+        state_diff.set_water(agent, true);
         None
     }
 

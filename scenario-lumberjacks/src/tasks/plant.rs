@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, GlobalStateRefMut, Tile};
+use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, Tile};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Plant {
@@ -23,24 +23,24 @@ impl Task<Lumberjacks> for Plant {
 
     fn execute(
         &self,
-        state_diff: StateDiffRefMut<Lumberjacks>,
+        mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(state_diff);
-        state.increment_time();
+        let state = GlobalStateRef::Snapshot(*state_diff);
+        state_diff.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
 
-            match state.get_tile_ref_mut(x, y) {
+            match state_diff.get_tile_ref_mut(x, y) {
                 Some(tile @ Tile::Empty) => {
                     *tile = Tile::Tree(NonZeroU8::new(1).unwrap());
                 }
                 _ => return None,
             }
 
-            state.decrement_inventory(agent);
+            state_diff.decrement_inventory(agent);
 
             None
         } else {

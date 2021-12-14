@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
 
-use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, GlobalStateRefMut, Tile, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, Tile, StateMut, State};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Move {
@@ -25,18 +25,18 @@ impl Task<Lumberjacks> for Move {
 
     fn execute(
         &self,
-        state_diff: StateDiffRefMut<Lumberjacks>,
+        mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
         // FIXME: cleanup compat code
-        let mut state = GlobalStateRefMut::Snapshot(state_diff);
-        state.increment_time();
+        let state = GlobalStateRef::Snapshot(*state_diff);
+        state_diff.increment_time();
 
         if let Some((x, y)) = state.find_agent(agent) {
             let direction = self.path.first().unwrap();
             let (_x, _y) = direction.apply(x, y);
-            state.set_tile(x, y, Tile::Empty);
-            state.set_tile(_x, _y, Tile::Agent(agent));
+            state_diff.set_tile(x, y, Tile::Empty);
+            state_diff.set_tile(_x, _y, Tile::Agent(agent));
 
             let path = self.path.iter().skip(1).copied().collect::<Vec<_>>();
 
