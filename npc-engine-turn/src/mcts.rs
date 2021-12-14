@@ -5,16 +5,12 @@ use std::ops::{Range};
 use std::time::{Duration, Instant};
 use std::mem;
 
-
 use rand::{prelude::{thread_rng, Distribution, RngCore, SeedableRng}, distributions::WeightedIndex};
 use rand_chacha::ChaCha8Rng;
 
 use crate::*;
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
-
-
-
 
 /// The state of a running planner instance
 pub struct MCTS<D: Domain> {

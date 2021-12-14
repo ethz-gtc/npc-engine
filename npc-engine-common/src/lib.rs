@@ -4,6 +4,7 @@ mod behavior;
 mod config;
 mod node;
 mod edge;
+mod state_diff;
 mod util;
 
 pub use domain::*;
@@ -12,6 +13,7 @@ pub use behavior::*;
 pub use config::*;
 pub use node::*;
 pub use edge::*;
+pub use state_diff::*;
 pub use util::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]

@@ -1,11 +1,9 @@
 use std::collections::{BTreeSet, BTreeMap};
 use std::hash::Hash;
-use std::ops::Deref;
-use std::{fmt, mem};
 
 use rand_chacha::ChaCha8Rng;
 
-use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration};
+use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef};
 
 // TODO: remove debug constraints
 /// A domain on which the MCTS planner can plan
@@ -46,56 +44,6 @@ pub trait Domain: Sized + 'static {
 
         actions.dedup();
         actions
-    }
-}
-
-pub struct StateDiffRef<'a, D: Domain> {
-    pub initial_state: &'a D::State, // FIXME: unpub
-    pub diff: &'a D::Diff, // FIXME: unpub
-}
-impl<D: Domain> Copy for StateDiffRef<'_, D> {}
-impl<D: Domain> Clone for StateDiffRef<'_, D> {
-    fn clone(&self) -> Self {
-        StateDiffRef::new(self.initial_state, self.diff)
-    }
-}
-impl<'a, D: Domain> StateDiffRef<'a, D> {
-    pub fn new(initial_state: &'a D::State, diff: &'a D::Diff) -> Self {
-        StateDiffRef { initial_state, diff }
-    }
-}
-
-impl<D: Domain> fmt::Debug for StateDiffRef<'_, D>
-where
-    D::State: fmt::Debug,
-    D::Diff: fmt::Debug,
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f
-            .debug_struct("SnapshotDiffRef")
-            .field("Snapshot", self.initial_state)
-            .field("Diff", self.diff)
-            .finish()
-    }
-}
-
-pub struct StateDiffRefMut<'a, D: Domain> {
-    pub initial_state: &'a D::State, // FIXME: unpub
-    pub diff: &'a mut D::Diff, // FIXME: unpub
-}
-impl<'a, D: Domain> StateDiffRefMut<'a, D> {
-    pub fn new(initial_state: &'a D::State, diff: &'a mut D::Diff) -> Self {
-        StateDiffRefMut { initial_state, diff }
-    }
-}
-
-impl<'a, D: Domain> Deref for StateDiffRefMut<'a, D> {
-    type Target = StateDiffRef<'a, D>;
-
-    fn deref(&self) -> &Self::Target {
-        // Safety: StateDiffRef and StateDiffRefMut have the same memory layout
-        // and casting from mutable to immutable is always safe
-        unsafe { mem::transmute(self) }
     }
 }
 
