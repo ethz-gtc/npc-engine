@@ -1,11 +1,10 @@
-use std::fmt;
 use std::hash::{Hash, Hasher};
 
 use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut};
 
-pub trait Task<D: Domain>: fmt::Display + Downcast + Send + Sync {
+pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     /// Returns the relative weight of the task for the given agent in the given world state.
     fn weight(&self, state_diff: StateDiffRef<D>, agent: AgentId) -> f32;
 

@@ -1,4 +1,3 @@
-use std::fmt;
 use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
@@ -7,12 +6,6 @@ use crate::{config, Action, Lumberjacks, State, StateMut, GlobalStateRef, Tile, 
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Refill;
-
-impl fmt::Display for Refill {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Refill")
-    }
-}
 
 impl Task<Lumberjacks> for Refill {
     fn weight(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {

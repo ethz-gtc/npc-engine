@@ -1,4 +1,3 @@
-use std::fmt;
 use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
@@ -8,12 +7,6 @@ use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalState
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Water {
     pub direction: Direction,
-}
-
-impl fmt::Display for Water {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Water({})", self.direction)
-    }
 }
 
 impl Task<Lumberjacks> for Water {

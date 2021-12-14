@@ -1,4 +1,4 @@
-use std::{fmt, num::NonZeroU8};
+use std::{num::NonZeroU8};
 use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
@@ -13,12 +13,6 @@ const NON_ZERO_U8_1: NonZeroU8 = unsafe { NonZeroU8::new_unchecked(1) };
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Chop {
     pub direction: Direction,
-}
-
-impl fmt::Display for Chop {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Chop({})", self.direction)
-    }
 }
 
 impl Task<Lumberjacks> for Chop {

@@ -1,6 +1,6 @@
 use std::{fmt, collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}, ops::Range};
 
-use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS};
+use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
 struct TestEngine;
 
 #[derive(Debug)]
@@ -9,10 +9,17 @@ struct State(usize);
 #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
 struct Diff(usize);
 
+struct DisplayAction;
+impl fmt::Display for DisplayAction {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "")
+	}
+}
+
 impl Domain for TestEngine {
 	type State = State;
 	type Diff = Diff;
-	type DisplayAction = ();
+	type DisplayAction = DisplayAction;
 
 	fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
 		&[&TestBehaviorA, &TestBehaviorB]
@@ -27,14 +34,9 @@ impl Domain for TestEngine {
 	}
 }
 
+
 #[derive(Copy, Clone, Debug)]
 struct TestBehaviorA;
-
-impl fmt::Display for TestBehaviorA {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "TestBehaviorA")
-	}
-}
 
 impl Behavior<TestEngine> for TestBehaviorA {
 	fn add_own_tasks(
@@ -54,12 +56,6 @@ impl Behavior<TestEngine> for TestBehaviorA {
 #[derive(Copy, Clone, Debug)]
 struct TestBehaviorB;
 
-impl fmt::Display for TestBehaviorB {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "TestBehaviorB")
-	}
-}
-
 impl Behavior<TestEngine> for TestBehaviorB {
 	fn add_own_tasks(
 		&self,
@@ -77,12 +73,6 @@ impl Behavior<TestEngine> for TestBehaviorB {
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 struct TestTask(bool);
-
-impl fmt::Display for TestTask {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		write!(f, "TestTask({:?})", self.0)
-	}
-}
 
 impl Task<TestEngine> for TestTask {
 	fn weight(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
@@ -103,23 +93,10 @@ impl Task<TestEngine> for TestTask {
 	}
 
 	fn display_action(&self) -> <TestEngine as Domain>::DisplayAction {
-		()
+		DisplayAction
 	}
 
-	fn box_eq(&self, other: &Box<dyn Task<TestEngine>>) -> bool {
-		other
-			.downcast_ref::<Self>()
-			.map(|other| self.eq(other))
-			.unwrap_or_default()
-	}
-
-	fn box_clone(&self) -> Box<dyn Task<TestEngine>> {
-		Box::new(self.clone())
-	}
-
-	fn box_hash(&self, mut state: &mut dyn Hasher) {
-		self.hash(&mut state)
-	}
+	impl_task_boxed_methods!(TestEngine);
 }
 
 const EPSILON: f32 = 0.001;

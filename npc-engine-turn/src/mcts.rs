@@ -177,7 +177,7 @@ impl<D: Domain> MCTS<D> {
                         let idx = weights.sample(&mut self.rng);
                         let task = tasks[idx].clone();
                         debug_assert!(task.is_valid(StateDiffRef::new(&self.initial_state, &diff), agent));
-                        log::trace!("{:?} - Expand action: {}", agent, task);
+                        log::trace!("{:?} - Expand action: {:?}", agent, task);
 
                         // Updating weights returns an error if all weights are zero.
                         if weights.update_weights(&[(idx, &0.)]).is_err() {
@@ -237,7 +237,7 @@ impl<D: Domain> MCTS<D> {
                 let task = edges
                     .best_task(node.agent, self.config.exploration, range)
                     .expect("No valid task!");
-                log::trace!("{:?} - Select action: {}", agent, task);
+                log::trace!("{:?} - Select action: {:?}", agent, task);
                 let edge = edges.expanded_tasks.get(&task).unwrap().clone();
 
                 // New node is the current child node
@@ -495,7 +495,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                     while {
                         idx = weights.sample(rng);
                         task = &tasks[idx];
-                        log::trace!("{:?} - Rollout: {}", agent, task);
+                        log::trace!("{:?} - Rollout: {:?}", agent, task);
 
                         !task.is_valid(StateDiffRef::new(snapshot, &diff), agent)
                     } {
@@ -755,7 +755,7 @@ mod graphviz {
         fn edge_label(&'a self, edge: &Edge<D>) -> LabelText<'a> {
             LabelText::LabelStr(Cow::Owned(format!(
                 "{}\nN: {}, R: {:.2}, Q: {:.2}\nU: {:.2} ({:.2} + {:.2})",
-                edge.task,
+                edge.task.display_action(),
                 edge.visits,
                 edge.reward,
                 edge.score,

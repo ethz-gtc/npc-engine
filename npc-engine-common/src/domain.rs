@@ -1,4 +1,5 @@
 use std::collections::{BTreeSet, BTreeMap};
+use std::fmt;
 use std::hash::Hash;
 
 use rand_chacha::ChaCha8Rng;
@@ -13,7 +14,7 @@ pub trait Domain: Sized + 'static {
     /// A compact set of changes towards a `State` that are accumulated throughout planning.
     type Diff: std::fmt::Debug + Default + Clone + Hash + Eq + 'static;
     /// A representation of a display action that can be fetched from a task.
-    type DisplayAction;
+    type DisplayAction: fmt::Display;
 
     /// Returns all behaviors available for this domain.
     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>];

@@ -1,10 +1,16 @@
 use std::{collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}};
+use std::fmt;
 
-use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS};
+use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
+
+struct DisplayAction;
+impl fmt::Display for DisplayAction {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "")
+	}
+}
 
 mod deferment {
-	use std::fmt;
-
 	use super::*;
 
 	use crate::{Behavior, Task};
@@ -26,7 +32,7 @@ mod deferment {
 	impl Domain for TestEngine {
 		type State = State;
 		type Diff = Diff;
-		type DisplayAction = ();
+		type DisplayAction = DisplayAction;
 
 		fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
 			&[&TestBehavior]
@@ -75,12 +81,6 @@ mod deferment {
 	#[derive(Copy, Clone, Debug)]
 	struct TestBehavior;
 
-	impl fmt::Display for TestBehavior {
-		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-			write!(f, "TestBehavior")
-		}
-	}
-
 	impl Behavior<TestEngine> for TestBehavior {
 		fn add_own_tasks(
 			&self,
@@ -99,12 +99,6 @@ mod deferment {
 
 	#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 	struct TestTaskDirect;
-
-	impl fmt::Display for TestTaskDirect {
-		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-			write!(f, "TestTaskDirect")
-		}
-	}
 
 	impl Task<TestEngine> for TestTaskDirect {
 		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
@@ -126,33 +120,14 @@ mod deferment {
 		}
 
 		fn display_action(&self) -> <TestEngine as Domain>::DisplayAction {
-			()
+			DisplayAction
 		}
 
-		fn box_eq(&self, other: &Box<dyn Task<TestEngine>>) -> bool {
-			other
-				.downcast_ref::<Self>()
-				.map(|other| self.eq(other))
-				.unwrap_or_default()
-		}
-
-		fn box_clone(&self) -> Box<dyn Task<TestEngine>> {
-			Box::new(self.clone())
-		}
-
-		fn box_hash(&self, mut state: &mut dyn Hasher) {
-			self.hash(&mut state)
-		}
+		impl_task_boxed_methods!(TestEngine);
 	}
 
 	#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 	struct TestTaskDefer;
-
-	impl fmt::Display for TestTaskDefer {
-		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-			write!(f, "TestTaskDefer")
-		}
-	}
 
 	impl Task<TestEngine> for TestTaskDefer {
 		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
@@ -174,23 +149,10 @@ mod deferment {
 		}
 
 		fn display_action(&self) -> <TestEngine as Domain>::DisplayAction {
-			()
+			DisplayAction
 		}
 
-		fn box_eq(&self, other: &Box<dyn Task<TestEngine>>) -> bool {
-			other
-				.downcast_ref::<Self>()
-				.map(|other| self.eq(other))
-				.unwrap_or_default()
-		}
-
-		fn box_clone(&self) -> Box<dyn Task<TestEngine>> {
-			Box::new(self.clone())
-		}
-
-		fn box_hash(&self, mut state: &mut dyn Hasher) {
-			self.hash(&mut state)
-		}
+		impl_task_boxed_methods!(TestEngine);
 	}
 
 	#[test]
@@ -221,8 +183,6 @@ mod deferment {
 }
 
 mod negative {
-	use std::fmt;
-
 	use super::*;
 
 	use crate::{Behavior, Task};
@@ -242,7 +202,7 @@ mod negative {
 	impl Domain for TestEngine {
 		type State = State;
 		type Diff = Diff;
-		type DisplayAction = ();
+		type DisplayAction = DisplayAction;
 
 		fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
 			&[&TestBehavior]
@@ -300,12 +260,6 @@ mod negative {
 	#[derive(Copy, Clone, Debug)]
 	struct TestBehavior;
 
-	impl fmt::Display for TestBehavior {
-		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-			write!(f, "TestBehavior")
-		}
-	}
-
 	impl Behavior<TestEngine> for TestBehavior {
 		fn add_own_tasks(
 			&self,
@@ -325,12 +279,6 @@ mod negative {
 	#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 	struct TestTaskNoop;
 
-	impl fmt::Display for TestTaskNoop {
-		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-			write!(f, "TestTaskNoop")
-		}
-	}
-
 	impl Task<TestEngine> for TestTaskNoop {
 		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 			1.
@@ -349,33 +297,14 @@ mod negative {
 		}
 
 		fn display_action(&self) -> <TestEngine as Domain>::DisplayAction {
-			()
+			DisplayAction
 		}
 
-		fn box_eq(&self, other: &Box<dyn Task<TestEngine>>) -> bool {
-			other
-				.downcast_ref::<Self>()
-				.map(|other| self.eq(other))
-				.unwrap_or_default()
-		}
-
-		fn box_clone(&self) -> Box<dyn Task<TestEngine>> {
-			Box::new(self.clone())
-		}
-
-		fn box_hash(&self, mut state: &mut dyn Hasher) {
-			self.hash(&mut state)
-		}
+		impl_task_boxed_methods!(TestEngine);
 	}
 
 	#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
 	struct TestTaskNegative;
-
-	impl fmt::Display for TestTaskNegative {
-		fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-			write!(f, "TestTaskNegative")
-		}
-	}
 
 	impl Task<TestEngine> for TestTaskNegative {
 		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
@@ -396,23 +325,10 @@ mod negative {
 		}
 
 		fn display_action(&self) -> <TestEngine as Domain>::DisplayAction {
-			()
+			DisplayAction
 		}
 
-		fn box_eq(&self, other: &Box<dyn Task<TestEngine>>) -> bool {
-			other
-				.downcast_ref::<Self>()
-				.map(|other| self.eq(other))
-				.unwrap_or_default()
-		}
-
-		fn box_clone(&self) -> Box<dyn Task<TestEngine>> {
-			Box::new(self.clone())
-		}
-
-		fn box_hash(&self, mut state: &mut dyn Hasher) {
-			self.hash(&mut state)
-		}
+		impl_task_boxed_methods!(TestEngine);
 	}
 
 	#[test]

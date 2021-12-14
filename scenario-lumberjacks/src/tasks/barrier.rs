@@ -1,4 +1,3 @@
-use std::fmt;
 use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
@@ -8,12 +7,6 @@ use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile, DIREC
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Barrier {
     pub direction: Direction,
-}
-
-impl fmt::Display for Barrier {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Barrier({})", self.direction)
-    }
 }
 
 impl Task<Lumberjacks> for Barrier {

@@ -1,4 +1,3 @@
-use std::fmt;
 use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
@@ -10,12 +9,6 @@ pub struct Move {
     pub path: Vec<Direction>,
     pub x: usize,
     pub y: usize,
-}
-
-impl fmt::Display for Move {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Move({}, {})", self.x, self.y)
-    }
 }
 
 impl Task<Lumberjacks> for Move {
