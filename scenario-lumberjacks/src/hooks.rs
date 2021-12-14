@@ -4,7 +4,7 @@ use ggez::graphics::Image;
 use ggez::Context;
 use npc_engine_turn::{AgentId, Task, MCTS};
 
-use crate::{Lumberjacks, WorldState};
+use crate::{Lumberjacks, WorldGlobalState};
 
 pub type PreWorldHookFn = Box<dyn FnMut(PreWorldHookArgs) + 'static>;
 pub type PostWorldHookFn = Box<dyn FnMut(PostWorldHookArgs) + 'static>;
@@ -16,7 +16,7 @@ pub struct PreWorldHookArgs<'a, 'b> {
     pub ctx: &'a mut Option<&'b mut Context>,
     pub assets: &'a BTreeMap<String, Image>,
     pub turn: usize,
-    pub world: &'a WorldState,
+    pub world: &'a WorldGlobalState,
 }
 
 // Post world hooks are called once per game loop after all actions have executed
@@ -25,7 +25,7 @@ pub struct PostWorldHookArgs<'a, 'b> {
     pub ctx: &'a mut Option<&'b mut Context>,
     pub assets: &'a BTreeMap<String, Image>,
     pub turn: usize,
-    pub world: &'a WorldState,
+    pub world: &'a WorldGlobalState,
     pub objectives: &'a BTreeMap<AgentId, Box<dyn Task<Lumberjacks>>>,
 }
 
@@ -35,7 +35,7 @@ pub struct PostMCTSHookArgs<'a, 'b> {
     pub ctx: &'a mut Option<&'b mut Context>,
     pub assets: &'a BTreeMap<String, Image>,
     pub turn: usize,
-    pub world: &'a WorldState,
+    pub world: &'a WorldGlobalState,
     pub agent: AgentId,
     pub mcts: &'a MCTS<Lumberjacks>,
     pub objective: Box<dyn Task<Lumberjacks>>,

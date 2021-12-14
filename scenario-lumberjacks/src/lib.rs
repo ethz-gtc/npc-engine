@@ -243,7 +243,7 @@ pub fn batch() -> bool {
 pub struct Lumberjacks;
 
 impl Domain for Lumberjacks {
-    type State = WorldSnapshot;
+    type State = WorldLocalState;
     type Diff = WorldDiff;
     type DisplayAction = Action;
 
@@ -251,23 +251,19 @@ impl Domain for Lumberjacks {
         &[&Human, &Lumberjack]
     }
 
-    fn get_current_value(snapshot: StateDiffRef<Self>, agent: AgentId) -> f32 {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(snapshot);
+    fn get_current_value(state_diff: StateDiffRef<Self>, agent: AgentId) -> f32 {
         if let Some((_, f)) = config().agents.behaviors.get(&(agent.0 as usize)) {
-            f(state, agent)
+            f(state_diff, agent)
         } else {
-            state.get_inventory(agent) as f32
+            state_diff.get_inventory(agent) as f32
         }
     }
 
-    fn update_visible_agents(snapshot: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(snapshot);
-        if let Some((x, y)) = state.find_agent(agent) {
+    fn update_visible_agents(state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+        if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.plan_others {
                 agents.extend(
-                    state
+                    state_diff
                         .find_nearby_agents(x, y, config().agents.horizon_radius)
                         .into_iter(),
                 );
@@ -275,16 +271,16 @@ impl Domain for Lumberjacks {
                 agents.insert(agent);
             }
         } else {
-            unreachable!("{:?}", snapshot);
+            unreachable!("{:?}", state_diff);
         }
     }
 }
 
 impl GlobalDomain for Lumberjacks {
-    type GlobalState = WorldState;
+    type GlobalState = WorldGlobalState;
 
     fn derive_local_state(state: &Self::GlobalState, agent: AgentId) -> Self::State {
-        let (x, y) = GlobalStateRef::State(state).find_agent(agent).unwrap();
+        let (x, y) = state.find_agent(agent).unwrap();
 
         let top = y - config().agents.snapshot_radius as isize;
         let left = x - config().agents.snapshot_radius as isize;
@@ -319,7 +315,7 @@ impl GlobalDomain for Lumberjacks {
             }
         }
 
-        WorldSnapshot {
+        WorldLocalState {
             inventory: InventorySnapshot(state.inventory.0.clone()),
             map,
         }

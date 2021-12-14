@@ -6,9 +6,9 @@ use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use npc_engine_turn::AgentId;
+use npc_engine_turn::{AgentId, StateDiffRef};
 
-use crate::{fitnesses, GlobalStateRef};
+use crate::fitnesses;
 use crate::Lumberjacks;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -42,7 +42,7 @@ fn map_tree_height_default() -> NonZeroU8 {
     NonZeroU8::new(3).unwrap()
 }
 
-type Behaviors = HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>;
+type Behaviors = HashMap<usize, (String, fn(StateDiffRef<Lumberjacks>, AgentId) -> f32)>;
 
 #[derive(Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]

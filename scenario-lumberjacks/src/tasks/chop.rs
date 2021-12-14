@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
-use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, Tile, DIRECTIONS, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, Tile, DIRECTIONS, StateMut, State};
 
 // SAFETY: this is safe as 1 is non-zero. This is actually a work-around the fact
 // that Option::unwrap() is currently not const, but we need a constant in the match arm below.
@@ -25,11 +25,9 @@ impl Task<Lumberjacks> for Chop {
         mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(*state_diff);
         state_diff.increment_time();
 
-        if let Some((x, y)) = state.find_agent(agent) {
+        if let Some((x, y)) = state_diff.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
 
             match state_diff.get_tile_ref_mut(x, y) {
@@ -45,7 +43,7 @@ impl Task<Lumberjacks> for Chop {
             if config().features.teamwork {
                 for direction in DIRECTIONS {
                     let (x, y) = direction.apply(x, y);
-                    if let Some(Tile::Agent(agent)) = state.get_tile(x, y) {
+                    if let Some(Tile::Agent(agent)) = state_diff.get_tile(x, y) {
                         state_diff.increment_inventory(agent);
                     }
                 }
@@ -64,11 +62,9 @@ impl Task<Lumberjacks> for Chop {
     }
 
     fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(state_diff);
-        if let Some((x, y)) = state.find_agent(agent) {
+        if let Some((x, y)) = state_diff.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
-            matches!(state.get_tile(x, y), Some(Tile::Tree(_)))
+            matches!(state_diff.get_tile(x, y), Some(Tile::Tree(_)))
         } else {
             unreachable!("Could not find agent on map!")
         }

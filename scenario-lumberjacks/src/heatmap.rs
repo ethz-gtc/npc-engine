@@ -7,7 +7,7 @@ use image::png::PngEncoder;
 use image::{ColorType, ImageBuffer, Rgba};
 use npc_engine_turn::StateDiffRef;
 
-use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, SPRITE_SIZE, GlobalStateRef, State};
+use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, SPRITE_SIZE, State};
 
 // TODO
 pub fn heatmap_hook() -> PostMCTSHookFn {
@@ -40,11 +40,9 @@ pub fn heatmap_hook() -> PostMCTSHookFn {
                         let child = edge.child.upgrade().unwrap();
 
                         if child.agent() == agent {
-                            let snapshot = GlobalStateRef::Snapshot(
-                                StateDiffRef::new(&mcts.initial_state, child.diff())
-                            );
+                            let state_diff = StateDiffRef::new(&mcts.initial_state, child.diff());
 
-                            let (x, y) = snapshot.find_agent(mcts.agent()).unwrap();
+                            let (x, y) = state_diff.find_agent(mcts.agent()).unwrap();
 
                             let visits = edge.visits;
                             let score = edge.q_values.get(&mcts.agent()).copied().unwrap_or(0.);

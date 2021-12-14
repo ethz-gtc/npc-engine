@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, Tile};
+use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Water {
@@ -19,11 +19,9 @@ impl Task<Lumberjacks> for Water {
         mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(*state_diff);
         state_diff.increment_time();
 
-        if let Some((x, y)) = state.find_agent(agent) {
+        if let Some((x, y)) = state_diff.find_agent(agent) {
             state_diff.set_water(agent, false);
 
             let (x, y) = self.direction.apply(x, y);
@@ -42,12 +40,10 @@ impl Task<Lumberjacks> for Water {
     }
 
     fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(state_diff);
-        state.get_water(agent)
-            && if let Some((x, y)) = state.find_agent(agent) {
+        state_diff.get_water(agent)
+            && if let Some((x, y)) = state_diff.find_agent(agent) {
                 let (x, y) = self.direction.apply(x, y);
-                matches!(state.get_tile(x, y), Some(Tile::Tree(_)))
+                matches!(state_diff.get_tile(x, y), Some(Tile::Tree(_)))
             } else {
                 unreachable!("Failed to find agent on map");
             }

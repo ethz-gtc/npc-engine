@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
-use crate::{config, Action, Lumberjacks, State, StateMut, GlobalStateRef, Tile, DIRECTIONS};
+use crate::{config, Action, Lumberjacks, State, StateMut, Tile, DIRECTIONS};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Refill;
@@ -17,7 +17,6 @@ impl Task<Lumberjacks> for Refill {
         mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
-        // FIXME: cleanup compat code
         state_diff.increment_time();
 
         state_diff.set_water(agent, true);
@@ -29,13 +28,11 @@ impl Task<Lumberjacks> for Refill {
     }
 
     fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(state_diff);
-        if let Some((x, y)) = state.find_agent(agent) {
-            !state.get_water(agent)
+        if let Some((x, y)) = state_diff.find_agent(agent) {
+            !state_diff.get_water(agent)
                 && DIRECTIONS.iter().any(|direction| {
                     let (x, y) = direction.apply(x, y);
-                    matches!(state.get_tile(x, y), Some(Tile::Well))
+                    matches!(state_diff.get_tile(x, y), Some(Tile::Well))
                 })
         } else {
             unreachable!("Failed to find agent on map");

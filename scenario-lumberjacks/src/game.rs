@@ -21,7 +21,7 @@ use crate::{
     node_edges_count_metric_hook, output_path, screenshot, screenshot_hook, time_metric_hook,
     total_memory_metric_hook, working_dir, world_serialization_hook, AgentInventory, GeneratorType,
     Lumberjacks, PostMCTSHookArgs, PostMCTSHookFn, PostWorldHookArgs, PostWorldHookFn,
-    PreWorldHookArgs, PreWorldHookFn, TileMap, WorldState, SPRITE_SIZE,
+    PreWorldHookArgs, PreWorldHookFn, TileMap, WorldGlobalState, SPRITE_SIZE,
 };
 
 pub struct GameState {
@@ -30,7 +30,7 @@ pub struct GameState {
     current_agent: usize,
     run: Option<usize>,
     turn: usize,
-    world: WorldState,
+    world: WorldGlobalState,
     config: MCTSConfiguration,
     // mcts: BTreeMap<AgentId, MCTS<Lumberjacks>>,
     agents: Vec<AgentId>,
@@ -65,7 +65,7 @@ impl GameState {
         };
         agents.sort();
 
-        let mut world = WorldState {
+        let mut world = WorldGlobalState {
             actions: Default::default(),
             inventory,
             map,

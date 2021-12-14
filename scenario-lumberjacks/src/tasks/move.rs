@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
-use crate::{config, Action, Direction, Lumberjacks, GlobalStateRef, Tile, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, Tile, StateMut, State};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Move {
@@ -22,11 +22,9 @@ impl Task<Lumberjacks> for Move {
         mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(*state_diff);
         state_diff.increment_time();
 
-        if let Some((x, y)) = state.find_agent(agent) {
+        if let Some((x, y)) = state_diff.find_agent(agent) {
             let direction = self.path.first().unwrap();
             let (_x, _y) = direction.apply(x, y);
             state_diff.set_tile(x, y, Tile::Empty);
@@ -53,14 +51,12 @@ impl Task<Lumberjacks> for Move {
     }
 
     fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(state_diff);
-        if let Some((mut x, mut y)) = state.find_agent(agent) {
+        if let Some((mut x, mut y)) = state_diff.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
                 let tmp = direction.apply(x, y);
                 x = tmp.0;
                 y = tmp.1;
-                state
+                state_diff
                     .get_tile(x, y)
                     .map(|tile| {
                         if idx == 0 {

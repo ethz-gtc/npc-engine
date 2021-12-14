@@ -5,20 +5,19 @@ use ggez::graphics;
 use ggez::graphics::Image;
 use ggez::Context;
 use npc_engine_turn::{AgentId, StateDiffRef, StateDiffRefMut};
-use npc_engine_utils::GlobalDomain;
 use serde::Serialize;
 
 use crate::{Action, AgentInventory, DIRECTIONS, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, SPRITE_SIZE, Tile, TileMap, TileMapDiff, TileMapSnapshot, config};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "kebab-case")]
-pub struct WorldState {
+pub struct WorldGlobalState {
     pub actions: BTreeMap<AgentId, Action>,
     pub inventory: Inventory,
     pub map: TileMap,
 }
 
-impl WorldState {
+impl WorldGlobalState {
     pub fn draw(&self, ctx: &mut Context, assets: &BTreeMap<String, Image>) {
         let screen = graphics::screen_coordinates(ctx);
 
@@ -47,10 +46,21 @@ impl WorldState {
         f(ctx);
         graphics::set_screen_coordinates(ctx, screen).unwrap();
     }
+
+    pub fn find_agent(&self, agent: AgentId) -> Option<(isize, isize)> {
+        for y in 0..self.map.height {
+            for x in 0..self.map.width {
+                if self.map.tiles[y][x] == Tile::Agent(agent) {
+                    return Some((x as isize, y as isize));
+                }
+            }
+        }
+        None
+    }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct WorldSnapshot {
+pub struct WorldLocalState {
     pub inventory: InventorySnapshot,
     pub map: TileMapSnapshot,
 }
@@ -79,98 +89,52 @@ pub trait State {
     fn find_nearby_agents(&self, x: isize, y: isize, radius: usize) -> Vec<AgentId>;
 }
 
-pub trait StateMut {
-    fn increment_time(&mut self);
-    fn set_tile(&mut self, x: isize, y: isize, tile: Tile);
-    fn get_tile_ref_mut(&mut self, x: isize, y: isize) -> Option<&mut Tile>;
-    fn increment_inventory(&mut self, agent: AgentId);
-    fn decrement_inventory(&mut self, agent: AgentId);
-    fn set_water(&mut self, agent: AgentId, value: bool);
-}
-
-pub(crate) enum GlobalStateRef<'a, D: GlobalDomain> {
-    State(&'a D::GlobalState),
-    Snapshot(StateDiffRef<'a, D>),
-}
-
-impl State for GlobalStateRef<'_, Lumberjacks> {
+impl State for StateDiffRef<'_, Lumberjacks> {
     fn get_tile(&self, x: isize, y: isize) -> Option<Tile> {
-        match self {
-            GlobalStateRef::State(state) => {
-                if x >= 0 && x < state.map.width as isize && y >= 0 && y < state.map.height as isize
-                {
-                    Some(state.map.tiles[y as usize][x as usize])
-                } else {
-                    None
-                }
-            }
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff }) => {
-                let (x, y) = (x - snapshot.map.left, y - snapshot.map.top);
+        let initial_state = self.initial_state;
+        let diff = self.diff;
+        let (x, y) = (x - initial_state.map.left, y - initial_state.map.top);
 
-                if x >= 0
-                    && x < (config().agents.snapshot_radius * 2 + 1) as isize
-                    && y >= 0
-                    && y < (config().agents.snapshot_radius * 2 + 1) as isize
-                {
-                    if let Some(tile) = diff.map.tiles.get(&(x, y)) {
-                        Some(*tile)
-                    } else {
-                        Some(snapshot.map.tiles[y as usize][x as usize])
-                    }
-                } else {
-                    None
-                }
+        if x >= 0
+            && x < (config().agents.snapshot_radius * 2 + 1) as isize
+            && y >= 0
+            && y < (config().agents.snapshot_radius * 2 + 1) as isize
+        {
+            if let Some(tile) = diff.map.tiles.get(&(x, y)) {
+                Some(*tile)
+            } else {
+                Some(initial_state.map.tiles[y as usize][x as usize])
             }
+        } else {
+            None
         }
     }
 
     fn trees(&self) -> BTreeSet<(isize, isize)> {
-        match self {
-            GlobalStateRef::State(state) => {
-                let mut set = BTreeSet::new();
-                for y in 0..state.map.height {
-                    for x in 0..state.map.width {
-                        if matches!(state.map.tiles[y][x], Tile::Tree(_)) {
-                            set.insert((x as _, y as _));
-                        }
-                    }
+        let initial_state = self.initial_state;
+        let mut set = BTreeSet::new();
+        let top = initial_state.map.top;
+        let left = initial_state.map.left;
+        for y in top..(top + config().agents.snapshot_radius as isize * 2 + 1) {
+            for x in left..(left + config().agents.snapshot_radius as isize * 2 + 1) {
+                if matches!(self.get_tile(x, y), Some(Tile::Tree(_))) {
+                    set.insert((x, y));
                 }
-                set
-            }
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff: _ }) => {
-                let mut set = BTreeSet::new();
-                let top = snapshot.map.top;
-                let left = snapshot.map.left;
-                for y in top..(top + config().agents.snapshot_radius as isize * 2 + 1) {
-                    for x in left..(left + config().agents.snapshot_radius as isize * 2 + 1) {
-                        if matches!(self.get_tile(x, y), Some(Tile::Tree(_))) {
-                            set.insert((x, y));
-                        }
-                    }
-                }
-                set
             }
         }
+        set
     }
 
     fn points_of_interest(&self, mut f: impl FnMut(isize, isize)) {
-        let (start_x, end_x, start_y, end_y) = match self {
-            GlobalStateRef::State(state) => (
-                0isize,
-                state.map.width as isize,
-                0isize,
-                state.map.height as isize,
-            ),
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff: _ }) => {
-                let extent = config().agents.snapshot_radius as isize * 2 + 1;
-
-                (
-                    snapshot.map.left,
-                    snapshot.map.left + extent,
-                    snapshot.map.top,
-                    snapshot.map.top + extent,
-                )
-            }
+        let (start_x, end_x, start_y, end_y) = {
+            let extent = config().agents.snapshot_radius as isize * 2 + 1;
+            let initial_state = self.initial_state;
+            (
+                initial_state.map.left,
+                initial_state.map.left + extent,
+                initial_state.map.top,
+                initial_state.map.top + extent,
+            )
         };
 
         for y in start_y..end_y {
@@ -193,98 +157,71 @@ impl State for GlobalStateRef<'_, Lumberjacks> {
     }
 
     fn find_agent(&self, agent: AgentId) -> Option<(isize, isize)> {
-        match self {
-            GlobalStateRef::State(state) => {
-                for y in 0..state.map.height {
-                    for x in 0..state.map.width {
-                        if state.map.tiles[y][x] == Tile::Agent(agent) {
-                            return Some((x as isize, y as isize));
-                        }
+        let initial_state = self.initial_state;
+        let diff = self.diff;
+        if let Some(pos) = diff.map.agents_pos.get(&agent) {
+            return Some(*pos);
+        }
+
+        for y in 0..(config().agents.snapshot_radius * 2 + 1) as isize {
+            for x in 0..(config().agents.snapshot_radius * 2 + 1) as isize {
+                if let Some(tile) = diff.map.tiles.get(&(x, y)) {
+                    if *tile == Tile::Agent(agent) {
+                        return Some((x + initial_state.map.left, y + initial_state.map.top));
                     }
+                } else if initial_state.map.tiles[y as usize][x as usize] == Tile::Agent(agent) {
+                    return Some((x + initial_state.map.left, y + initial_state.map.top));
                 }
-
-                None
-            }
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff }) => {
-                if let Some(pos) = diff.map.agents_pos.get(&agent) {
-                    return Some(*pos);
-                }
-
-                for y in 0..(config().agents.snapshot_radius * 2 + 1) as isize {
-                    for x in 0..(config().agents.snapshot_radius * 2 + 1) as isize {
-                        if let Some(tile) = diff.map.tiles.get(&(x, y)) {
-                            if *tile == Tile::Agent(agent) {
-                                return Some((x + snapshot.map.left, y + snapshot.map.top));
-                            }
-                        } else if snapshot.map.tiles[y as usize][x as usize] == Tile::Agent(agent) {
-                            return Some((x + snapshot.map.left, y + snapshot.map.top));
-                        }
-                    }
-                }
-
-                None
             }
         }
+
+        None
     }
 
     fn get_inventory(&self, agent: AgentId) -> usize {
-        match self {
-            GlobalStateRef::State(state) => state.inventory.0.get(&agent).unwrap().wood as usize,
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff }) => {
-                (snapshot.inventory.0.get(&agent).unwrap().wood
-                    + diff
-                        .inventory
-                        .0
-                        .get(&agent)
-                        .map(|inv| inv.wood)
-                        .unwrap_or(0)) as usize
-            }
-        }
+        let initial_state = self.initial_state;
+        let diff = self.diff;
+        (initial_state
+            .inventory.0
+            .get(&agent)
+            .unwrap()
+            .wood
+        + diff
+            .inventory.0
+            .get(&agent)
+            .map(|inv| inv.wood)
+            .unwrap_or(0)
+        ) as usize
     }
 
     fn get_total_inventory(&self) -> usize {
-        match self {
-            GlobalStateRef::State(state) => state
-                .inventory
-                .0
-                .values()
-                .map(|inv| inv.wood)
-                .sum::<isize>() as usize,
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff }) => {
-                (snapshot
-                    .inventory
-                    .0
-                    .values()
-                    .map(|inv| inv.wood)
-                    .sum::<isize>()
-                    + diff.inventory.0.values().map(|inv| inv.wood).sum::<isize>())
-                    as usize
-            }
-        }
+        let initial_state = self.initial_state;
+        let diff = self.diff;
+        initial_state
+            .inventory.0.values()
+            .map(|inv| inv.wood as usize)
+            .sum::<usize>()
+        + diff
+            .inventory.0.values()
+            .map(|inv| inv.wood as usize)
+            .sum::<usize>()
     }
 
     fn get_water(&self, agent: AgentId) -> bool {
-        match self {
-            GlobalStateRef::State(state) => state
-                .inventory
-                .0
-                .get(&agent)
-                .map(|inv| inv.water)
-                .unwrap_or_default(),
-            GlobalStateRef::Snapshot(StateDiffRef { initial_state: snapshot, diff }) => diff
-                .inventory
-                .0
-                .get(&agent)
-                .map(|inv| inv.water)
-                .unwrap_or_else(|| {
-                    snapshot
-                        .inventory
-                        .0
-                        .get(&agent)
-                        .map(|inv| inv.water)
-                        .unwrap_or_default()
-                }),
-        }
+        let initial_state = self.initial_state;
+        let diff = self.diff;
+        diff
+            .inventory
+            .0
+            .get(&agent)
+            .map(|inv| inv.water)
+            .unwrap_or_else(||
+                initial_state
+                    .inventory.0
+                    .get(&agent)
+                    .map(|inv| inv.water)
+                    .unwrap_or_default()
+            )
     }
 
     fn find_nearby_agents(&self, x: isize, y: isize, radius: usize) -> Vec<AgentId> {
@@ -300,6 +237,15 @@ impl State for GlobalStateRef<'_, Lumberjacks> {
 
         vec
     }
+}
+
+pub trait StateMut {
+    fn increment_time(&mut self);
+    fn set_tile(&mut self, x: isize, y: isize, tile: Tile);
+    fn get_tile_ref_mut(&mut self, x: isize, y: isize) -> Option<&mut Tile>;
+    fn increment_inventory(&mut self, agent: AgentId);
+    fn decrement_inventory(&mut self, agent: AgentId);
+    fn set_water(&mut self, agent: AgentId, value: bool);
 }
 
 impl StateMut for StateDiffRefMut<'_, Lumberjacks> {

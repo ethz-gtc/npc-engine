@@ -8,11 +8,11 @@ use ggez::Context;
 use image::png::PngEncoder;
 use image::{ColorType, ImageBuffer, Rgba};
 
-use crate::{config, output_path, PreWorldHookArgs, PreWorldHookFn, WorldState};
+use crate::{config, output_path, PreWorldHookArgs, PreWorldHookFn, WorldGlobalState};
 
 pub fn screenshot(
     ctx: &mut Context,
-    world: &WorldState,
+    world: &WorldGlobalState,
     assets: &BTreeMap<String, Image>,
     path: &str,
 ) {

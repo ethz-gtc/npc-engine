@@ -6,7 +6,7 @@ use npc_engine_turn::{AgentId, Behavior, StateDiffRef, Task};
 
 use crate::{
     config, Barrier, Chop, Direction, Lumberjacks, Map2D, Move, Plant, Refill, State, Wait, Water,
-    DIRECTIONS, GlobalStateRef,
+    DIRECTIONS,
 };
 
 pub struct Lumberjack;
@@ -160,22 +160,20 @@ impl Behavior<Lumberjacks> for Lumberjack {
     }
     fn add_own_tasks(
         &self,
-        snapshot: StateDiffRef<Lumberjacks>,
+        state_diff: StateDiffRef<Lumberjacks>,
         agent: AgentId,
         tasks: &mut Vec<Box<dyn Task<Lumberjacks>>>,
     ) {
-        // FIXME: cleanup compat code
-        let state = GlobalStateRef::Snapshot(snapshot);
-        if let Some((x, y)) = state.find_agent(agent) {
+        if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.tasks {
                 // Movement
                 let mut wavefront = None;
 
-                state.points_of_interest(|target_x, target_y| {
+                state_diff.points_of_interest(|target_x, target_y| {
                     if wavefront.is_none() {
                         wavefront = Some(wavefront_expansion(
                             |x: usize, y: usize| {
-                                state
+                                state_diff
                                     .get_tile(x as _, y as _)
                                     .map(|tile| tile.is_pathfindable())
                                     .unwrap_or_default()
@@ -209,7 +207,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
                                 y: target_y as _,
                             };
 
-                            if task.is_valid(snapshot, agent) {
+                            if task.is_valid(state_diff, agent) {
                                 tasks.push(Box::new(task));
                             }
                         }
@@ -219,7 +217,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
                 for &direction in DIRECTIONS {
                     let adjacent = direction.apply(x, y);
 
-                    if state
+                    if state_diff
                         .get_tile(adjacent.0, adjacent.1)
                         .map(|tile| tile.is_walkable())
                         .unwrap_or(false)
@@ -235,15 +233,15 @@ impl Behavior<Lumberjacks> for Lumberjack {
 
             // Chopping
             for &direction in DIRECTIONS {
-                if (Chop { direction }).is_valid(snapshot, agent) {
+                if (Chop { direction }).is_valid(state_diff, agent) {
                     tasks.push(Box::new(Chop { direction }));
                 }
             }
 
             // Barriers
-            if config().features.barriers && state.get_inventory(agent) > 0 {
+            if config().features.barriers && state_diff.get_inventory(agent) > 0 {
                 for &direction in DIRECTIONS {
-                    if (Barrier { direction }).is_valid(snapshot, agent) {
+                    if (Barrier { direction }).is_valid(state_diff, agent) {
                         tasks.push(Box::new(Barrier { direction }));
                     }
                 }
@@ -251,21 +249,21 @@ impl Behavior<Lumberjacks> for Lumberjack {
 
             // Watering
             if config().features.watering {
-                if state.get_water(agent) {
+                if state_diff.get_water(agent) {
                     for &direction in DIRECTIONS {
-                        if (Water { direction }.is_valid(snapshot, agent)) {
+                        if (Water { direction }.is_valid(state_diff, agent)) {
                             tasks.push(Box::new(Water { direction }));
                         }
                     }
-                } else if Refill.is_valid(snapshot, agent) {
+                } else if Refill.is_valid(state_diff, agent) {
                     tasks.push(Box::new(Refill))
                 }
             }
 
             // Planting
-            if config().features.planting && state.get_inventory(agent) > 0 {
+            if config().features.planting && state_diff.get_inventory(agent) > 0 {
                 for &direction in DIRECTIONS {
-                    if (Plant { direction }).is_valid(snapshot, agent) {
+                    if (Plant { direction }).is_valid(state_diff, agent) {
                         tasks.push(Box::new(Plant { direction }));
                     }
                 }
