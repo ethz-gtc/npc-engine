@@ -1,9 +1,11 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, BTreeMap};
 use std::hash::Hash;
 use std::ops::Deref;
 use std::{fmt, mem};
 
-use crate::{AgentId, Behavior, Task};
+use rand_chacha::ChaCha8Rng;
+
+use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration};
 
 // TODO: remove debug constraints
 /// A domain on which the MCTS planner can plan
@@ -95,4 +97,17 @@ impl<'a, D: Domain> Deref for StateDiffRefMut<'a, D> {
         // and casting from mutable to immutable is always safe
         unsafe { mem::transmute(self) }
     }
+}
+
+/// Estimator of state-value function: takes state of explored node and returns the estimated expected (discounted) values
+pub trait StateValueEstimator<D: Domain> {
+    fn estimate(
+        &mut self,
+        rnd: &mut ChaCha8Rng,
+        config: &MCTSConfiguration,
+        initial_state: &D::State,
+        node: &Node<D>,
+        depth: u32,
+        agent: AgentId, // agent of the MCTS
+    ) -> BTreeMap<AgentId, f32>;
 }

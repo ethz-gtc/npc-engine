@@ -10,3 +10,4 @@ edition = "2021"
 downcast-rs = "1.2.0"
 serde = { version = "1", features = [ "derive" ] }
 rand = "~0.8"
+rand_chacha = "~0.3"

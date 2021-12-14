@@ -13,18 +13,7 @@ use crate::*;
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
 
-/// Estimator of state-value function: takes state of explored node and returns the estimated expected (discounted) values
-pub trait StateValueEstimator<D: Domain> {
-    fn estimate(
-        &mut self,
-        rnd: &mut ChaCha8Rng,
-        config: &MCTSConfiguration,
-        snapshot: &D::State,
-        node: &Node<D>,
-        depth: u32,
-        agent: AgentId, // agent of the MCTS
-    ) -> BTreeMap<AgentId, f32>;
-}
+
 
 
 /// The state of a running planner instance
