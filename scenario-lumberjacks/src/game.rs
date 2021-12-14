@@ -254,7 +254,7 @@ impl GameState {
 
         let world = &mut self.world;
         let agent = self.agents[self.current_agent];
-        let initial_state = Lumberjacks::derive_local_state(&world, agent);
+        let initial_state = Lumberjacks::derive_local_state(world, agent);
         let mut mcts = MCTS::new(
             initial_state,
             agent,

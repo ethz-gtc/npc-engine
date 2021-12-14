@@ -37,7 +37,7 @@ pub fn islands_metric_hook() -> PreWorldHookFn {
                     neighbors
                         .iter()
                         .cloned()
-                        .filter_map(|v| v)
+                        .flatten()
                         .for_each(|(x, y)| {
                             if !world.map.tiles[y][x].is_impassable() {
                                 islands.union(index, index_fn(x, y));

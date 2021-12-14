@@ -25,6 +25,7 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
 
     /// Utility method for equality, since trait objects are not inherently `Eq`.
     /// Should perform downcast to current type and then check equality.
+    #[allow(clippy::borrowed_box)]
     fn box_eq(&self, other: &Box<dyn Task<D>>) -> bool;
 }
 

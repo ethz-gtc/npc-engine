@@ -10,9 +10,9 @@ use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef};
 /// A domain on which the MCTS planner can plan
 pub trait Domain: Sized + 'static {
     /// The state the MCTS plans on.
-    type State: std::fmt::Debug + Sized + 'static;
+    type State: std::fmt::Debug + Sized;
     /// A compact set of changes towards a `State` that are accumulated throughout planning.
-    type Diff: std::fmt::Debug + Default + Clone + Hash + Eq + 'static;
+    type Diff: std::fmt::Debug + Default + Clone + Hash + Eq;
     /// A representation of a display action that can be fetched from a task.
     type DisplayAction: fmt::Display;
 
@@ -33,8 +33,8 @@ pub trait Domain: Sized + 'static {
     }
 
     /// Gets all possible valid tasks for a given agent in a given world state.
-    fn get_tasks<'a>(
-        state_diff: StateDiffRef<'a, Self>,
+    fn get_tasks(
+        state_diff: StateDiffRef<'_, Self>,
         agent: AgentId
     ) -> Vec<Box<dyn Task<Self>>> {
         let mut actions = Vec::new();

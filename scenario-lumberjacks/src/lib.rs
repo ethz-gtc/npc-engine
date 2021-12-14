@@ -103,7 +103,7 @@ unsafe fn init() {
                     .short("s")
                     .long("set")
                     .validator(|str| {
-                        if str.contains("=") {
+                        if str.contains('=') {
                             Ok(())
                         } else {
                             Err("Invalid format, should be \"some.path=value\"".to_owned())
@@ -160,7 +160,7 @@ unsafe fn init() {
 
                     let mut object = &mut json;
 
-                    let mut keys = k.split(".").peekable();
+                    let mut keys = k.split('.').peekable();
 
                     while let Some(key) = keys.next() {
                         if keys.peek().is_some() {
@@ -328,7 +328,7 @@ impl GlobalDomain for Lumberjacks {
     fn apply(state: &mut Self::GlobalState, snapshot: &Self::State, diff: &Self::Diff) {
         for (agent, AgentInventory { wood, water }) in &diff.inventory.0 {
             if let Some(inventory) = state.inventory.0.get_mut(agent) {
-                inventory.wood = inventory.wood + *wood;
+                inventory.wood += *wood;
                 inventory.water = *water;
             }
         }

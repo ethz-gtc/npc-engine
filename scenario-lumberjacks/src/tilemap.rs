@@ -75,6 +75,7 @@ impl TileMap {
         }
     }
 
+    #[allow(clippy::needless_borrow)] // because clippy is buggy in its analysis here
     pub fn draw(
         &self,
         ctx: &mut Context,
@@ -96,7 +97,7 @@ impl TileMap {
                         if agent.0 % 2 == 0 { "Orange" } else { "Yellow" },
                         actions.get(&agent).unwrap().sprite_name(),
                     )),
-                    tile @ _ => tile.sprite(),
+                    tile => tile.sprite(),
                 };
 
                 if let Some(sprite) = sprite {
@@ -115,11 +116,7 @@ impl TileMap {
             .iter()
             .flat_map(|cols| {
                 cols.iter().filter(|&&tile| {
-                    if let Tile::Tree(_) = tile {
-                        true
-                    } else {
-                        false
-                    }
+                    matches!(tile, Tile::Tree(_))
                 })
             })
             .count()

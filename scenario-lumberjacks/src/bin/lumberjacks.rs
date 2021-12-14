@@ -168,7 +168,7 @@ fn main() {
 
         // Load assets
         for (name, bytes) in ASSETS {
-            let png = PngDecoder::new(bytes.clone()).unwrap();
+            let png = PngDecoder::new(<&[u8]>::clone(bytes)).unwrap();
             let (width, height) = png.dimensions();
 
             let mut rgba = vec![0u8; png.total_bytes() as _];
@@ -189,7 +189,7 @@ fn main() {
         ggez::event::run(&mut ctx, &mut events, &mut state).unwrap();
 
         // Screenshot of final state
-        state.screenshot(&mut ctx, &&format!("{}/result.png", dir));
+        state.screenshot(&mut ctx, &format!("{}/result.png", dir));
 
         state.dump_result();
     }

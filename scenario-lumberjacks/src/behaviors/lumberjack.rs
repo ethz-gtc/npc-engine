@@ -69,43 +69,35 @@ fn wavefront_expansion(
         *gradient_value = cost;
 
         // X lower bound
-        if x + radius >= start_x + 1 {
-            if pathfindable(x - 1, y) {
-                heap.push(WavefrontState {
-                    cost: cost + 1,
-                    position: (x - 1, y),
-                });
-            }
+        if x + radius >= start_x + 1 && pathfindable(x - 1, y) {
+            heap.push(WavefrontState {
+                cost: cost + 1,
+                position: (x - 1, y),
+            });
         }
 
         // X upper bound
-        if x + 1 <= start_x + radius {
-            if pathfindable(x + 1, y) {
-                heap.push(WavefrontState {
-                    cost: cost + 1,
-                    position: (x + 1, y),
-                });
-            }
+        if x < start_x + radius && pathfindable(x + 1, y) {
+            heap.push(WavefrontState {
+                cost: cost + 1,
+                position: (x + 1, y),
+            });
         }
 
         // Y lower bound
-        if y + radius >= start_y + 1 {
-            if pathfindable(x, y - 1) {
-                heap.push(WavefrontState {
-                    cost: cost + 1,
-                    position: (x, y - 1),
-                });
-            }
+        if y + radius >= start_y + 1 && pathfindable(x, y - 1) {
+            heap.push(WavefrontState {
+                cost: cost + 1,
+                position: (x, y - 1),
+            });
         }
 
         // Y upper bound
-        if y + 1 <= start_y + radius {
-            if pathfindable(x, y + 1) {
-                heap.push(WavefrontState {
-                    cost: cost + 1,
-                    position: (x, y + 1),
-                });
-            }
+        if y < start_y + radius && pathfindable(x, y + 1) {
+            heap.push(WavefrontState {
+                cost: cost + 1,
+                position: (x, y + 1),
+            });
         }
     }
 
@@ -122,8 +114,7 @@ fn wavefront_pathfind(
 
     let radius = (gradient.width() - 1) / 2;
 
-    let mut path = Vec::new();
-    path.push((target_x, target_y));
+    let mut path = vec![(target_x, target_y)];
 
     while target_x != agent_x || target_y != agent_y {
         let mut best_cost = u16::MAX;
@@ -198,7 +189,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
 
                     if !(target_x == x && target_y == y) {
                         if let Some(path) = wavefront_pathfind(
-                            &wavefront,
+                            wavefront,
                             (x as _, y as _),
                             (target_x as _, target_y as _),
                         ) {
@@ -266,10 +257,8 @@ impl Behavior<Lumberjacks> for Lumberjack {
                             tasks.push(Box::new(Water { direction }));
                         }
                     }
-                } else {
-                    if Refill.is_valid(snapshot, agent) {
-                        tasks.push(Box::new(Refill))
-                    }
+                } else if Refill.is_valid(snapshot, agent) {
+                    tasks.push(Box::new(Refill))
                 }
             }
 

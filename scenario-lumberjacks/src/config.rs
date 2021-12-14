@@ -42,6 +42,8 @@ fn map_tree_height_default() -> NonZeroU8 {
     NonZeroU8::new(3).unwrap()
 }
 
+type Behaviors = HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>;
+
 #[derive(Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct AgentsConfig {
@@ -53,7 +55,7 @@ pub struct AgentsConfig {
         deserialize_with = "behavior_deserializer",
         serialize_with = "behavior_serializer"
     )]
-    pub(crate) behaviors: HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>,
+    pub(crate) behaviors: Behaviors,
 }
 
 impl fmt::Debug for AgentsConfig {
@@ -68,7 +70,7 @@ impl fmt::Debug for AgentsConfig {
                 &self
                     .behaviors
                     .iter()
-                    .map(|(k, (v, _))| (k.clone(), v.clone()))
+                    .map(|(k, (v, _))| (*k, v.clone()))
                     .collect::<HashMap<_, _>>(),
             )
             .finish()
@@ -77,14 +79,14 @@ impl fmt::Debug for AgentsConfig {
 
 fn behavior_deserializer<'de, D>(
     deserializer: D,
-) -> Result<HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>, D::Error>
+) -> Result<Behaviors, D::Error>
 where
     D: Deserializer<'de>,
 {
     struct BehaviorVisitor;
 
     impl<'de> Visitor<'de> for BehaviorVisitor {
-        type Value = HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>;
+        type Value = Behaviors;
 
         fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
             write!(formatter, "a map of integers to behavior function names")
@@ -111,7 +113,7 @@ where
 }
 
 fn behavior_serializer<S>(
-    behaviors: &HashMap<usize, (String, fn(GlobalStateRef<Lumberjacks>, AgentId) -> f32)>,
+    behaviors: &Behaviors,
     serializer: S,
 ) -> Result<S::Ok, S::Error>
 where
@@ -186,7 +188,7 @@ impl Default for MCTSConfig {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct FeaturesConfig {
     pub barriers: bool,
@@ -196,19 +198,7 @@ pub struct FeaturesConfig {
     pub waiting: bool,
 }
 
-impl Default for FeaturesConfig {
-    fn default() -> Self {
-        FeaturesConfig {
-            barriers: false,
-            teamwork: false,
-            watering: false,
-            planting: false,
-            waiting: false,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct AnalyticsConfig {
     pub metrics: bool,
@@ -217,19 +207,6 @@ pub struct AnalyticsConfig {
     pub serialization: bool,
     pub screenshot: bool,
     pub performance: bool,
-}
-
-impl Default for AnalyticsConfig {
-    fn default() -> Self {
-        AnalyticsConfig {
-            metrics: false,
-            heatmaps: false,
-            graphs: false,
-            serialization: false,
-            screenshot: false,
-            performance: false,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

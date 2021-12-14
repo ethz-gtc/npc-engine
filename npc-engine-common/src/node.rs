@@ -83,7 +83,7 @@ impl<D: Domain> NodeInner<D> {
         size += mem::size_of::<Self>();
         size += self.current_values.len() * mem::size_of::<(AgentId, f32)>();
 
-        for (_, task) in &self.tasks {
+        for task in self.tasks.values() {
             size += task_size(&**task);
         }
 

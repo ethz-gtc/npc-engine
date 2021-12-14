@@ -59,19 +59,19 @@ pub fn total_memory_metric_hook() -> PostMCTSHookFn {
         let (total_size, count) = stats.entry(agent).or_default();
 
         *total_size += mcts.size(|task| {
-            if let Some(_) = task.downcast_ref::<Barrier>() {
+            if task.downcast_ref::<Barrier>().is_some() {
                 mem::size_of::<Barrier>()
-            } else if let Some(_) = task.downcast_ref::<Chop>() {
+            } else if task.downcast_ref::<Chop>().is_some() {
                 mem::size_of::<Chop>()
             } else if let Some(_move) = task.downcast_ref::<Move>() {
                 mem::size_of::<Move>() + _move.path.len() * mem::size_of::<Direction>()
-            } else if let Some(_) = task.downcast_ref::<Plant>() {
+            } else if task.downcast_ref::<Plant>().is_some() {
                 mem::size_of::<Plant>()
-            } else if let Some(_) = task.downcast_ref::<Refill>() {
+            } else if task.downcast_ref::<Refill>().is_some() {
                 mem::size_of::<Refill>()
-            } else if let Some(_) = task.downcast_ref::<Wait>() {
+            } else if task.downcast_ref::<Wait>().is_some() {
                 mem::size_of::<Wait>()
-            } else if let Some(_) = task.downcast_ref::<Water>() {
+            } else if task.downcast_ref::<Water>().is_some() {
                 mem::size_of::<Water>()
             } else {
                 panic!("Unrecognized task type!");

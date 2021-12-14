@@ -143,7 +143,7 @@ impl<D: Domain> MCTS<D> {
         // Initial start agent is the current agent
         let start_agent = self.agent;
 
-        let mut node = root.clone();
+        let mut node = root;
 
         // Maintain set of nodes seen to prevent cycles
         let mut seen_nodes = SeededHashSet::default();
@@ -167,7 +167,7 @@ impl<D: Domain> MCTS<D> {
                 let mut edges = nodes.get_mut(&node).unwrap();
 
                 {
-                    let snapshot = &self.initial_state;
+                    let initial_state = &self.initial_state;
 
                     // If weights are non-empty, the node has not been fully expanded
                     if let Some((weights, tasks)) = edges.unexpanded_tasks.as_mut() {
@@ -205,7 +205,7 @@ impl<D: Domain> MCTS<D> {
                         }
 
                         // Create expanded node state
-                        let child_state = NodeInner::new(snapshot, diff, next_agent, tasks);
+                        let child_state = NodeInner::new(initial_state, diff, next_agent, tasks);
 
                         // Check if child node exists already
                         let child_node = if let Some((existing_node, _)) =
@@ -216,7 +216,7 @@ impl<D: Domain> MCTS<D> {
                         } else {
                             // Create and insert new child node
                             let child_node = Node::new(child_state);
-                            nodes.insert(child_node.clone(), Edges::new(&child_node, &snapshot));
+                            nodes.insert(child_node.clone(), Edges::new(&child_node, initial_state));
                             child_node
                         };
 
@@ -422,7 +422,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         let mut start_agent = node.agent;
         let mut agents: BTreeSet<AgentId> = node.current_values
             .keys()
-            .map(|agent| *agent)
+            .copied()
             .collect()
         ;
 
@@ -587,7 +587,7 @@ mod graphviz {
                 child: self.child.clone(),
                 task: self.task.box_clone(),
                 best: self.best,
-                visits: self.visits.clone(),
+                visits: self.visits,
                 score: self.score,
                 uct: self.uct,
                 uct_0: self.uct_0,
@@ -610,7 +610,7 @@ mod graphviz {
             nodes.insert(node.clone());
 
             let edges = self.nodes.get(node).unwrap();
-            for (_task, edge) in &edges.expanded_tasks {
+            for edge in edges.expanded_tasks.values() {
                 if let Ok(edge) = edge.try_borrow() {
                     // Prevent recursion
                     if let Some(child) = edge.child.upgrade() {
@@ -703,7 +703,7 @@ mod graphviz {
             LabelText::LabelStr(Cow::Owned(format!(
                 "Agent {}\nV: {}\nFitnesses: {:?}",
                 n.agent.0,
-                v.map(|v| format!("{:.2}", v)).unwrap_or("None".to_owned()),
+                v.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "None".to_owned()),
                 n.current_values
                     .iter()
                     .map(|(agent, value)| { (agent.0, *value) })

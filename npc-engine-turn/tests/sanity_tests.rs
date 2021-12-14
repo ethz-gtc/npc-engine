@@ -222,8 +222,8 @@ mod negative {
 			agents
 		}
 
-		fn get_tasks<'a>(
-			state: StateDiffRef<'a, Self>,
+		fn get_tasks(
+			state: StateDiffRef<Self>,
 			agent: AgentId
 		) -> Vec<Box<dyn Task<Self>>> {
 			let mut actions = Vec::new();

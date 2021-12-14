@@ -179,7 +179,7 @@ impl State for GlobalStateRef<'_, Lumberjacks> {
                     .get_tile(x, y)
                     .map(|tile| tile.is_pathfindable())
                     .unwrap_or(false)
-                    && DIRECTIONS.into_iter().any(|direction| {
+                    && DIRECTIONS.iter().any(|direction| {
                         let (x, y) = direction.apply(x, y);
                         self.get_tile(x, y)
                             .map(|tile| tile.is_point_of_interest())

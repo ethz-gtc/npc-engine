@@ -4,10 +4,11 @@ use crate::{Domain, AgentId, SeededHashMap, Task, StateDiffRef, Node, WeakNode};
 
 use rand::distributions::WeightedIndex;
 
+pub type UnexpandedTasks<D> = Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>;
 
 pub struct Edges<D: Domain> {
     branching_factor: usize,
-    pub unexpanded_tasks: Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>,
+    pub unexpanded_tasks: UnexpandedTasks<D>,
     pub expanded_tasks: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
 }
 

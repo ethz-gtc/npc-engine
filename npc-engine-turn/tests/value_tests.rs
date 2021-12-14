@@ -126,7 +126,7 @@ fn linear_bellman() {
 	for i in 1..CONFIG.depth {
 		let edges = mcts.get_edges(&node).unwrap();
 		assert_eq!(edges.expanded_tasks.len(), 1);
-		let edge_rc = edges.expanded_tasks.values().nth(0).unwrap();
+		let edge_rc = edges.expanded_tasks.values().next().unwrap();
 		let edge = edge_rc.borrow();
 
 		node = edge.child.upgrade().unwrap();

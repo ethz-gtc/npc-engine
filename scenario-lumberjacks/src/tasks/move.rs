@@ -1,3 +1,4 @@
+
 use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
@@ -35,7 +36,7 @@ impl Task<Lumberjacks> for Move {
 
             if !path.is_empty() {
                 Some(Box::new(Move {
-                    path: self.path.iter().skip(1).copied().collect(),
+                    path,
                     x: self.x,
                     y: self.y,
                 }))
