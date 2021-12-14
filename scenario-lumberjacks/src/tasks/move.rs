@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
-use crate::{config, Action, Direction, Lumberjacks, Tile, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, Tile, WorldStateMut, WorldState};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Move {

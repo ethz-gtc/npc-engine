@@ -7,7 +7,7 @@ use image::png::PngEncoder;
 use image::{ColorType, ImageBuffer, Rgba};
 use npc_engine_turn::StateDiffRef;
 
-use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, SPRITE_SIZE, State};
+use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, SPRITE_SIZE, WorldState};
 
 // TODO
 pub fn heatmap_hook() -> PostMCTSHookFn {

@@ -1,4 +1,4 @@
-use crate::{Lumberjacks, State};
+use crate::{Lumberjacks, WorldState};
 use npc_engine_turn::{AgentId, StateDiffRef};
 
 pub(crate) fn minimalist(state: StateDiffRef<Lumberjacks>, _agent: AgentId) -> f32 {

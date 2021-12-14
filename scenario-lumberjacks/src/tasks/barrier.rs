@@ -2,7 +2,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
-use crate::{config, Action, Direction, Lumberjacks, State, StateMut, Tile, DIRECTIONS};
+use crate::{config, Action, Direction, Lumberjacks, WorldState, WorldStateMut, Tile, DIRECTIONS};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Barrier {

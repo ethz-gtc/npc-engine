@@ -5,7 +5,7 @@ use std::fmt;
 use npc_engine_turn::{AgentId, Behavior, StateDiffRef, Task};
 
 use crate::{
-    config, Barrier, Chop, Direction, Lumberjacks, Map2D, Move, Plant, Refill, State, Wait, Water,
+    config, Barrier, Chop, Direction, Lumberjacks, Map2D, Move, Plant, Refill, WorldState, Wait, Water,
     DIRECTIONS,
 };
 

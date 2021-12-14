@@ -3,7 +3,7 @@ use std::hash::{Hash, Hasher};
 
 use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
-use crate::{config, Action, Direction, Lumberjacks, Tile, DIRECTIONS, StateMut, State};
+use crate::{config, Action, Direction, Lumberjacks, Tile, DIRECTIONS, WorldStateMut, WorldState};
 
 // SAFETY: this is safe as 1 is non-zero. This is actually a work-around the fact
 // that Option::unwrap() is currently not const, but we need a constant in the match arm below.

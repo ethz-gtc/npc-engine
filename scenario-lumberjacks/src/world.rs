@@ -78,7 +78,7 @@ impl WorldDiff {
     }
 }
 
-pub trait State {
+pub trait WorldState {
     fn get_tile(&self, x: isize, y: isize) -> Option<Tile>;
     fn find_agent(&self, agent: AgentId) -> Option<(isize, isize)>;
     fn get_inventory(&self, agent: AgentId) -> usize;
@@ -89,7 +89,7 @@ pub trait State {
     fn find_nearby_agents(&self, x: isize, y: isize, radius: usize) -> Vec<AgentId>;
 }
 
-impl State for StateDiffRef<'_, Lumberjacks> {
+impl WorldState for StateDiffRef<'_, Lumberjacks> {
     fn get_tile(&self, x: isize, y: isize) -> Option<Tile> {
         let initial_state = self.initial_state;
         let diff = self.diff;
@@ -239,7 +239,7 @@ impl State for StateDiffRef<'_, Lumberjacks> {
     }
 }
 
-pub trait StateMut {
+pub trait WorldStateMut {
     fn increment_time(&mut self);
     fn set_tile(&mut self, x: isize, y: isize, tile: Tile);
     fn get_tile_ref_mut(&mut self, x: isize, y: isize) -> Option<&mut Tile>;
@@ -248,7 +248,7 @@ pub trait StateMut {
     fn set_water(&mut self, agent: AgentId, value: bool);
 }
 
-impl StateMut for StateDiffRefMut<'_, Lumberjacks> {
+impl WorldStateMut for StateDiffRefMut<'_, Lumberjacks> {
     fn increment_time(&mut self) {
         self.diff.ctr += 1;
     }

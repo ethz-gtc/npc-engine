@@ -32,7 +32,6 @@ pub struct GameState {
     turn: usize,
     world: WorldGlobalState,
     config: MCTSConfiguration,
-    // mcts: BTreeMap<AgentId, MCTS<Lumberjacks>>,
     agents: Vec<AgentId>,
     objectives: BTreeMap<AgentId, Box<dyn Task<Lumberjacks>>>,
     pre_world_hooks: Vec<Box<dyn FnMut(PreWorldHookArgs)>>,
