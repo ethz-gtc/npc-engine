@@ -1,7 +1,7 @@
 use std::{fmt, num::NonZeroU8};
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain};
+use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
 use crate::{config, Action, Direction, Lumberjacks, State, StateMut, GlobalStateRef, Tile};
 
@@ -63,19 +63,5 @@ impl Task<Lumberjacks> for Plant {
         }
     }
 
-    fn box_clone(&self) -> Box<dyn Task<Lumberjacks>> {
-        Box::new(self.clone())
-    }
-
-    fn box_hash(&self, mut state: &mut dyn Hasher) {
-        self.hash(&mut state)
-    }
-
-    fn box_eq(&self, other: &Box<dyn Task<Lumberjacks>>) -> bool {
-        if let Some(other) = other.downcast_ref::<Self>() {
-            self.eq(other)
-        } else {
-            false
-        }
-    }
+    impl_task_boxed_methods!(Lumberjacks);
 }
