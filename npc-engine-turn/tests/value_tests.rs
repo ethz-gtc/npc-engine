@@ -1,14 +1,14 @@
 use std::{fmt, collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}};
 
-use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
+use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 
 pub(crate) struct TestEngine;
 
 #[derive(Debug)]
-pub(crate) struct State(usize);
+pub(crate) struct State(u16);
 
 #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
-pub(crate) struct Diff(usize);
+pub(crate) struct Diff(u16);
 
 struct DisplayAction;
 impl fmt::Display for DisplayAction {
@@ -26,8 +26,8 @@ impl Domain for TestEngine {
 		&[&TestBehavior]
 	}
 
-	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> f32 {
-		state_diff.initial_state.0 as f32 + state_diff.diff.0 as f32
+	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+		(state_diff.initial_state.0 + state_diff.diff.0).into()
 	}
 
 	fn update_visible_agents(_state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
@@ -131,7 +131,7 @@ fn linear_bellman() {
 
 		node = edge.child.upgrade().unwrap();
 
-		assert_eq!(Diff(i as usize), node.diff);
+		assert_eq!(Diff(i as u16), node.diff);
 		assert_eq!((CONFIG.visits - i + 1) as usize, edge.visits);
 		assert!(
 			(expected_value(CONFIG.discount, CONFIG.depth - i + 1) - *edge.q_values.get(&agent).unwrap())

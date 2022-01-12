@@ -11,7 +11,9 @@ impl fmt::Display for DisplayAction {
 }
 
 mod deferment {
-	use super::*;
+	use npc_engine_turn::AgentValue;
+
+use super::*;
 
 	use crate::{Behavior, Task};
 
@@ -19,14 +21,14 @@ mod deferment {
 
 	#[derive(Debug)]
 	struct State {
-		value: isize,
-		investment: isize,
+		value: i16,
+		investment: i16,
 	}
 
 	#[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
 	struct Diff {
-		value: isize,
-		investment: isize,
+		value: i16,
+		investment: i16,
 	}
 
 	impl Domain for TestEngine {
@@ -38,8 +40,8 @@ mod deferment {
 			&[&TestBehavior]
 		}
 
-		fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> f32 {
-			state.value()
+		fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+			state.value().into()
 		}
 
 		fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
@@ -48,27 +50,27 @@ mod deferment {
 	}
 
 	trait TestState {
-		fn value(&self) -> f32;
+		fn value(&self) -> i16;
 	}
 
 	trait TestStateMut {
-		fn add_value(&mut self, amount: isize);
-		fn add_investment(&mut self, amount: isize);
+		fn add_value(&mut self, amount: i16);
+		fn add_investment(&mut self, amount: i16);
 		fn redeem_deferred(&mut self);
 	}
 
 	impl TestState for StateDiffRef<'_, TestEngine> {
-		fn value(&self) -> f32 {
-			self.initial_state.value as f32 + self.diff.value as f32
+		fn value(&self) -> i16 {
+			self.initial_state.value + self.diff.value
 		}
 	}
 
 	impl TestStateMut for StateDiffRefMut<'_, TestEngine> {
-		fn add_value(&mut self, amount: isize) {
+		fn add_value(&mut self, amount: i16) {
 			self.diff.value += amount;
 		}
 
-		fn add_investment(&mut self, amount: isize) {
+		fn add_investment(&mut self, amount: i16) {
 			self.diff.investment += amount;
 		}
 
@@ -183,7 +185,9 @@ mod deferment {
 }
 
 mod negative {
-	use super::*;
+	use npc_engine_turn::AgentValue;
+
+use super::*;
 
 	use crate::{Behavior, Task};
 
@@ -191,12 +195,12 @@ mod negative {
 
 	#[derive(Debug)]
 	struct State {
-		value: isize,
+		value: i16,
 	}
 
 	#[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
 	struct Diff {
-		value: isize,
+		value: i16,
 	}
 
 	impl Domain for TestEngine {
@@ -208,8 +212,8 @@ mod negative {
 			&[&TestBehavior]
 		}
 
-		fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> f32 {
-			state.value()
+		fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+			state.value().into()
 		}
 
 		fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
@@ -238,21 +242,21 @@ mod negative {
 	}
 
 	trait TestState {
-		fn value(&self) -> f32;
+		fn value(&self) -> i16;
 	}
 
 	trait TestStateMut {
-		fn add_value(&mut self, amount: isize);
+		fn add_value(&mut self, amount: i16);
 	}
 
 	impl TestState for StateDiffRef<'_, TestEngine> {
-		fn value(&self) -> f32 {
-			self.initial_state.value as f32 + self.diff.value as f32
+		fn value(&self) -> i16 {
+			self.initial_state.value + self.diff.value
 		}
 	}
 
 	impl TestStateMut for StateDiffRefMut<'_, TestEngine> {
-		fn add_value(&mut self, amount: isize) {
+		fn add_value(&mut self, amount: i16) {
 			self.diff.value += amount;
 		}
 	}

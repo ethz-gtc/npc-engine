@@ -1,13 +1,13 @@
 use std::{fmt, collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}, ops::Range};
 
-use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
+use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 struct TestEngine;
 
 #[derive(Debug)]
-struct State(usize);
+struct State(u16);
 
 #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
-struct Diff(usize);
+struct Diff(u16);
 
 struct DisplayAction;
 impl fmt::Display for DisplayAction {
@@ -25,8 +25,8 @@ impl Domain for TestEngine {
 		&[&TestBehaviorA, &TestBehaviorB]
 	}
 
-	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> f32 {
-		state_diff.initial_state.0 as f32 + state_diff.diff.0 as f32
+	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+		(state_diff.initial_state.0 + state_diff.diff.0).into()
 	}
 
 	fn update_visible_agents(_state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
@@ -146,8 +146,8 @@ fn ucb() {
 			root_visits,
 			CONFIG.exploration,
 			Range {
-				start: 0.0,
-				end: 1.0
+				start: AgentValue::new(0.0).unwrap(),
+				end: AgentValue::new(1.0).unwrap()
 			}
 		) - 1.9597)
 			.abs()
@@ -159,8 +159,8 @@ fn ucb() {
 			root_visits,
 			CONFIG.exploration,
 			Range {
-				start: 0.0,
-				end: 1.0
+				start: AgentValue::new(0.0).unwrap(),
+				end: AgentValue::new(1.0).unwrap()
 			}
 		) - 1.9597)
 			.abs()

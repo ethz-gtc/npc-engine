@@ -1,15 +1,15 @@
 use std::{fmt, collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}};
 
-use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
+use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 use rand::{thread_rng, RngCore};
 
 struct TestEngine;
 
 #[derive(Debug, Clone, Copy)]
-struct State(usize);
+struct State(u16);
 
 #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
-struct Diff(usize);
+struct Diff(u16);
 
 struct DisplayAction;
 impl fmt::Display for DisplayAction {
@@ -27,8 +27,8 @@ impl Domain for TestEngine {
 		&[&TestBehavior]
 	}
 
-	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> f32 {
-		state_diff.initial_state.0 as f32 + state_diff.diff.0 as f32
+	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+		(state_diff.initial_state.0 + state_diff.diff.0).into()
 	}
 
 	fn update_visible_agents(_state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
@@ -57,7 +57,7 @@ impl Behavior<TestEngine> for TestBehavior {
 }
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
-struct TestTask(usize);
+struct TestTask(u16);
 
 impl Task<TestEngine> for TestTask {
 	fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {

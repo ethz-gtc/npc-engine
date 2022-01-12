@@ -1,6 +1,6 @@
 use std::{sync::{Arc, Weak}, collections::BTreeMap, fmt, mem, hash::{Hash, Hasher}};
 
-use crate::{Domain, AgentId, Task, StateDiffRef};
+use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue};
 
 /// Strong atomic reference counted node
 pub type Node<D> = Arc<NodeInner<D>>;
@@ -11,16 +11,16 @@ pub type WeakNode<D> = Weak<NodeInner<D>>;
 // FIXME: unpub
 pub struct NodeInner<D: Domain> {
     pub diff: D::Diff,
-    pub agent: AgentId,
+    pub active_agent: AgentId,
     pub tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
-    pub current_values: BTreeMap<AgentId, f32>,
+    pub current_values: BTreeMap<AgentId, AgentValue>,
 }
 
 impl<D: Domain> fmt::Debug for NodeInner<D> {
     fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
         f.debug_struct("NodeInner")
             .field("diff", &self.diff)
-            .field("agent", &self.agent)
+            .field("agent", &self.active_agent)
             .field("tasks", &"...")
             .field("current_values", &self.current_values)
             .finish()
@@ -59,7 +59,7 @@ impl<D: Domain> NodeInner<D> {
             .collect();
 
         NodeInner {
-            agent,
+            active_agent: agent,
             diff,
             tasks,
             current_values,
@@ -68,7 +68,7 @@ impl<D: Domain> NodeInner<D> {
 
     /// Returns agent who owns the node.
     pub fn agent(&self) -> AgentId {
-        self.agent
+        self.active_agent
     }
 
     /// Returns diff of current node.
@@ -93,7 +93,7 @@ impl<D: Domain> NodeInner<D> {
 
 impl<D: Domain> Hash for NodeInner<D> {
     fn hash<H: Hasher>(&self, hasher: &mut H) {
-        self.agent.hash(hasher);
+        self.active_agent.hash(hasher);
         self.diff.hash(hasher);
         self.tasks.hash(hasher);
     }
@@ -101,7 +101,7 @@ impl<D: Domain> Hash for NodeInner<D> {
 
 impl<D: Domain> PartialEq for NodeInner<D> {
     fn eq(&self, other: &Self) -> bool {
-        self.agent.eq(&other.agent) && self.diff.eq(&other.diff) && self.tasks.eq(&other.tasks)
+        self.active_agent.eq(&other.active_agent) && self.diff.eq(&other.diff) && self.tasks.eq(&other.tasks)
     }
 }
 

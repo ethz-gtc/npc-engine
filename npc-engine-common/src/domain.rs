@@ -2,9 +2,12 @@ use std::collections::{BTreeSet, BTreeMap};
 use std::fmt;
 use std::hash::Hash;
 
+use ordered_float::NotNan;
 use rand_chacha::ChaCha8Rng;
 
 use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef};
+
+pub type AgentValue = NotNan<f32>;
 
 // TODO: remove debug constraints
 /// A domain on which the MCTS planner can plan
@@ -20,7 +23,7 @@ pub trait Domain: Sized + 'static {
     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>];
 
     /// Gets the current value of the given agent in the given world state.
-    fn get_current_value(state_diff: StateDiffRef<Self>, agent: AgentId) -> f32;
+    fn get_current_value(state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue;
 
     /// Updates the list of agents which are in the horizon of the given agent in the given world state.
     fn update_visible_agents(state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);

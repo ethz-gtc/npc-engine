@@ -12,6 +12,15 @@ use crate::*;
 
 // TODO: Consider replacing Seeded hashmaps with btreemaps
 
+// TODO: Once is_nan() and unwrap() are const, remove unsafe
+
+// SAFETY: 0 is not NaN
+const VALUE_ZERO: AgentValue = unsafe { AgentValue::new_unchecked(0.) };
+// SAFETY: INFINITY is not NaN
+const VALUE_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(std::f32::INFINITY) };
+// SAFETY: NEG_INFINITY is not NaN
+const VALUE_NEG_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(std::f32::NEG_INFINITY) };
+
 /// The state of a running planner instance
 pub struct MCTS<D: Domain> {
     // Statistics
@@ -31,7 +40,7 @@ pub struct MCTS<D: Domain> {
     nodes: SeededHashMap<Node<D>, Edges<D>>,
 
     // Globals
-    q_value_range: BTreeMap<AgentId, Range<f32>>,
+    q_value_range: BTreeMap<AgentId, Range<AgentValue>>,
 
     // State before planning
     pub initial_state: D::State,
@@ -162,7 +171,7 @@ impl<D: Domain> MCTS<D> {
 
             // Iterator over each relevant agent, starting at the `start_agent`
             while let Some(&agent) = iter.next() {
-                let range = self.min_max_range(node.agent);
+                let range = self.min_max_range(node.active_agent);
                 let nodes = &mut self.nodes;
                 let mut edges = nodes.get_mut(&node).unwrap();
 
@@ -235,7 +244,7 @@ impl<D: Domain> MCTS<D> {
 
                 // Node is fully expanded, perform selection
                 let task = edges
-                    .best_task(node.agent, self.config.exploration, range)
+                    .best_task(node.active_agent, self.config.exploration, range)
                     .expect("No valid task!");
                 log::trace!("{:?} - Select action: {:?}", agent, task);
                 let edge = edges.expanded_tasks.get(&task).unwrap().clone();
@@ -319,7 +328,7 @@ impl<D: Domain> MCTS<D> {
                     };
 
                 // Only discount once per agent per turn
-                if agent == parent.agent {
+                if agent == parent.active_agent {
                     child_q_value *= discount;
                 }
 
@@ -327,13 +336,13 @@ impl<D: Domain> MCTS<D> {
                 let q_value = child_current_value - parent_current_value + child_q_value;
 
                 // Update q value for edge
-                *q_value_ref = q_value;
+                *q_value_ref = *q_value;
 
-                if agent == parent.agent {
+                if agent == parent.active_agent {
                     // Update global score for agent
-                    let global = q_value_range.entry(parent.agent).or_insert_with(|| Range {
-                        start: f32::INFINITY,
-                        end: f32::NEG_INFINITY,
+                    let global = q_value_range.entry(parent.active_agent).or_insert_with(|| Range {
+                        start: VALUE_INFINITE,
+                        end: VALUE_NEG_INFINITE,
                     });
                     global.start = global.start.min(q_value);
                     global.end = global.end.max(q_value);
@@ -348,11 +357,11 @@ impl<D: Domain> MCTS<D> {
     }
 
     // Returns the range of minimum and maximum global values.
-    fn min_max_range(&self, agent: AgentId) -> Range<f32> {
+    fn min_max_range(&self, agent: AgentId) -> Range<AgentValue> {
         self.q_value_range
             .get(&agent)
             .cloned()
-            .unwrap_or(Range { start: 0., end: 0. })
+            .unwrap_or(Range { start: VALUE_ZERO, end: VALUE_ZERO })
     }
 
     // Returns iterator over all nodes and edges in the tree.
@@ -419,7 +428,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         depth: u32,
         root_agent: AgentId,
     ) -> BTreeMap<AgentId, f32> {
-        let mut start_agent = node.agent;
+        let mut start_agent = node.active_agent;
         let mut agents: BTreeSet<AgentId> = node.current_values
             .keys()
             .copied()
@@ -515,7 +524,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
                     // Update estimated value with discounted difference in current values
                     let new_current_value = D::get_current_value(StateDiffRef::new(snapshot, &diff), agent);
-                    *estimated_value += (new_current_value - *current_value) * discount;
+                    *estimated_value += *(new_current_value - *current_value) * discount;
                     *current_value = new_current_value;
                 } else {
                     break;
@@ -524,7 +533,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
             // Recalculate agents
             agents.clear();
-            D::update_visible_agents(StateDiffRef::new(snapshot, &diff), node.agent, &mut agents);
+            D::update_visible_agents(StateDiffRef::new(snapshot, &diff), node.active_agent, &mut agents);
 
             // Iterator has been exu
             start_agent = root_agent;
@@ -640,7 +649,7 @@ mod graphviz {
 
                 if !edges.expanded_tasks.is_empty() {
                     let range = self.min_max_range(self.agent);
-                    let best_task = edges.best_task(node.agent, 0., range.clone()).unwrap();
+                    let best_task = edges.best_task(node.active_agent, 0., range.clone()).unwrap();
                     let visits = edges.child_visits();
                     edges.expanded_tasks.iter().for_each(|(obj, _edge)| {
                         let edge = _edge.borrow();
@@ -651,12 +660,12 @@ mod graphviz {
                         if nodes.contains(&child) {
                             let reward = child
                                 .current_values
-                                .get(&node.agent)
+                                .get(&node.active_agent)
                                 .copied()
                                 .unwrap_or_default()
                                 - parent
                                     .current_values
-                                    .get(&node.agent)
+                                    .get(&node.active_agent)
                                     .copied()
                                     .unwrap_or_default();
                             edge_vec.push(Edge {
@@ -665,10 +674,10 @@ mod graphviz {
                                 task: obj.clone(),
                                 best: obj == &best_task,
                                 visits: edge.visits,
-                                score: edge.q_values.get(&node.agent).copied().unwrap_or(0.),
-                                uct: edge.uct(node.agent, visits, self.config.exploration, range.clone()),
-                                uct_0: edge.uct(node.agent, visits, 0., range.clone()),
-                                reward,
+                                score: edge.q_values.get(&node.active_agent).copied().unwrap_or(0.),
+                                uct: edge.uct(node.active_agent, visits, self.config.exploration, range.clone()),
+                                uct_0: edge.uct(node.active_agent, visits, 0., range.clone()),
+                                reward: *reward,
                             });
                         }
                     });
@@ -698,11 +707,11 @@ mod graphviz {
 
         fn node_label(&'a self, n: &Node<D>) -> LabelText<'a> {
             let edges = self.nodes.get(n).unwrap();
-            let v = edges.value((0, 0.), n.agent);
+            let v = edges.value((0, 0.), n.active_agent);
 
             LabelText::LabelStr(Cow::Owned(format!(
                 "Agent {}\nV: {}\nFitnesses: {:?}",
-                n.agent.0,
+                n.active_agent.0,
                 v.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "None".to_owned()),
                 n.current_values
                     .iter()
@@ -726,7 +735,7 @@ mod graphviz {
             if *node == self.root {
                 Some(LabelText::LabelStr(Cow::Borrowed("red")))
             } else {
-                let (h, s, _v) = agent_color_hsv(node.agent);
+                let (h, s, _v) = agent_color_hsv(node.active_agent);
                 // let saturation = 95 -  * 50.) as usize;
                 Some(LabelText::LabelStr(Cow::Owned(format!(
                     "{:.3} {:.3} 1.000",
