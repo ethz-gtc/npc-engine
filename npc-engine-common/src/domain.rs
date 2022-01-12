@@ -17,7 +17,7 @@ pub trait Domain: Sized + 'static {
     /// A compact set of changes towards a `State` that are accumulated throughout planning.
     type Diff: std::fmt::Debug + Default + Clone + Hash + Eq;
     /// A representation of a display action that can be fetched from a task.
-    type DisplayAction: fmt::Display;
+    type DisplayAction: fmt::Display + Default;
 
     /// Returns all behaviors available for this domain.
     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>];

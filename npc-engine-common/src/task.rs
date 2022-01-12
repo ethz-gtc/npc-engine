@@ -1,12 +1,22 @@
-use std::hash::{Hash, Hasher};
+use std::{hash::{Hash, Hasher}, num::NonZeroU64};
 
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut};
+use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_methods};
+
+// TODO: once Option::unwrap is const, use this
+// const DURATION_ONE: NonZeroU64 = NonZeroU64::new(1).unwrap();
+// SAFETY: 1 is non-zero
+const DURATION_ONE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1) };
 
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     /// Returns the relative weight of the task for the given agent in the given world state.
     fn weight(&self, state_diff: StateDiffRef<D>, agent: AgentId) -> f32;
+
+    /// Returns the duration of the task, for a given agent in a given world state, by default lasts one tick
+    fn duration(&self, _state_diff: StateDiffRef<D>, _agent: AgentId) -> NonZeroU64 {
+        DURATION_ONE
+    }
 
     /// Executes one step of the task for the given agent on the given world state.
     fn execute(&self, state_diff: StateDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
@@ -27,6 +37,30 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     /// Should perform downcast to current type and then check equality.
     #[allow(clippy::borrowed_box)]
     fn box_eq(&self, other: &Box<dyn Task<D>>) -> bool;
+}
+
+/// An idle task that is used by the planner when the task of an agent is not known
+#[derive(Debug, Hash, Clone, PartialEq)]
+struct IdleTask;
+
+impl<D: Domain> Task<D> for IdleTask {
+    fn weight(&self, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
+        1f32
+    }
+
+    fn execute(&self, _state_diff: StateDiffRefMut<D>, _agent: AgentId) -> Option<Box<dyn Task<D>>> {
+        None
+    }
+
+    fn is_valid(&self, _state_diff: StateDiffRef<D>, _agent: AgentId) -> bool {
+        true
+    }
+
+    fn display_action(&self) -> D::DisplayAction {
+        Default::default()
+    }
+
+    impl_task_boxed_methods!(D);
 }
 
 impl_downcast!(Task<D> where D: Domain);

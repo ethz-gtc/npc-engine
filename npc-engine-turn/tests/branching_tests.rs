@@ -9,6 +9,7 @@ struct State(u16);
 #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
 struct Diff(u16);
 
+#[derive(Default)]
 struct DisplayAction;
 impl fmt::Display for DisplayAction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

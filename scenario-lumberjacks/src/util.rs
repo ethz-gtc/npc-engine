@@ -163,6 +163,11 @@ impl fmt::Display for Action {
         write!(f, "{:?}", self)
     }
 }
+impl Default for Action {
+    fn default() -> Self {
+        Action::Wait
+    }
+}
 
 impl Action {
     pub fn sprite_name(&self) -> &str {

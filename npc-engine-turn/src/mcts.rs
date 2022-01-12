@@ -50,6 +50,8 @@ pub struct MCTS<D: Domain> {
 }
 
 impl<D: Domain> MCTS<D> {
+    // TODO: when switching to active tasks, in step-by-step mode, have a simple constructor with tick 0 and no tasks
+    // That will also create Idle tasks for other agents.
     /// Instantiate a new search tree for the given state.
     pub fn new(
         initial_state: D::State,

@@ -3,6 +3,7 @@ use std::fmt;
 
 use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
 
+#[derive(Default)]
 struct DisplayAction;
 impl fmt::Display for DisplayAction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
