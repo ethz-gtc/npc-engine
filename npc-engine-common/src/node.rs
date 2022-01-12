@@ -13,7 +13,7 @@ pub struct NodeInner<D: Domain> {
     pub diff: D::Diff,
     pub active_agent: AgentId,
     pub tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
-    pub current_values: BTreeMap<AgentId, AgentValue>,
+    current_values: BTreeMap<AgentId, AgentValue>, // cached current values
 }
 
 impl<D: Domain> fmt::Debug for NodeInner<D> {
@@ -31,22 +31,23 @@ impl<D: Domain> NodeInner<D> {
     pub fn new(
         initial_state: &D::State,
         diff: D::Diff,
-        agent: AgentId,
+        active_agent: AgentId,
         mut tasks: BTreeMap<AgentId, Box<dyn Task<D>>>,
     ) -> Self {
         // Check validity of task for agent
-        if let Some(task) = tasks.get(&agent) {
-            if !task.is_valid(StateDiffRef::new(initial_state, &diff), agent) {
-                tasks.remove(&agent);
+        if let Some(task) = tasks.get(&active_agent) {
+            if !task.is_valid(StateDiffRef::new(initial_state, &diff), active_agent) {
+                tasks.remove(&active_agent);
             }
         }
 
+        // FIXME: extract agent list from tasks and active_agent
         // Get observable agents
         let agents = D::get_visible_agents(
             StateDiffRef::new(initial_state, &diff),
-            agent
+            active_agent
         );
-
+        assert!(agents.contains(&active_agent));
         // Set child current values
         let current_values = agents
             .iter()
@@ -58,11 +59,12 @@ impl<D: Domain> NodeInner<D> {
             })
             .collect();
 
+
         NodeInner {
-            active_agent: agent,
+            active_agent,
             diff,
             tasks,
-            current_values,
+            current_values
         }
     }
 
@@ -74,6 +76,40 @@ impl<D: Domain> NodeInner<D> {
     /// Returns diff of current node.
     pub fn diff(&self) -> &D::Diff {
         &self.diff
+    }
+
+    /// Build a state-diff reference
+    pub fn state_diff_ref<'a>(&'a self, initial_state: &'a D::State) -> StateDiffRef<'a, D> {
+        StateDiffRef::new(
+            initial_state,
+            &self.diff,
+        )
+    }
+
+    /// Return the current value from an agent, panic if not present in the node
+    pub fn current_value(&self, agent: AgentId) -> AgentValue {
+        *self.current_values.get(&agent).unwrap()
+    }
+
+    /// Return the current value from an agent, compute if not present in the node
+    pub fn current_value_or_compute(&self, agent: AgentId, initial_state: &D::State) -> AgentValue {
+        self.current_values
+            .get(&agent)
+            .copied()
+            .unwrap_or_else(||
+                D::get_current_value(
+                    StateDiffRef::new(
+                        initial_state,
+                        &self.diff,
+                    ),
+                    agent,
+                )
+            )
+    }
+
+    /// Return all current values
+    pub fn current_values(&self) -> &BTreeMap<AgentId, AgentValue> {
+        &self.current_values
     }
 
     // Returns the size in bytes
