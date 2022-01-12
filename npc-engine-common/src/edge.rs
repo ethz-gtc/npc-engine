@@ -44,7 +44,7 @@ impl<D: Domain> Edges<D> {
 
                 // Safety-check that all tasks are valid (to be disabled once enough unit tests are in place)
 				for task in &tasks {
-					assert!(task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.active_agent));
+					debug_assert!(task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.active_agent));
 				}
 
                 branching_factor = tasks.len();

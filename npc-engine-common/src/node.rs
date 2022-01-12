@@ -47,7 +47,7 @@ impl<D: Domain> NodeInner<D> {
             StateDiffRef::new(initial_state, &diff),
             active_agent
         );
-        assert!(agents.contains(&active_agent));
+        debug_assert!(agents.contains(&active_agent));
         // Set child current values
         let current_values = agents
             .iter()

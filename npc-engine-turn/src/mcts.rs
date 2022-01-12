@@ -413,7 +413,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
     ) -> BTreeMap<AgentId, f32> {
         let mut start_agent = node.active_agent;
         let mut agents: BTreeSet<AgentId> = D::get_visible_agents(node.state_diff_ref(initial_state), root_agent);
-        assert!(agents.contains(&root_agent));
+        debug_assert!(agents.contains(&root_agent));
 
         let mut diff = node.diff.clone();
         let mut task_map = node.tasks.clone();
