@@ -32,7 +32,7 @@ pub struct MCTS<D: Domain> {
     early_stop_condition: Option<Box<EarlyStopCondition>>,
 
     // Run-specific parameters
-    pub(crate) agent: AgentId,
+    pub(crate) root_agent: AgentId,
     seed: u64,
 
     // Nodes
@@ -40,41 +40,71 @@ pub struct MCTS<D: Domain> {
     nodes: SeededHashMap<Node<D>, Edges<D>>,
 
     // Globals
-    q_value_range: BTreeMap<AgentId, Range<AgentValue>>,
+    q_value_ranges: BTreeMap<AgentId, Range<AgentValue>>,
 
     // State before planning
     pub initial_state: D::State,
+    pub start_tick: u64,
 
     // Rng
     rng: ChaCha8Rng,
 }
 
 impl<D: Domain> MCTS<D> {
-    // TODO: when switching to active tasks, in step-by-step mode, have a simple constructor with tick 0 and no tasks
-    // That will also create Idle tasks for other agents.
-    /// Instantiate a new search tree for the given state.
+    /// Instantiate a new search tree for the given state, with idle tasks for all agents and starting at tick 0
     pub fn new(
         initial_state: D::State,
-        agent: AgentId,
-        _tasks: &BTreeMap<AgentId, Box<dyn Task<D>>>,
+        root_agent: AgentId,
         config: MCTSConfiguration,
     ) -> Self {
+        // Get list of agents we consider in planning
+        let agents = D::get_visible_agents(
+            &initial_state,
+            &D::Diff::default(),
+            root_agent
+        );
+
+        // Assign idle tasks to these agents, with proper end time given their relationship with the root agent
+        let tasks = agents
+            .iter()
+            .map(|&agent|
+                ActiveTask {
+                    end: if agent < root_agent { 1 } else { 0 },
+                    agent,
+                    task: Box::new(IdleTask)
+                }
+            )
+            .collect();
+
+        Self::new_with_tasks(initial_state, root_agent, 0, tasks, config)
+    }
+
+    /// Instantiate a new search tree for the given state, with active tasks for all agents and starting at a given tick
+    pub fn new_with_tasks(
+        initial_state: D::State,
+        root_agent: AgentId,
+        start_tick: u64,
+        tasks: ActiveTasks<D>,
+        config: MCTSConfiguration,
+    ) -> Self {
+        // Create new root node
+        let root = Node::new(NodeInner::new(
+            &initial_state,
+            Default::default(),
+            root_agent,
+            start_tick,
+            tasks,
+        ));
+
         // Prepare nodes, reserve the maximum amount we could need
         let mut nodes = SeededHashMap::with_capacity_and_hasher(
             config.visits as usize + 1,
             SeededRandomState::default()
         );
 
-        // Create new root node
-        let root = Node::new(NodeInner::new(
-            &initial_state,
-            Default::default(),
-            agent,
-            Default::default(),
-        ));
-
         // Insert new root node
-        nodes.insert(root.clone(), Edges::new(&root, &initial_state));
+        let root_edges = Edges::new(&root, &initial_state, None);
+        nodes.insert(root.clone(), root_edges);
 
         // Compute seed
         let cur_seed = config.seed.unwrap_or_else(|| thread_rng().next_u64());
@@ -85,21 +115,22 @@ impl<D: Domain> MCTS<D> {
             state_value_estimator: Box::new(DefaultPolicyEstimator {}),
             early_stop_condition: None,
             seed: cur_seed,
-            agent,
+            root_agent,
             root,
             nodes,
-            q_value_range: Default::default(),
+            q_value_ranges: Default::default(),
             initial_state,
+            start_tick,
             rng: ChaCha8Rng::seed_from_u64(cur_seed)
         }
     }
 
     /// Return best task, using exploration value of 0
     pub fn best_task_at_root(&self) -> Box<dyn Task<D>> {
-        let range = self.min_max_range(self.agent);
+        let range = self.min_max_range(self.root_agent);
         let edges = self.nodes.get(&self.root).unwrap();
         edges
-            .best_task(self.agent, 0., range)
+            .best_task(self.root_agent, 0., range)
             .expect("No valid task!")
             .clone()
     }
@@ -107,13 +138,13 @@ impl<D: Domain> MCTS<D> {
     /// Execute the MCTS search. Returns the current best task.
     pub fn run(&mut self) -> Box<dyn Task<D>> {
         // Reset globals
-        self.q_value_range.clear();
+        self.q_value_ranges.clear();
 
         let start = Instant::now();
         let max_visits = self.config.visits;
         for _ in 0..max_visits {
             // Execute tree policy
-            let (depth, leaf, path) = self.tree_policy(self.root.clone());
+            let (depth, leaf, path) = self.tree_policy();
 
             // Execute default policy
             let rollout_values = self.state_value_estimator.estimate(
@@ -122,7 +153,7 @@ impl<D: Domain> MCTS<D> {
                 &self.initial_state,
                 &leaf,
                 depth,
-                self.agent
+                self.root_agent
             );
 
             // Backpropagate results
@@ -143,142 +174,134 @@ impl<D: Domain> MCTS<D> {
     /// MCTS tree policy. Executes the `selection` and `expansion` phases.
     fn tree_policy(
         &mut self,
-        root: Node<D>,
     ) -> (u32, Node<D>, Vec<Edge<D>>) {
-        // Find agents for current turn
-        let agents = D::get_visible_agents(
-            StateDiffRef::new(&self.initial_state, &root.diff),
-            self.agent,
-        );
+        let agents = self.root.agents();
 
-        // Initial start agent is the current agent
-        let start_agent = self.agent;
-
-        let mut node = root;
-
-        // Maintain set of nodes seen to prevent cycles
-        let mut seen_nodes = SeededHashSet::default();
-        seen_nodes.insert(node.clone());
+        let mut node = self.root.clone();
 
         // Path through the tree, including root and leaf
         let mut path = Vec::with_capacity(self.config.depth as usize * agents.len());
 
-        // Execute selection until at most `max_depth`
-        for depth in 0..self.config.depth {
-            let mut iter = agents
-                .iter()
-                .chain(agents.iter())
-                .skip_while(|agent| **agent != start_agent)
-                .take(agents.len());
+        // Execute selection until at most `depth`, expressed as number of ticks
+        let mut depth = 0;
+        while depth < self.config.depth {
+            let mut edges = self.nodes.get_mut(&node).unwrap();
 
-            // Iterator over each relevant agent, starting at the `start_agent`
-            while let Some(&agent) = iter.next() {
-                let range = self.min_max_range(node.active_agent);
-                let nodes = &mut self.nodes;
-                let mut edges = nodes.get_mut(&node).unwrap();
+            // -------------------------
+            // Expansion
+            // -------------------------
+            // If weights are non-empty, the node has not been fully expanded
+            if let Some((weights, tasks)) = edges.unexpanded_tasks.as_mut() {
+                // Clone a new diff from the current one to be used for the newly expanded node
+                let mut diff = node.diff.clone();
 
-                {
-                    let initial_state = &self.initial_state;
+                // Select expansion task randomly
+                let idx = weights.sample(&mut self.rng);
+                let task = tasks[idx].clone();
+                debug_assert!(task.is_valid(StateDiffRef::new(&self.initial_state, &diff), node.active_agent));
+                log::debug!("T{}\t{:?} - Expand task: {:?}", node.tick, node.active_agent, task);
 
-                    // If weights are non-empty, the node has not been fully expanded
-                    if let Some((weights, tasks)) = edges.unexpanded_tasks.as_mut() {
-                        let mut diff = node.diff.clone();
-
-                        // Select task
-                        let idx = weights.sample(&mut self.rng);
-                        let task = tasks[idx].clone();
-                        debug_assert!(task.is_valid(StateDiffRef::new(&self.initial_state, &diff), agent));
-                        log::trace!("{:?} - Expand action: {:?}", agent, task);
-
-                        // Updating weights returns an error if all weights are zero.
-                        if weights.update_weights(&[(idx, &0.)]).is_err() {
-                            // All weights being zero implies the node is fully expanded
-                            edges.unexpanded_tasks = None;
-                        }
-
-                        let mut depth = depth;
-
-                        // Get the next agent in the sequence
-                        // If the iter wraps back to the starting agent, add one to the depth
-                        let next_agent = iter.next().copied().unwrap_or_else(|| {
-                            depth += 1;
-                            start_agent
-                        });
-
-                        // Set new task for current agent, if one exists
-                        let mut tasks = node.tasks.clone();
-                        if let Some(next_task) =
-                            task.execute(StateDiffRefMut::new(&self.initial_state, &mut diff), agent)
-                        {
-                            tasks.insert(agent, next_task);
-                        } else {
-                            tasks.remove(&agent);
-                        }
-
-                        // Create expanded node state
-                        let child_state = NodeInner::new(initial_state, diff, next_agent, tasks);
-
-                        // Check if child node exists already
-                        let child_node = if let Some((existing_node, _)) =
-                            nodes.get_key_value(&child_state)
-                        {
-                            // Link existing child node
-                            existing_node.clone()
-                        } else {
-                            // Create and insert new child node
-                            let child_node = Node::new(child_state);
-                            nodes.insert(child_node.clone(), Edges::new(&child_node, initial_state));
-                            child_node
-                        };
-
-                        // Create edge from parent to child
-                        let edge = new_edge(&node, &child_node, &agents);
-
-                        let edges = nodes.get_mut(&node).unwrap();
-                        edges.expanded_tasks.insert(task, edge.clone());
-
-                        // Push edge to path
-                        path.push(edge);
-
-                        return (depth, child_node, path);
-                    }
+                // Set weight of chosen task to zero to mark it as expanded.
+                // As updating weights returns an error if all weights are zero,
+                // we have to handle this by setting unexpanded_tasks to None if we get an error.
+                if weights.update_weights(&[(idx, &0.)]).is_err() {
+                    // All weights being zero implies the node is fully expanded
+                    edges.unexpanded_tasks = None;
                 }
 
-                // Node is fully expanded, perform selection
-                let task = edges
-                    .best_task(node.active_agent, self.config.exploration, range)
-                    .expect("No valid task!");
-                log::trace!("{:?} - Select action: {:?}", agent, task);
-                let edge = edges.expanded_tasks.get(&task).unwrap().clone();
+                // Clone active tasks for child node, removing task of active agent
+                let mut child_tasks = node.tasks.iter()
+                    .filter(|task| task.agent != node.active_agent)
+                    .cloned()
+                    .collect::<BTreeSet<_>>();
 
-                // New node is the current child node
-                node = {
-                    let edge = edge.borrow();
-                    edge.child.upgrade().unwrap()
+                // Create and insert new active task for the active agent and the selected task
+                let state_diff = StateDiffRef::new(&self.initial_state, &diff);
+                let active_task = ActiveTask::new(node.active_agent, task.clone(), node.tick, state_diff);
+                child_tasks.insert(active_task);
+                log::trace!("\tActive Tasks ({}):", child_tasks.len());
+                for active_task in &child_tasks {
+                    log::trace!("\t  {:?}: {:?} ends T{}", active_task.agent, active_task.task, active_task.end);
+                }
+
+                // Get next active task
+                let next_active_task = child_tasks.iter().next().unwrap().clone();
+                log::trace!("\tNext Active Task: {:?}: {:?} ends T{}", next_active_task.agent, next_active_task.task, next_active_task.end);
+
+                // Execute the task which finishes in the next node
+                let after_next_task = if next_active_task.task.is_valid(state_diff, next_active_task.agent) {
+                    let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
+                    next_active_task.task.execute(state_diff_mut, next_active_task.agent)
+                } else {
+                    None
                 };
+
+                // Create expanded node state
+                let child_state = NodeInner::new(
+                    &self.initial_state,
+                    diff,
+                    next_active_task.agent,
+                    next_active_task.end,
+                    child_tasks
+                );
+
+                // Check if child node exists already
+                let child_node = if let Some((existing_node, _)) = self.nodes.get_key_value(&child_state)
+                {
+                    // Link existing child node
+                    log::trace!("\tLinking to existing node {:?}", existing_node);
+                    existing_node.clone()
+                } else {
+                    // Create and insert new child node
+                    log::trace!("\tCreating new node {:?}", child_state);
+                    let child_node = Node::new(child_state);
+                    self.nodes.insert(
+                        child_node.clone(),
+                        Edges::new(&child_node, &self.initial_state, after_next_task)
+                    );
+                    child_node
+                };
+
+                // Create edge from parent to child
+                let edge = new_edge(&node, &child_node, &agents);
+                let edges = self.nodes.get_mut(&node).unwrap();
+                edges.expanded_tasks.insert(task, edge.clone());
 
                 // Push edge to path
                 path.push(edge);
 
-                // If node is already seen, prevent cycle
-                if !seen_nodes.insert(node.clone()) {
-                    return (self.config.depth, node, path);
-                }
+                depth += (child_node.tick - node.tick) as u32;
+                return (depth, child_node, path);
             }
 
-            /*
-            We do not recalculate observed agents as this can lead to mismatching agent
-            when expanding a node while the corresponding agent left the horizon.
-            // Recalculate observed agents
-            agents.clear();
-            D::agents(
-                SnapshotDiffRef::new(&self.snapshot, &node.diff),
-                self.agent,
-                &mut agents,
-            );*/
+            debug_assert!(edges.child_visits() > 0);
+
+            // -------------------------
+            // Selection
+            // -------------------------
+            // Node is fully expanded, perform selection
+            let range = self.min_max_range(node.active_agent);
+            let edges = self.nodes.get_mut(&node).unwrap();
+            let task = edges
+                .best_task(node.active_agent, self.config.exploration, range)
+                .expect("No valid task!");
+            log::trace!("T{}\t{:?} - Select task: {:?}", node.tick, node.active_agent, task);
+            let edge = edges.expanded_tasks.get(&task).unwrap().clone();
+
+            // New node is the current child node
+            let parent_tick = node.tick;
+            node = {
+                let edge = edge.borrow();
+                edge.child.upgrade().unwrap()
+            };
+            let child_tick = node.tick;
+            depth += (child_tick - parent_tick) as u32;
+
+            // Push edge to path
+            path.push(edge);
         }
 
-        (self.config.depth, node, path)
+        (depth, node, path)
     }
 
     /// MCTS backpropagation phase.
@@ -286,25 +309,22 @@ impl<D: Domain> MCTS<D> {
         // Backtracking
         path.drain(..).rev().for_each(|edge| {
             // Increment child node visit count
-
             let edge = &mut edge.borrow_mut();
             edge.visits += 1;
 
-            let parent = edge.parent.upgrade().unwrap();
-            let child = edge.child.upgrade().unwrap();
+            let parent_node = edge.parent.upgrade().unwrap();
+            let child_node = edge.child.upgrade().unwrap();
             let visits = edge.visits;
-            let child_edges = self.nodes.get(&child).unwrap();
+            let child_edges = self.nodes.get(&child_node).unwrap();
 
-            let q_values = &mut edge.q_values;
-            let q_value_range = &mut self.q_value_range;
-            let discount = self.config.discount;
+            let discount_factor = Self::discount_factor(child_node.tick - parent_node.tick, &self.config);
 
             // Iterate all agents on edge
-            q_values.iter_mut().for_each(|(&agent, q_value_ref)| {
-                let parent_current_value = parent.current_value_or_compute(agent, &self.initial_state);
-                let child_current_value = child.current_value_or_compute(agent, &self.initial_state);
+            edge.q_values.iter_mut().for_each(|(&agent, q_value_ref)| {
+                let parent_current_value = parent_node.current_value_or_compute(agent, &self.initial_state);
+                let child_current_value = child_node.current_value_or_compute(agent, &self.initial_state);
 
-                // Get current value from child, or rollout value if leaf node
+                // Get q value from child, or rollout value if leaf node, or 0 if not in rollout
                 let mut child_q_value =
                     if let Some(value) = child_edges.value((visits, *q_value_ref), agent) {
                         value
@@ -312,10 +332,9 @@ impl<D: Domain> MCTS<D> {
                         rollout_values.get(&agent).copied().unwrap_or_default()
                     };
 
-                // Only discount once per agent per turn
-                if agent == parent.active_agent {
-                    child_q_value *= discount;
-                }
+                // Apply discount, there is no risk of double-discounting as if the parent and the child node
+                // have the same tick, the discount value will be 1.0
+                child_q_value *= discount_factor;
 
                 // Use Bellman Equation
                 let q_value = child_current_value - parent_current_value + child_q_value;
@@ -323,27 +342,34 @@ impl<D: Domain> MCTS<D> {
                 // Update q value for edge
                 *q_value_ref = *q_value;
 
-                if agent == parent.active_agent {
-                    // Update global score for agent
-                    let global = q_value_range.entry(parent.active_agent).or_insert_with(|| Range {
+                // Update global q value range for agent
+                let q_value_range = self.q_value_ranges
+                    .entry(parent_node.active_agent)
+                    .or_insert_with(|| Range {
                         start: VALUE_INFINITE,
                         end: VALUE_NEG_INFINITE,
                     });
-                    global.start = global.start.min(q_value);
-                    global.end = global.end.max(q_value);
-                }
+                q_value_range.start = q_value_range.start.min(q_value);
+                q_value_range.end = q_value_range.end.max(q_value);
             });
         });
     }
 
+    /// Calculates the discount factor for the tick duration.
+    /// This basically calculates a half-life decay factor for the given duration.
+    /// This means the discount factor will be 0.5 if the given ticks are equal to the configured half-life in the MCTS.
+    fn discount_factor(duration: u64, config: &MCTSConfiguration) -> f32 {
+        2f64.powf((-(duration as f64)) / (config.discount_hl as f64)) as f32
+    }
+
     // Returns the agent the tree searches for.
     pub fn agent(&self) -> AgentId {
-        self.agent
+        self.root_agent
     }
 
     // Returns the range of minimum and maximum global values.
     fn min_max_range(&self, agent: AgentId) -> Range<AgentValue> {
-        self.q_value_range
+        self.q_value_ranges
             .get(&agent)
             .cloned()
             .unwrap_or(Range { start: VALUE_ZERO, end: VALUE_ZERO })
@@ -395,7 +421,7 @@ impl<D: Domain> MCTS<D> {
             size += edges.size(task_size);
         }
 
-        size += self.q_value_range.len() * mem::size_of::<(AgentId, Range<f32>)>();
+        size += self.q_value_ranges.len() * mem::size_of::<(AgentId, Range<f32>)>();
 
         size
     }
@@ -411,126 +437,116 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         initial_state: &D::State,
         node: &Node<D>,
         depth: u32,
-        root_agent: AgentId,
+        _root_agent: AgentId,
     ) -> BTreeMap<AgentId, f32> {
-        let mut start_agent = node.active_agent;
-        let mut agents: BTreeSet<AgentId> = D::get_visible_agents(node.state_diff_ref(initial_state), root_agent);
-        debug_assert!(agents.contains(&root_agent));
-
         let mut diff = node.diff.clone();
-        let mut task_map = node.tasks.clone();
-
-        let mut num_rollouts = 0;
 
         // In this map we collect at the same time both:
         // - the current value (measured from state and replaced in the course of simulation)
         // - the Q value (initially 0, updated in the course of simulation)
-        let mut values: BTreeMap<AgentId, (AgentValue, f32)> = BTreeMap::new();
+        let mut values: BTreeMap<AgentId, (AgentValue, f32)> = node
+            .current_values()
+            .iter()
+            .map(|(&agent, &current_value)|
+                (agent, (current_value, 0f32))
+            )
+            .collect::<BTreeMap<_, _>>();
 
-        // Current discount multiplier
-        let mut discount = 1.0;
+        // Create the state we need to perform the simulation
+        let mut tasks = node.tasks.clone();
+        let start_tick = node.tick;
+        let mut tick = node.tick;
 
-        // Perform rollouts for remaining depth
-        for rollout in 1..=(config.depth - depth) {
-            let iter = agents
-                .iter()
-                .chain(agents.iter())
-                .skip_while(|agent| **agent != start_agent)
-                .enumerate()
-                .take_while(|(i, agent)| *i == 0 || **agent != root_agent);
-
-            // Iterator over each relevant agent, starting at the `start_agent`
-            for (_, &agent) in iter {
-                // Set current number of rollouts in case of early termination
-                num_rollouts = rollout;
-
-                // Lazily fetch current and estimated values for current agent
-                let (current_value, estimated_value) = values
-                    .entry(agent)
-                    .or_insert_with(||
-                        (
-                            D::get_current_value(StateDiffRef::new(initial_state, &diff), agent),
-                            0f32
-                        )
-                    );
-
-                // Check task map for existing task
-                let (tasks, weights) = match task_map.get(&agent) {
-                    Some(task) if task.is_valid(StateDiffRef::new(initial_state, &diff), agent) => {
-                        // Task exists, only option
-                        (
-                            vec![task.box_clone()],
-                            WeightedIndex::new(&[1.]).ok()
-                        )
-                    }
-                    _ => {
-                        // No existing task, add all possible tasks
-                        let tasks = D::get_tasks(StateDiffRef::new(initial_state, &diff), agent);
-                        let weights_iter = tasks.iter().map(|task| {
-                            task.weight(StateDiffRef::new(initial_state, &diff) as _, agent)
-                        });
-                        let weights = WeightedIndex::new(weights_iter).ok();
-                        (
-                            tasks,
-                            weights
-                        )
-                    }
-                };
-
-                if let Some(mut weights) = weights {
-                    // Get random task, assert it is valid
-                    let mut idx;
-                    let mut task;
-                    while {
-                        idx = weights.sample(rng);
-                        task = &tasks[idx];
-                        log::trace!("{:?} - Rollout: {:?}", agent, task);
-
-                        !task.is_valid(StateDiffRef::new(initial_state, &diff), agent)
-                    } {
-                        weights
-                            .update_weights(&[(idx, &0.)])
-                            .expect("No valid actions!");
-                    }
-
-                    // Execute task for agent
-                    if let Some(task) =
-                        task.execute(StateDiffRefMut::new(initial_state, &mut diff), agent)
-                    {
-                        task_map.insert(agent, task);
-                    } else {
-                        task_map.remove(&agent);
-                    }
-
-                    // Update estimated value with discounted difference in current values
-                    let new_current_value = D::get_current_value(
-                        StateDiffRef::new(initial_state, &diff),
-                        agent
-                    );
-                    *estimated_value += *(new_current_value - *current_value) * discount;
-                    *current_value = new_current_value;
-                } else {
-                    break;
-                };
+        let mut depth = depth;
+        while depth < config.depth {
+            // If there is no more task to do, return what we have so far
+            if tasks.is_empty() {
+                break;
             }
 
-            // Recalculate agents
-            agents.clear();
-            D::update_visible_agents(StateDiffRef::new(initial_state, &diff), node.active_agent, &mut agents);
+            // Pop first task that is complete
+            let active_task = tasks.iter().next().unwrap().clone();
+            tasks.remove(&active_task);
+            let agent = active_task.agent;
 
-            // Iterator has been exu
-            start_agent = root_agent;
+            // Lazily fetch current and estimated values for current agent
+            let (current_value, estimated_value) = values
+                .entry(active_task.agent)
+                .or_insert_with(||
+                    (
+                        D::get_current_value(StateDiffRef::new(initial_state, &diff), agent),
+                        0f32
+                    )
+                );
 
-            // Increment discount
-            discount *= config.discount;
+            // Execute the task
+            let state_diff_mut = StateDiffRefMut::new(initial_state, &mut diff);
+            let new_task = if active_task.task.is_valid(*state_diff_mut, agent) {
+                active_task.task.execute(state_diff_mut, agent)
+            } else {
+                None
+            };
+            let new_state_diff = StateDiffRef::new(initial_state, &diff);
+
+            // Compute discount
+            let discount = MCTS::<D>::discount_factor(active_task.end - start_tick, config);
+
+            // Update estimated value with discounted difference in current values
+            let new_current_value = D::get_current_value(
+                new_state_diff,
+                agent
+            );
+            *estimated_value += *(new_current_value - *current_value) * discount;
+            *current_value = new_current_value;
+
+            // If no new task is available, select one randomly
+            let new_task = new_task.or_else(|| {
+                // Get possible tasks
+                let tasks = D::get_tasks(
+                    new_state_diff,
+                    agent
+                );
+                if tasks.is_empty() {
+                    return None;
+                }
+                // Safety-check that all tasks are valid
+                for task in &tasks {
+                    debug_assert!(task.is_valid(new_state_diff, agent));
+                }
+                // Get the weight for each task
+                let weights =
+                    WeightedIndex::new(tasks.iter().map(|task| {
+                        task.weight(new_state_diff, agent)
+                    }))
+                    .unwrap();
+                // Select task randomly
+                let idx = weights.sample(rng);
+                Some(tasks[idx].clone())
+            });
+
+            // If still none is available, stop caring about this agent
+            if let Some(new_task) = new_task {
+                // Insert new task
+                let new_active_task = ActiveTask::new(
+                    agent,
+                    new_task,
+                    tick,
+                    StateDiffRef::new(initial_state, &diff)
+                );
+                tasks.insert(new_active_task);
+            }
+
+            // Update depth and ticks
+            depth += (active_task.end - tick) as u32;
+            tick = active_task.end;
         }
 
         let q_values = values
             .iter()
-            .map(|(agent, (_, value))| (*agent, *value))
+            .map(|(agent, (_, q_value))| (*agent, *q_value))
             .collect();
 
-        log::trace!("Rollout: {:?}, {:?}, {:?}", num_rollouts, node.current_values(), q_values);
+        log::debug!("T{}\tRollout to T{}: cur. values: {:?}, q values: {:?}", node.tick, depth, node.current_values(), q_values);
 
         q_values
     }
@@ -548,15 +564,13 @@ mod graphviz {
         use palette::IntoColor;
         let mut hasher = std::collections::hash_map::DefaultHasher::default();
         agent.0.hash(&mut hasher);
-        unsafe {
-            let bytes: [u8; 8] = std::mem::transmute(hasher.finish());
-            let (h, s, v) = palette::Srgb::from_components((bytes[5], bytes[6], bytes[7]))
-                .into_format::<f32>()
-                .into_hsv::<palette::encoding::Srgb>()
-                .into_components();
+        let bytes: [u8; 8] = hasher.finish().to_ne_bytes();
+        let (h, s, v) = palette::Srgb::from_components((bytes[5], bytes[6], bytes[7]))
+            .into_format::<f32>()
+            .into_hsv::<palette::encoding::Srgb>()
+            .into_components();
 
-            ((h.to_degrees() + 180.) / 360., s, v)
-        }
+        ((h.to_degrees() + 180.) / 360., s, v)
     }
 
     pub struct Edge<D: Domain> {
@@ -630,7 +644,7 @@ mod graphviz {
                 let edges = self.nodes.get(node).unwrap();
 
                 if !edges.expanded_tasks.is_empty() {
-                    let range = self.min_max_range(self.agent);
+                    let range = self.min_max_range(self.root_agent);
                     let best_task = edges.best_task(node.active_agent, 0., range.clone()).unwrap();
                     let visits = edges.child_visits();
                     edges.expanded_tasks.iter().for_each(|(obj, _edge)| {
@@ -673,7 +687,7 @@ mod graphviz {
 
     impl<'a, D: Domain> Labeller<'a, Node<D>, Edge<D>> for MCTS<D> {
         fn graph_id(&'a self) -> Id<'a> {
-            Id::new(format!("agent_{}", self.agent.0)).unwrap()
+            Id::new(format!("agent_{}", self.root_agent.0)).unwrap()
         }
 
         fn node_id(&'a self, n: &Node<D>) -> Id<'a> {

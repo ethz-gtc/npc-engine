@@ -1,4 +1,4 @@
-use std::{fmt, collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}};
+use std::{fmt, collections::BTreeSet, hash::{Hasher, Hash}};
 
 use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 
@@ -90,24 +90,25 @@ fn linear_bellman() {
 		visits: 10_000,
 		depth: 5,
 		exploration: 1.414,
-		discount: 0.95,
+		discount_hl: 15.,
 		seed: None
 	};
+	env_logger::init();
 	let agent = AgentId(0);
 
 	let world = State(0);
 	let mut mcts = MCTS::<TestEngine>::new(
 		world,
 		agent,
-		&BTreeMap::new(),
 		CONFIG,
 	);
 
 	fn expected_value(discount: f32, depth: u32) -> f32 {
+		let discount = |delta| 2f64.powf((-(delta as f64)) / (discount as f64)) as f32;
 		let mut value = 0.;
 
 		for _ in 0..depth {
-			value = 1. + discount * value;
+			value = 1. + discount(1) * value;
 		}
 
 		value
@@ -135,7 +136,7 @@ fn linear_bellman() {
 		assert_eq!(Diff(i as u16), node.diff);
 		assert_eq!((CONFIG.visits - i + 1) as usize, edge.visits);
 		assert!(
-			(expected_value(CONFIG.discount, CONFIG.depth - i + 1) - *edge.q_values.get(&agent).unwrap())
+			(expected_value(CONFIG.discount_hl, CONFIG.depth - i + 1) - *edge.q_values.get(&agent).unwrap())
 				.abs()
 				< EPSILON
 		);

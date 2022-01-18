@@ -29,8 +29,9 @@ pub trait Domain: Sized + 'static {
     fn update_visible_agents(state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
 
     /// Gets all agents which are in the horizon of the given agent in the given world state.
-    fn get_visible_agents(state_diff: StateDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
+    fn get_visible_agents(initial_state: &Self::State, diff: &Self::Diff, agent: AgentId) -> BTreeSet<AgentId> {
         let mut agents = BTreeSet::new();
+        let state_diff = StateDiffRef::new(initial_state, diff);
         Self::update_visible_agents(state_diff, agent, &mut agents);
         agents
     }

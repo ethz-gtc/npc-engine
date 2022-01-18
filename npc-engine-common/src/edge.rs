@@ -7,7 +7,6 @@ use rand::distributions::WeightedIndex;
 pub type UnexpandedTasks<D> = Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>;
 
 pub struct Edges<D: Domain> {
-    branching_factor: usize,
     pub unexpanded_tasks: UnexpandedTasks<D>,
     pub expanded_tasks: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
 }
@@ -22,14 +21,11 @@ impl<'a, D: Domain> IntoIterator for &'a Edges<D> {
 }
 
 impl<D: Domain> Edges<D> {
-    pub fn new(node: &Node<D>, initial_state: &D::State) -> Self {
-       // Branching factor of the node
-        let branching_factor;
+    /// Create new edges, with optionally a task to continue
+    pub fn new(node: &Node<D>, initial_state: &D::State, next_task: Option<Box<dyn Task<D>>>) -> Self {
 
-        let unexpanded_edges = match node.tasks.get(&node.active_agent) {
+        let unexpanded_tasks = match next_task {
             Some(task) if task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.active_agent) => {
-                branching_factor = 1;
-
                 let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
 
                 // Set existing child weights, only option
@@ -41,28 +37,33 @@ impl<D: Domain> Edges<D> {
                     StateDiffRef::new(initial_state, &node.diff),
                     node.active_agent
                 );
+                if tasks.is_empty() {
+                    // no task, return empty edges
+                    return Edges {
+                        unexpanded_tasks: None,
+                        expanded_tasks: Default::default()
+                    }
+                }
 
-                // Safety-check that all tasks are valid (to be disabled once enough unit tests are in place)
-				for task in &tasks {
-					debug_assert!(task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.active_agent));
-				}
+                // Safety-check that all tasks are valid
+                for task in &tasks {
+                    debug_assert!(task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.active_agent));
+                }
 
-                branching_factor = tasks.len();
-
+                // Get the weight for each task
+                let state_diff = StateDiffRef::new(initial_state, &node.diff);
                 let weights =
                     WeightedIndex::new(tasks.iter().map(|task| {
-                        task.weight(StateDiffRef::new(initial_state, &node.diff), node.active_agent)
+                        task.weight(state_diff, node.active_agent)
                     }))
                     .unwrap();
 
-                // Set weights
                 Some((weights, tasks))
             }
         };
 
         Edges {
-            branching_factor,
-            unexpanded_tasks: unexpanded_edges,
+            unexpanded_tasks,
             expanded_tasks: Default::default(),
         }
     }
@@ -118,7 +119,10 @@ impl<D: Domain> Edges<D> {
     }
 
     pub fn branching_factor(&self) -> usize {
-        self.branching_factor
+        self.expanded_tasks.len() +
+        self.unexpanded_tasks.as_ref().map_or(0,
+            |(_, tasks)| tasks.len()
+        )
     }
 
     pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {

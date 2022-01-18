@@ -84,7 +84,7 @@ impl GameState {
             visits: config().mcts.visits,
             depth: config().mcts.depth,
             exploration: config().mcts.exploration,
-            discount: config().mcts.discount,
+            discount_hl: 2f32.powf(-1.0 / config().mcts.discount),
             seed: Some(seed),
         };
         let objectives = BTreeMap::new();
@@ -254,10 +254,10 @@ impl GameState {
         let world = &mut self.world;
         let agent = self.agents[self.current_agent];
         let initial_state = Lumberjacks::derive_local_state(world, agent);
+        // FIXME: re-introduce objectives as tasks
         let mut mcts = MCTS::new(
             initial_state,
             agent,
-            &self.objectives,
             self.config.clone()
         );
 

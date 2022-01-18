@@ -1,4 +1,4 @@
-use std::{fmt, collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}, ops::Range};
+use std::{fmt, collections::BTreeSet, hash::{Hasher, Hash}, ops::Range};
 
 use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 struct TestEngine;
@@ -108,23 +108,22 @@ fn ucb() {
 		visits: 10,
 		depth: 1,
 		exploration: 1.414,
-		discount: 0.95,
+		discount_hl: 15.,
 		seed: None
 	};
+	env_logger::init();
 	let agent = AgentId(0);
 
 	let state = State(Default::default());
 	let mut mcts = MCTS::<TestEngine>::new(
 		state,
 		agent,
-		&BTreeMap::new(),
 		CONFIG
 	);
 
 	let task = mcts.run();
 	assert!(task.downcast_ref::<TestTask>().is_some());
-	// Check length is depth with root
-	assert_eq!((CONFIG.depth + 1) as usize, mcts.node_count());
+	assert_eq!((CONFIG.depth * 2 + 1) as usize, mcts.node_count());
 
 	let node = mcts.root.clone();
 	let edges = mcts.get_edges(&node).unwrap();

@@ -1,4 +1,4 @@
-use std::{fmt, collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}};
+use std::{fmt, collections::BTreeSet, hash::{Hasher, Hash}};
 
 use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 use rand::{thread_rng, RngCore};
@@ -87,6 +87,7 @@ impl Task<TestEngine> for TestTask {
 
 #[test]
 fn seed() {
+	env_logger::init();
 	let agent = AgentId(0);
 	for _ in 0..5 {
 		let seed = thread_rng().next_u64();
@@ -94,14 +95,13 @@ fn seed() {
 			visits: 1000,
 			depth: 10,
 			exploration: 1.414,
-			discount: 0.95,
+			discount_hl: 15.,
 			seed: Some(seed),
 		};
 		let state = State(Default::default());
 		let mut mcts = MCTS::<TestEngine>::new(
 			state,
 			agent,
-			&BTreeMap::new(),
 			config.clone(),
 		);
 
@@ -111,7 +111,6 @@ fn seed() {
 			let mut mcts = MCTS::<TestEngine>::new(
 				state,
 				agent,
-				&BTreeMap::new(),
 				config.clone(),
 			);
 

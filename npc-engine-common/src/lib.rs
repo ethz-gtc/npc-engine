@@ -1,4 +1,5 @@
 mod task;
+mod active_task;
 mod domain;
 mod behavior;
 mod config;
@@ -15,6 +16,7 @@ pub use node::*;
 pub use edge::*;
 pub use state_diff::*;
 pub use util::*;
+pub use active_task::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "kebab-case")]

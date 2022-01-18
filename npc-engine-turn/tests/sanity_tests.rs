@@ -1,4 +1,4 @@
-use std::{collections::{BTreeSet, BTreeMap}, hash::{Hasher, Hash}};
+use std::{collections::BTreeSet, hash::{Hasher, Hash}};
 use std::fmt;
 
 use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
@@ -11,10 +11,14 @@ impl fmt::Display for DisplayAction {
 	}
 }
 
+fn init_logger() {
+	let _ = env_logger::builder().is_test(true).try_init();
+}
+
 mod deferment {
 	use npc_engine_turn::AgentValue;
 
-use super::*;
+	use super::*;
 
 	use crate::{Behavior, Task};
 
@@ -164,9 +168,10 @@ use super::*;
 			visits: 1000,
 			depth: 10,
 			exploration: 1.414,
-			discount: 0.95,
+			discount_hl: 15.,
 			seed: None
 		};
+		init_logger();
 		let agent = AgentId(0);
 
 		let state = State {
@@ -176,7 +181,6 @@ use super::*;
 		let mut mcts = MCTS::<TestEngine>::new(
 			state,
 			agent,
-			&BTreeMap::new(),
 			CONFIG
 		);
 
@@ -188,7 +192,7 @@ use super::*;
 mod negative {
 	use npc_engine_turn::AgentValue;
 
-use super::*;
+	use super::*;
 
 	use crate::{Behavior, Task};
 
@@ -219,12 +223,6 @@ use super::*;
 
 		fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 			agents.insert(agent);
-		}
-
-		fn get_visible_agents(state: StateDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
-			let mut agents = BTreeSet::new();
-			Self::update_visible_agents(state, agent, &mut agents);
-			agents
 		}
 
 		fn get_tasks(
@@ -338,6 +336,7 @@ use super::*;
 
 	#[test]
 	fn negative() {
+		init_logger();
 		for depth in (5..=20).step_by(5) {
 			let mut noop = 0;
 			let mut neg = 0;
@@ -347,7 +346,7 @@ use super::*;
 					visits: 1.5f32.powi(depth as i32) as u32 / 10 + 100,
 					depth,
 					exploration: 1.414,
-					discount: 0.95,
+					discount_hl: 15.,
 					seed: None
 				};
 				let agent = AgentId(0);
@@ -358,7 +357,6 @@ use super::*;
 				let mut mcts = MCTS::<TestEngine>::new(
 					state,
 					agent,
-					&BTreeMap::new(),
 					config,
 				);
 
