@@ -3,8 +3,8 @@ use std::{fmt, ops::Deref, mem};
 use crate::Domain;
 
 pub struct StateDiffRef<'a, D: Domain> {
-    pub initial_state: &'a D::State, // FIXME: unpub
-    pub diff: &'a D::Diff, // FIXME: unpub
+    pub initial_state: &'a D::State,
+    pub diff: &'a D::Diff,
 }
 impl<D: Domain> Copy for StateDiffRef<'_, D> {}
 impl<D: Domain> Clone for StateDiffRef<'_, D> {
@@ -33,8 +33,8 @@ where
 }
 
 pub struct StateDiffRefMut<'a, D: Domain> {
-    pub initial_state: &'a D::State, // FIXME: unpub
-    pub diff: &'a mut D::Diff, // FIXME: unpub
+    pub initial_state: &'a D::State,
+    pub diff: &'a mut D::Diff,
 }
 impl<'a, D: Domain> StateDiffRefMut<'a, D> {
     pub fn new(initial_state: &'a D::State, diff: &'a mut D::Diff) -> Self {

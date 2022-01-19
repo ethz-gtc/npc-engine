@@ -122,7 +122,7 @@ fn linear_bellman() {
 	let mut node = mcts.root.clone();
 
 	{
-		assert_eq!(Diff(0), node.diff);
+		assert_eq!(Diff(0), *node.diff());
 	}
 
 	for i in 1..CONFIG.depth {
@@ -133,7 +133,7 @@ fn linear_bellman() {
 
 		node = edge.child.upgrade().unwrap();
 
-		assert_eq!(Diff(i as u16), node.diff);
+		assert_eq!(Diff(i as u16), *node.diff());
 		assert_eq!((CONFIG.visits - i + 1) as usize, edge.visits);
 		assert!(
 			(expected_value(CONFIG.discount_hl, CONFIG.depth - i + 1) - *edge.q_values.get(&agent).unwrap())

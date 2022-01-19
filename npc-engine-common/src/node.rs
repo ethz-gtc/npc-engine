@@ -8,12 +8,11 @@ pub type Node<D> = Arc<NodeInner<D>>;
 /// Weak atomic reference counted node
 pub type WeakNode<D> = Weak<NodeInner<D>>;
 
-// FIXME: unpub
 pub struct NodeInner<D: Domain> {
-    pub diff: D::Diff,
-    pub active_agent: AgentId,
-    pub tick: u64,
-    pub tasks: ActiveTasks<D>,
+    pub(crate) diff: D::Diff,
+    pub(crate) active_agent: AgentId,
+    pub(crate) tick: u64,
+    pub(crate) tasks: ActiveTasks<D>,
     current_values: BTreeMap<AgentId, AgentValue>, // pre-computed current values
 }
 

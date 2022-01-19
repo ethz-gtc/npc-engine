@@ -147,7 +147,6 @@ impl<D: Domain> Edges<D> {
 
 pub type Edge<D> = Arc<RefCell<EdgeInner<D>>>;
 
-// FIXME: unpub
 pub struct EdgeInner<D: Domain> {
     pub parent: WeakNode<D>,
     pub child: WeakNode<D>,

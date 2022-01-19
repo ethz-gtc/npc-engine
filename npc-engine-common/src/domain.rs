@@ -9,7 +9,6 @@ use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef};
 
 pub type AgentValue = NotNan<f32>;
 
-// TODO: remove debug constraints
 /// A domain on which the MCTS planner can plan
 pub trait Domain: Sized + 'static {
     /// The state the MCTS plans on.
