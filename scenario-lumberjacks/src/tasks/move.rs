@@ -1,7 +1,7 @@
 
 use std::hash::{Hash, Hasher};
 
-use npc_engine_turn::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
+use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 
 use crate::{config, Action, Direction, Lumberjacks, Tile, WorldStateMut, WorldState};
 

@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use npc_engine_turn::{Domain, Behavior, AgentId, StateDiffRef, AgentValue};
+use npc_engine_common::{Domain, Behavior, AgentId, StateDiffRef, AgentValue};
 use npc_engine_utils::GlobalDomain;
 
 use crate::{WorldLocalState, WorldDiff, Human, Lumberjack, config, Action, WorldGlobalState, WorldState, TileMapSnapshot, Tile, InventorySnapshot, AgentInventory};

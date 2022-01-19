@@ -1,6 +1,6 @@
 use std::{fmt, collections::BTreeSet, hash::{Hasher, Hash}};
 
-use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
+use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 use rand::{thread_rng, RngCore};
 
 struct TestEngine;

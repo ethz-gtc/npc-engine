@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use ggez::graphics::Image;
 use ggez::Context;
-use npc_engine_turn::{AgentId, Task, MCTS};
+use npc_engine_common::{AgentId, Task, MCTS};
 
 use crate::{Lumberjacks, WorldGlobalState};
 

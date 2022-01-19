@@ -1,7 +1,7 @@
 use std::{collections::BTreeSet, hash::{Hasher, Hash}};
 use std::fmt;
 
-use npc_engine_turn::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
+use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
 
 #[derive(Default)]
 struct DisplayAction;
@@ -16,7 +16,7 @@ fn init_logger() {
 }
 
 mod deferment {
-	use npc_engine_turn::AgentValue;
+	use npc_engine_common::AgentValue;
 
 	use super::*;
 
@@ -190,7 +190,7 @@ mod deferment {
 }
 
 mod negative {
-	use npc_engine_turn::AgentValue;
+	use npc_engine_common::AgentValue;
 
 	use super::*;
 

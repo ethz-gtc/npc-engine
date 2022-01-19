@@ -7,6 +7,7 @@ mod node;
 mod edge;
 mod state_diff;
 mod util;
+mod mcts;
 
 pub use domain::*;
 pub use task::*;
@@ -17,6 +18,7 @@ pub use edge::*;
 pub use state_diff::*;
 pub use util::*;
 pub use active_task::*;
+pub use mcts::*;
 
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize)]
 #[serde(rename_all = "kebab-case")]

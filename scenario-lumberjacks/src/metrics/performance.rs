@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::{
     Barrier, Chop, Direction, Move, Plant, PostMCTSHookArgs, PostMCTSHookFn, Refill, Wait, Water,
 };
-use npc_engine_turn::AgentId;
+use npc_engine_common::AgentId;
 
 pub fn node_edges_count_metric_hook() -> PostMCTSHookFn {
     let mut stats = HashMap::<AgentId, (usize, usize, usize)>::default();
