@@ -35,7 +35,14 @@ pub fn contains_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) 
 	}
 	false
 }
-
+pub fn get_task_for_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) -> Option<&ActiveTask<D>> {
+    for task in set {
+		if task.agent == agent {
+			return Some(task)
+		}
+	}
+	None
+}
 
 impl<D: Domain> fmt::Debug for ActiveTask<D> {
     fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {

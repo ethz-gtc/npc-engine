@@ -57,26 +57,7 @@ impl<D: Domain> MCTS<D> {
         root_agent: AgentId,
         config: MCTSConfiguration,
     ) -> Self {
-        // Get list of agents we consider in planning
-        let agents = D::get_visible_agents(
-            &initial_state,
-            &D::Diff::default(),
-            root_agent
-        );
-
-        // Assign idle tasks to these agents, with proper end time given their relationship with the root agent
-        let tasks = agents
-            .iter()
-            .map(|&agent|
-                ActiveTask {
-                    end: if agent < root_agent { 1 } else { 0 },
-                    agent,
-                    task: Box::new(IdleTask)
-                }
-            )
-            .collect();
-
-        Self::new_with_tasks(initial_state, root_agent, 0, tasks, config)
+        Self::new_with_tasks(initial_state, root_agent, 0, Default::default(), config)
     }
 
     /// Instantiate a new search tree for the given state, with active tasks for all agents and starting at a given tick
@@ -94,7 +75,7 @@ impl<D: Domain> MCTS<D> {
             root_agent,
             start_tick,
             tasks,
-        ));
+        ).expect("root_agent is not in the list of initial agents"));
 
         // Prepare nodes, reserve the maximum amount we could need
         let mut nodes = SeededHashMap::with_capacity_and_hasher(
@@ -143,21 +124,25 @@ impl<D: Domain> MCTS<D> {
         let start = Instant::now();
         let max_visits = self.config.visits;
         for _ in 0..max_visits {
-            // Execute tree policy
-            let (depth, leaf, path) = self.tree_policy();
+            // Execute tree policy, if expansion resulted in no node, do nothing
+            let tree_policy_result = self.tree_policy();
 
-            // Execute default policy
-            let rollout_values = self.state_value_estimator.estimate(
-                &mut self.rng,
-                &self.config,
-                &self.initial_state,
-                &leaf,
-                depth,
-                self.root_agent
-            );
+            // Only if the tree policy resulted in a node expansion or reached the bottom of the tree,
+            // execute default policy and do back-propagation.
+            if let Some((depth, leaf, path)) = tree_policy_result {
+                // Execute default policy
+                let rollout_values = self.state_value_estimator.estimate(
+                    &mut self.rng,
+                    &self.config,
+                    &self.initial_state,
+                    &leaf,
+                    depth,
+                    self.root_agent
+                );
 
-            // Backpropagate results
-            self.backpropagation(path, rollout_values);
+                // Backpropagate results
+                self.backpropagation(path, rollout_values);
+            }
 
             // Early stopping if told so by some user-defined condition
             if let Some(early_stop_condition) = &self.early_stop_condition {
@@ -174,7 +159,7 @@ impl<D: Domain> MCTS<D> {
     /// MCTS tree policy. Executes the `selection` and `expansion` phases.
     fn tree_policy(
         &mut self,
-    ) -> (u32, Node<D>, Vec<Edge<D>>) {
+    ) -> Option<(u32, Node<D>, Vec<Edge<D>>)> {
         let agents = self.root.agents();
 
         let mut node = self.root.clone();
@@ -245,33 +230,39 @@ impl<D: Domain> MCTS<D> {
                     child_tasks
                 );
 
-                // Check if child node exists already
-                let child_node = if let Some((existing_node, _)) = self.nodes.get_key_value(&child_state)
-                {
-                    // Link existing child node
-                    log::trace!("\tLinking to existing node {:?}", existing_node);
-                    existing_node.clone()
-                } else {
-                    // Create and insert new child node
-                    log::trace!("\tCreating new node {:?}", child_state);
-                    let child_node = Node::new(child_state);
-                    self.nodes.insert(
-                        child_node.clone(),
-                        Edges::new(&child_node, &self.initial_state, after_next_task)
-                    );
-                    child_node
-                };
+                // If no agents were found for this state, we cannot expand node
+                match child_state {
+                    None => return None,
+                    Some(child_state) => {
+                        // Check if child node exists already
+                        let child_node = if let Some((existing_node, _)) = self.nodes.get_key_value(&child_state)
+                        {
+                            // Link existing child node
+                            log::trace!("\tLinking to existing node {:?}", existing_node);
+                            existing_node.clone()
+                        } else {
+                            // Create and insert new child node
+                            log::trace!("\tCreating new node {:?}", child_state);
+                            let child_node = Node::new(child_state);
+                            self.nodes.insert(
+                                child_node.clone(),
+                                Edges::new(&child_node, &self.initial_state, after_next_task)
+                            );
+                            child_node
+                        };
 
-                // Create edge from parent to child
-                let edge = new_edge(&node, &child_node, &agents);
-                let edges = self.nodes.get_mut(&node).unwrap();
-                edges.expanded_tasks.insert(task, edge.clone());
+                        // Create edge from parent to child
+                        let edge = new_edge(&node, &child_node, &agents);
+                        let edges = self.nodes.get_mut(&node).unwrap();
+                        edges.expanded_tasks.insert(task, edge.clone());
 
-                // Push edge to path
-                path.push(edge);
+                        // Push edge to path
+                        path.push(edge);
 
-                depth += (child_node.tick - node.tick) as u32;
-                return (depth, child_node, path);
+                        depth += (child_node.tick - node.tick) as u32;
+                        return Some((depth, child_node, path));
+                    }
+                }
             }
 
             debug_assert!(edges.child_visits() > 0);
@@ -301,7 +292,8 @@ impl<D: Domain> MCTS<D> {
             path.push(edge);
         }
 
-        (depth, node, path)
+        // We reached maximum depth, still return last node to ensure increase of visit count for this path
+        Some((depth, node, path))
     }
 
     /// MCTS backpropagation phase.

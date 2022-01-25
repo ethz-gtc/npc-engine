@@ -1,6 +1,6 @@
 use std::{sync::{Arc, Weak}, collections::{BTreeMap, BTreeSet}, fmt, mem, hash::{Hash, Hasher}};
 
-use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue, active_task::{ActiveTask, contains_agent, ActiveTasks}};
+use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue, active_task::{ActiveTask, ActiveTasks}, IdleTask, get_task_for_agent};
 
 /// Strong atomic reference counted node
 pub type Node<D> = Arc<NodeInner<D>>;
@@ -28,34 +28,62 @@ impl<D: Domain> fmt::Debug for NodeInner<D> {
 }
 
 impl<D: Domain> NodeInner<D> {
-    /// Create a new node, extract agent list from active tasks
+    /// Create a new node, check for visible agents, and re-assign current tasks to the matching ones.
+    /// Return None if no active agent is not visible, and Some(node) otherwise.
     pub fn new(
         initial_state: &D::State,
         diff: D::Diff,
         active_agent: AgentId,
         tick: u64,
         tasks: BTreeSet<ActiveTask<D>>,
-    ) -> Self {
-        debug_assert!(contains_agent(&tasks, active_agent));
+    ) -> Option<Self> {
+        // Get list of agents we consider in planning
+        let agents = D::get_visible_agents(
+            initial_state,
+            &D::Diff::default(),
+            active_agent
+        );
+        // If the active agents is not in the list of visible agents, then this node is irrelevant
+        if !agents.contains(&active_agent) {
+            return None;
+        }
 
-        // Set child current values
-        let current_values = tasks
-            .iter()
+        // Assign idle tasks to agents without a task
+        let (tasks, current_values): (ActiveTasks<D>, _) = agents
+            .into_iter()
+            .map(|agent|
+                get_task_for_agent(&tasks, agent)
+                    .map_or_else(
+                        || ActiveTask {
+                            // Make sure the idle tasks of added agents will not be
+                            // executed before the active agent
+                            end: if agent < active_agent { tick + 1 } else { tick },
+                            agent,
+                            task: Box::new(IdleTask)
+                        },
+                        |task| task.clone()
+                    )
+            )
+            // Set child current values
             .map(|task| {
+                let agent = task.agent;
                 (
-                    task.agent,
-                    D::get_current_value(StateDiffRef::new(initial_state, &diff), task.agent),
+                    task,
+                    (
+                        agent,
+                        D::get_current_value(StateDiffRef::new(initial_state, &diff), agent),
+                    )
                 )
             })
-            .collect();
+            .unzip();
 
-        NodeInner {
+        Some(NodeInner {
             active_agent,
             diff,
             tick,
             tasks,
             current_values
-        }
+        })
     }
 
     /// Returns agent who owns the node.
