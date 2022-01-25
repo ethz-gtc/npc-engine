@@ -25,7 +25,7 @@ impl<D: Domain> Edges<D> {
     pub fn new(node: &Node<D>, initial_state: &D::State, next_task: Option<Box<dyn Task<D>>>) -> Self {
 
         let unexpanded_tasks = match next_task {
-            Some(task) if task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.active_agent) => {
+            Some(task) if task.is_valid(node.tick, StateDiffRef::new(initial_state, &node.diff), node.active_agent) => {
                 let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
 
                 // Set existing child weights, only option
@@ -34,6 +34,7 @@ impl<D: Domain> Edges<D> {
             _ => {
                 // Get possible tasks
                 let tasks = D::get_tasks(
+                    node.tick,
                     StateDiffRef::new(initial_state, &node.diff),
                     node.active_agent
                 );
@@ -46,15 +47,15 @@ impl<D: Domain> Edges<D> {
                 }
 
                 // Safety-check that all tasks are valid
+                let state_diff = StateDiffRef::new(initial_state, &node.diff);
                 for task in &tasks {
-                    debug_assert!(task.is_valid(StateDiffRef::new(initial_state, &node.diff), node.active_agent));
+                    debug_assert!(task.is_valid(node.tick, state_diff, node.active_agent));
                 }
 
                 // Get the weight for each task
-                let state_diff = StateDiffRef::new(initial_state, &node.diff);
                 let weights =
                     WeightedIndex::new(tasks.iter().map(|task| {
-                        task.weight(state_diff, node.active_agent)
+                        task.weight(node.tick, state_diff, node.active_agent)
                     }))
                     .unwrap();
 

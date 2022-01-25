@@ -183,7 +183,8 @@ impl<D: Domain> MCTS<D> {
                 // Select expansion task randomly
                 let idx = weights.sample(&mut self.rng);
                 let task = tasks[idx].clone();
-                debug_assert!(task.is_valid(StateDiffRef::new(&self.initial_state, &diff), node.active_agent));
+                let state_diff = StateDiffRef::new(&self.initial_state, &diff);
+                debug_assert!(task.is_valid(node.tick, state_diff, node.active_agent));
                 log::debug!("T{}\t{:?} - Expand task: {:?}", node.tick, node.active_agent, task);
 
                 // Set weight of chosen task to zero to mark it as expanded.
@@ -201,7 +202,6 @@ impl<D: Domain> MCTS<D> {
                     .collect::<BTreeSet<_>>();
 
                 // Create and insert new active task for the active agent and the selected task
-                let state_diff = StateDiffRef::new(&self.initial_state, &diff);
                 let active_task = ActiveTask::new(node.active_agent, task.clone(), node.tick, state_diff);
                 child_tasks.insert(active_task);
                 log::trace!("\tActive Tasks ({}):", child_tasks.len());
@@ -214,9 +214,9 @@ impl<D: Domain> MCTS<D> {
                 log::trace!("\tNext Active Task: {:?}: {:?} ends T{}", next_active_task.agent, next_active_task.task, next_active_task.end);
 
                 // Execute the task which finishes in the next node
-                let after_next_task = if next_active_task.task.is_valid(state_diff, next_active_task.agent) {
+                let after_next_task = if next_active_task.task.is_valid(node.tick, state_diff, next_active_task.agent) {
                     let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
-                    next_active_task.task.execute(state_diff_mut, next_active_task.agent)
+                    next_active_task.task.execute(node.tick, state_diff_mut, next_active_task.agent)
                 } else {
                     None
                 };
@@ -461,20 +461,24 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             tasks.remove(&active_task);
             let agent = active_task.agent;
 
-            // Lazily fetch current and estimated values for current agent
+            // Lazily fetch current and estimated values for current agent, before this task completed
             let (current_value, estimated_value) = values
                 .entry(active_task.agent)
                 .or_insert_with(||
                     (
-                        D::get_current_value(StateDiffRef::new(initial_state, &diff), agent),
+                        D::get_current_value(tick, StateDiffRef::new(initial_state, &diff), agent),
                         0f32
                     )
                 );
 
+            // Compute elapsed time and update tick
+            let elapsed = active_task.end - tick;
+            tick = active_task.end;
+
             // Execute the task
             let state_diff_mut = StateDiffRefMut::new(initial_state, &mut diff);
-            let new_task = if active_task.task.is_valid(*state_diff_mut, agent) {
-                active_task.task.execute(state_diff_mut, agent)
+            let new_task = if active_task.task.is_valid(tick, *state_diff_mut, agent) {
+                active_task.task.execute(tick, state_diff_mut, agent)
             } else {
                 None
             };
@@ -485,6 +489,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
             // Update estimated value with discounted difference in current values
             let new_current_value = D::get_current_value(
+                tick,
                 new_state_diff,
                 agent
             );
@@ -495,6 +500,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             let new_task = new_task.or_else(|| {
                 // Get possible tasks
                 let tasks = D::get_tasks(
+                    tick,
                     new_state_diff,
                     agent
                 );
@@ -503,12 +509,12 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 }
                 // Safety-check that all tasks are valid
                 for task in &tasks {
-                    debug_assert!(task.is_valid(new_state_diff, agent));
+                    debug_assert!(task.is_valid(tick, new_state_diff, agent));
                 }
                 // Get the weight for each task
                 let weights =
                     WeightedIndex::new(tasks.iter().map(|task| {
-                        task.weight(new_state_diff, agent)
+                        task.weight(tick, new_state_diff, agent)
                     }))
                     .unwrap();
                 // Select task randomly
@@ -528,9 +534,8 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 tasks.insert(new_active_task);
             }
 
-            // Update depth and ticks
-            depth += (active_task.end - tick) as u32;
-            tick = active_task.end;
+            // Update depth
+            depth += elapsed as u32;
         }
 
         let q_values = values

@@ -27,11 +27,11 @@ impl Domain for TestEngine {
 		&[&TestBehavior]
 	}
 
-	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+	fn get_current_value(_tick: u64, state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
 		(state_diff.initial_state.0 + state_diff.diff.0).into()
 	}
 
-	fn update_visible_agents(_state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+	fn update_visible_agents(_tick: u64, _state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 		agents.insert(agent);
 	}
 }
@@ -42,6 +42,7 @@ struct TestBehavior;
 impl Behavior<TestEngine> for TestBehavior {
 	fn add_own_tasks(
 		&self,
+		_tick: u64,
 		_state_diff: StateDiffRef<TestEngine>,
 		_agent: AgentId,
 		tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
@@ -49,7 +50,7 @@ impl Behavior<TestEngine> for TestBehavior {
 		tasks.push(Box::new(TestTask) as _);
 	}
 
-	fn is_valid(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+	fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 		true
 	}
 }
@@ -58,16 +59,17 @@ impl Behavior<TestEngine> for TestBehavior {
 struct TestTask;
 
 impl Task<TestEngine> for TestTask {
-	fn weight(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+	fn weight(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 		1.
 	}
 
-	fn is_valid(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+	fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 		true
 	}
 
 	fn execute(
 		&self,
+		_tick: u64,
 		mut state_diff: StateDiffRefMut<TestEngine>,
 		_agent: AgentId,
 	) -> Option<Box<dyn Task<TestEngine>>> {

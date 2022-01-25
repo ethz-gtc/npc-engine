@@ -13,12 +13,13 @@ pub struct Move {
 }
 
 impl Task<Lumberjacks> for Move {
-    fn weight(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.r#move
     }
 
     fn execute(
         &self,
+        _tick: u64,
         mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
@@ -50,7 +51,7 @@ impl Task<Lumberjacks> for Move {
         Action::Walk(*self.path.first().unwrap())
     }
 
-    fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, _tick: u64,state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((mut x, mut y)) = state_diff.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
                 let tmp = direction.apply(x, y);

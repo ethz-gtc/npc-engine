@@ -13,7 +13,7 @@ impl fmt::Display for Human {
 }
 
 impl Behavior<Lumberjacks> for Human {
-    fn is_valid(&self, _state: StateDiffRef<Lumberjacks>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _tick: u64, _state: StateDiffRef<Lumberjacks>, _agent: AgentId) -> bool {
         true
     }
 }

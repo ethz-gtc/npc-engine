@@ -26,11 +26,11 @@ impl Domain for TestEngine {
 		&[&TestBehaviorA, &TestBehaviorB]
 	}
 
-	fn get_current_value(state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+	fn get_current_value(_tick: u64, state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
 		(state_diff.initial_state.0 + state_diff.diff.0).into()
 	}
 
-	fn update_visible_agents(_state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+	fn update_visible_agents(_tick: u64, _state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 		agents.insert(agent);
 	}
 }
@@ -42,6 +42,7 @@ struct TestBehaviorA;
 impl Behavior<TestEngine> for TestBehaviorA {
 	fn add_own_tasks(
 		&self,
+		_tick: u64,
 		_state_diff: StateDiffRef<TestEngine>,
 		_agent: AgentId,
 		tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
@@ -49,7 +50,7 @@ impl Behavior<TestEngine> for TestBehaviorA {
 		tasks.push(Box::new(TestTask(true)) as _);
 	}
 
-	fn is_valid(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+	fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 		true
 	}
 }
@@ -60,6 +61,7 @@ struct TestBehaviorB;
 impl Behavior<TestEngine> for TestBehaviorB {
 	fn add_own_tasks(
 		&self,
+		_tick: u64,
 		_state_diff: StateDiffRef<TestEngine>,
 		_agent: AgentId,
 		tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
@@ -67,7 +69,7 @@ impl Behavior<TestEngine> for TestBehaviorB {
 		tasks.push(Box::new(TestTask(false)) as _);
 	}
 
-	fn is_valid(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+	fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 		true
 	}
 }
@@ -76,16 +78,17 @@ impl Behavior<TestEngine> for TestBehaviorB {
 struct TestTask(bool);
 
 impl Task<TestEngine> for TestTask {
-	fn weight(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+	fn weight(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 		1.
 	}
 
-	fn is_valid(&self, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+	fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 		true
 	}
 
 	fn execute(
 		&self,
+		_tick: u64,
 		mut state_diff: StateDiffRefMut<TestEngine>,
 		_agent: AgentId,
 	) -> Option<Box<dyn Task<TestEngine>>> {

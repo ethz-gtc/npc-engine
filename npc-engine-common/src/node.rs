@@ -39,6 +39,7 @@ impl<D: Domain> NodeInner<D> {
     ) -> Option<Self> {
         // Get list of agents we consider in planning
         let agents = D::get_visible_agents(
+            tick,
             initial_state,
             &D::Diff::default(),
             active_agent
@@ -71,7 +72,11 @@ impl<D: Domain> NodeInner<D> {
                     task,
                     (
                         agent,
-                        D::get_current_value(StateDiffRef::new(initial_state, &diff), agent),
+                        D::get_current_value(
+                            tick,
+                            StateDiffRef::new(initial_state, &diff),
+                            agent
+                        )
                     )
                 )
             })
@@ -116,6 +121,7 @@ impl<D: Domain> NodeInner<D> {
             .copied()
             .unwrap_or_else(||
                 D::get_current_value(
+                    self.tick,
                     StateDiffRef::new(
                         initial_state,
                         &self.diff,

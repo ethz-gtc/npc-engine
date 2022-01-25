@@ -278,12 +278,13 @@ impl GameState {
             })
         });
 
-        let objectives = &mut self.objectives;
         let mut diff = WorldDiff::default();
-        objective.execute(StateDiffRefMut::new(&mcts.initial_state, &mut diff), agent);
+        let new_objective = objective.execute(0, StateDiffRefMut::new(&mcts.initial_state, &mut diff), agent);
         Lumberjacks::apply(world, &mcts.initial_state, &diff);
         world.actions.insert(agent, objective.display_action());
-        objectives.insert(agent, objective);
+        new_objective.map(|objective|
+            self.objectives.insert(agent, objective)
+        );
 
         self.post_world_hooks.iter_mut().for_each(|f| {
             f(PostWorldHookArgs {
@@ -292,7 +293,7 @@ impl GameState {
                 assets,
                 turn,
                 world,
-                objectives,
+                objectives: &self.objectives,
             })
         });
 

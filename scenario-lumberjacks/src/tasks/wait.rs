@@ -8,12 +8,13 @@ use crate::{config, Action, Lumberjacks, WorldStateMut};
 pub struct Wait;
 
 impl Task<Lumberjacks> for Wait {
-    fn weight(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.wait
     }
 
     fn execute(
         &self,
+        _tick: u64,
         mut state_diff: StateDiffRefMut<Lumberjacks>,
         _agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
@@ -26,7 +27,7 @@ impl Task<Lumberjacks> for Wait {
         Action::Wait
     }
 
-    fn is_valid(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> bool {
+    fn is_valid(&self, _: u64,_: StateDiffRef<Lumberjacks>, _: AgentId) -> bool {
         true
     }
 

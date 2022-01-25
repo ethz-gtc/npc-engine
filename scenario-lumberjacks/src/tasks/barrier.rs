@@ -10,12 +10,13 @@ pub struct Barrier {
 }
 
 impl Task<Lumberjacks> for Barrier {
-    fn weight(&self, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.barrier
     }
 
     fn execute(
         &self,
+        _tick: u64,
         mut state_diff: StateDiffRefMut<Lumberjacks>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<Lumberjacks>>> {
@@ -36,7 +37,7 @@ impl Task<Lumberjacks> for Barrier {
         Action::Barrier(self.direction)
     }
 
-    fn is_valid(&self, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, _tick: u64,state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((x, y)) = state_diff.find_agent(agent) {
             let (x, y) = self.direction.apply(x, y);
             let empty = matches!(state_diff.get_tile(x, y), Some(Tile::Empty));

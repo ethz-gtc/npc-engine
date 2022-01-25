@@ -45,11 +45,11 @@ mod deferment {
 			&[&TestBehavior]
 		}
 
-		fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+		fn get_current_value(_tick: u64, state: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
 			state.value().into()
 		}
 
-		fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+		fn update_visible_agents(_tick: u64, _state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 			agents.insert(agent);
 		}
 	}
@@ -91,6 +91,7 @@ mod deferment {
 	impl Behavior<TestEngine> for TestBehavior {
 		fn add_own_tasks(
 			&self,
+			_tick: u64,
 			_state: StateDiffRef<TestEngine>,
 			_agent: AgentId,
 			tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
@@ -99,7 +100,7 @@ mod deferment {
 			tasks.push(Box::new(TestTaskDefer) as _);
 		}
 
-		fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
 	}
@@ -108,16 +109,17 @@ mod deferment {
 	struct TestTaskDirect;
 
 	impl Task<TestEngine> for TestTaskDirect {
-		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+		fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 			1.
 		}
 
-		fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
 
 		fn execute(
 			&self,
+			_tick: u64,
 			mut state: StateDiffRefMut<TestEngine>,
 			_agent: AgentId,
 		) -> Option<Box<dyn Task<TestEngine>>> {
@@ -137,16 +139,17 @@ mod deferment {
 	struct TestTaskDefer;
 
 	impl Task<TestEngine> for TestTaskDefer {
-		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+		fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 			1.
 		}
 
-		fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
 
 		fn execute(
 			&self,
+			_tick: u64,
 			mut state: StateDiffRefMut<TestEngine>,
 			_agent: AgentId,
 		) -> Option<Box<dyn Task<TestEngine>>> {
@@ -217,26 +220,12 @@ mod negative {
 			&[&TestBehavior]
 		}
 
-		fn get_current_value(state: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+		fn get_current_value(_tick: u64, state: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
 			state.value().into()
 		}
 
-		fn update_visible_agents(_state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+		fn update_visible_agents(_tick: u64, _state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 			agents.insert(agent);
-		}
-
-		fn get_tasks(
-			state: StateDiffRef<Self>,
-			agent: AgentId
-		) -> Vec<Box<dyn Task<Self>>> {
-			let mut actions = Vec::new();
-			Self::list_behaviors()
-				.iter()
-				.filter(|behavior| behavior.is_valid(state, agent))
-				.for_each(|behavior| behavior.add_tasks(state, agent, &mut actions));
-
-			actions.dedup();
-			actions
 		}
 	}
 
@@ -266,6 +255,7 @@ mod negative {
 	impl Behavior<TestEngine> for TestBehavior {
 		fn add_own_tasks(
 			&self,
+			_tick: u64,
 			_state: StateDiffRef<TestEngine>,
 			_agent: AgentId,
 			tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
@@ -274,7 +264,7 @@ mod negative {
 			tasks.push(Box::new(TestTaskNegative) as _);
 		}
 
-		fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
 	}
@@ -283,16 +273,17 @@ mod negative {
 	struct TestTaskNoop;
 
 	impl Task<TestEngine> for TestTaskNoop {
-		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+		fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 			1.
 		}
 
-		fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
 
 		fn execute(
 			&self,
+			_tick: u64,
 			_state: StateDiffRefMut<TestEngine>,
 			_agent: AgentId,
 		) -> Option<Box<dyn Task<TestEngine>>> {
@@ -310,16 +301,17 @@ mod negative {
 	struct TestTaskNegative;
 
 	impl Task<TestEngine> for TestTaskNegative {
-		fn weight(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+		fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 			1.
 		}
 
-		fn is_valid(&self, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
 
 		fn execute(
 			&self,
+			_tick: u64,
 			mut state: StateDiffRefMut<TestEngine>,
 			_agent: AgentId,
 		) -> Option<Box<dyn Task<TestEngine>>> {

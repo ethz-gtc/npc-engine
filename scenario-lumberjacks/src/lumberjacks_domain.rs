@@ -16,7 +16,7 @@ impl Domain for Lumberjacks {
         &[&Human, &Lumberjack]
     }
 
-    fn get_current_value(state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue {
+    fn get_current_value(_tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue {
         let value = if let Some((_, f)) = config().agents.behaviors.get(&(agent.0 as usize)) {
             f(state_diff, agent)
         } else {
@@ -25,7 +25,7 @@ impl Domain for Lumberjacks {
         AgentValue::new(value).unwrap()
     }
 
-    fn update_visible_agents(state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+    fn update_visible_agents(_tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
         if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.plan_others {
                 agents.extend(

@@ -9,17 +9,17 @@ pub trait Behavior<D: Domain>: 'static {
 
     /// Collects valid tasks for the given agent in the given world state.
     #[allow(unused)]
-    fn add_own_tasks(&self, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {}
+    fn add_own_tasks(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {}
 
     /// Returns if the behavior is valid for the given agent in the given world state.
-    fn is_valid(&self, state: StateDiffRef<D>, agent: AgentId) -> bool;
+    fn is_valid(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId) -> bool;
 
     /// Helper method to recursively collect all valid tasks for the given agent in the given world state.
-    fn add_tasks(&self, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {
-        self.add_own_tasks(state, agent, tasks);
+    fn add_tasks(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {
+        self.add_own_tasks(tick, state, agent, tasks);
         self.get_dependent_behaviors()
             .iter()
-            .filter(|behavior| behavior.is_valid(state, agent))
-            .for_each(|behavior| behavior.add_tasks(state, agent, tasks));
+            .filter(|behavior| behavior.is_valid(tick, state, agent))
+            .for_each(|behavior| behavior.add_tasks(tick, state, agent, tasks));
     }
 }

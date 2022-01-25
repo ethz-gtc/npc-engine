@@ -10,19 +10,19 @@ use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_meth
 const DURATION_ONE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1) };
 
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
-    /// Returns the relative weight of the task for the given agent in the given world state.
-    fn weight(&self, state_diff: StateDiffRef<D>, agent: AgentId) -> f32;
+    /// Returns the relative weight of the task for the given agent in the given tick and world state.
+    fn weight(&self, tick: u64, state_diff: StateDiffRef<D>, agent: AgentId) -> f32;
 
-    /// Returns the duration of the task, for a given agent in a given world state, by default lasts one tick
-    fn duration(&self, _state_diff: StateDiffRef<D>, _agent: AgentId) -> NonZeroU64 {
+    /// Returns the duration of the task, for a given agent in a given tick and world state, by default lasts one tick
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> NonZeroU64 {
         DURATION_ONE
     }
 
-    /// Executes one step of the task for the given agent on the given world state.
-    fn execute(&self, state_diff: StateDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
+    /// Executes one step of the task for the given agent on the given tick and world state.
+    fn execute(&self, tick: u64, state_diff: StateDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
 
-    /// Returns if the task is valid for the given agent in the given world state.
-    fn is_valid(&self, state_diff: StateDiffRef<D>, agent: AgentId) -> bool;
+    /// Returns if the task is valid for the given agent in the given tick and world state.
+    fn is_valid(&self, tick: u64, state_diff: StateDiffRef<D>, agent: AgentId) -> bool;
 
     /// Returns the display actions corresponding to this task.
     fn display_action(&self) -> D::DisplayAction;
@@ -44,15 +44,15 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
 pub struct IdleTask;
 
 impl<D: Domain> Task<D> for IdleTask {
-    fn weight(&self, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
+    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
         1f32
     }
 
-    fn execute(&self, _state_diff: StateDiffRefMut<D>, _agent: AgentId) -> Option<Box<dyn Task<D>>> {
+    fn execute(&self, _tick: u64, _state_diff: StateDiffRefMut<D>, _agent: AgentId) -> Option<Box<dyn Task<D>>> {
         None
     }
 
-    fn is_valid(&self, _state_diff: StateDiffRef<D>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> bool {
         true
     }
 
