@@ -167,6 +167,7 @@ mod deferment {
 
 	#[test]
 	fn deferment() {
+		init_logger();
 		const CONFIG: MCTSConfiguration = MCTSConfiguration {
 			visits: 1000,
 			depth: 10,
