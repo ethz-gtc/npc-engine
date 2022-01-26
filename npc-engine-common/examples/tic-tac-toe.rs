@@ -277,7 +277,7 @@ fn main() {
 		std::io::stdin()
 			.read_line(&mut input)
 			.expect("Failed to read line");
-		println!("Input string: '{}'", input.trim());
+		// println!("Input string: '{}'", input.trim());
 		let (x, y) = match input.trim() {
 			"q" => break,
 			s => {
