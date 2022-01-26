@@ -10,6 +10,14 @@ pub struct Edges<D: Domain> {
     pub unexpanded_tasks: UnexpandedTasks<D>,
     pub expanded_tasks: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
 }
+impl<D: Domain> fmt::Debug for Edges<D> {
+    fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Edges")
+            .field("unexpanded_tasks", &self.unexpanded_tasks)
+            .field("expanded_tasks", &self.expanded_tasks)
+            .finish()
+    }
+}
 
 impl<'a, D: Domain> IntoIterator for &'a Edges<D> {
     type Item = (&'a Box<dyn Task<D>>, &'a Edge<D>);

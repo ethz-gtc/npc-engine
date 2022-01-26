@@ -265,7 +265,10 @@ impl<D: Domain> MCTS<D> {
                 }
             }
 
-            debug_assert!(edges.child_visits() > 0);
+            // There is no child to this node, still return last node to ensure increase of visit count for this path
+            if edges.child_visits() == 0 {
+                return Some((depth, node, path))
+            }
 
             // -------------------------
             // Selection

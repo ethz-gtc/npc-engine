@@ -1,5 +1,5 @@
 
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
 

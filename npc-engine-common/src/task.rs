@@ -10,8 +10,10 @@ use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_meth
 const DURATION_ONE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1) };
 
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
-    /// Returns the relative weight of the task for the given agent in the given tick and world state.
-    fn weight(&self, tick: u64, state_diff: StateDiffRef<D>, agent: AgentId) -> f32;
+    /// Returns the relative weight of the task for the given agent in the given tick and world state, by default weight is 1.0
+    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
+        1.0
+    }
 
     /// Returns the duration of the task, for a given agent in a given tick and world state, by default lasts one tick
     fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> NonZeroU64 {
@@ -95,7 +97,8 @@ macro_rules! impl_task_boxed_methods {
             Box::new(self.clone())
         }
     
-        fn box_hash(&self, mut state: &mut dyn Hasher) {
+        fn box_hash(&self, mut state: &mut dyn std::hash::Hasher) {
+            use std::hash::Hash;
             self.hash(&mut state)
         }
     
