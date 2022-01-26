@@ -1,9 +1,9 @@
-use std::{collections::BTreeSet, hash::{Hasher, Hash}};
+use std::{collections::BTreeSet, hash::Hash};
 use std::fmt;
 
 use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods};
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct DisplayAction;
 impl fmt::Display for DisplayAction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -752,7 +752,7 @@ mod graphviz {
 
         fn edge_label(&'a self, edge: &Edge<D>) -> LabelText<'a> {
             LabelText::LabelStr(Cow::Owned(format!(
-                "{}\nN: {}, R: {:.2}, Q: {:.2}\nU: {:.2} ({:.2} + {:.2})",
+                "{:?}\nN: {}, R: {:.2}, Q: {:.2}\nU: {:.2} ({:.2} + {:.2})",
                 edge.task.display_action(),
                 edge.visits,
                 edge.reward,

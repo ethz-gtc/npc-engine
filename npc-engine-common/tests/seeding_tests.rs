@@ -1,4 +1,4 @@
-use std::{fmt, collections::BTreeSet, hash::{Hasher, Hash}};
+use std::{fmt, collections::BTreeSet, hash::Hash};
 
 use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
 use rand::{thread_rng, RngCore};
@@ -11,7 +11,7 @@ struct State(u16);
 #[derive(Debug, Default, Eq, Hash, Clone, PartialEq)]
 struct Diff(u16);
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 struct DisplayAction;
 impl fmt::Display for DisplayAction {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

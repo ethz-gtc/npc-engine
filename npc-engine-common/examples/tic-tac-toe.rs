@@ -167,7 +167,7 @@ impl Task<TicTacToe> for Move {
 	}
 
 	fn display_action(&self) -> <TicTacToe as Domain>::DisplayAction {
-        self.clone()
+        Some(self.clone())
     }
 
 	fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> bool {
@@ -178,30 +178,13 @@ impl Task<TicTacToe> for Move {
     impl_task_boxed_methods!(TicTacToe);
 }
 
-// FIXME: why do we need that?
 impl fmt::Debug for Move {
 	fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Move")
-            .field("x", &self.x.get())
-            .field("y", &self.y.get())
-            .finish()
+		f.debug_struct("Move")
+		.field("x", &self.x.get())
+		.field("y", &self.y.get())
+		.finish()
     }
-}
-impl fmt::Display for Move {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let x = self.x;
-		let y = self.y;
-		write!(f, "{x}, {y}")
-	}
-}
-// FIXME: why do we need that?
-impl Default for Move {
-	fn default() -> Self {
-		Move {
-			x: C0,
-			y: C0,
-		}
-	}
 }
 
 struct MoveBehavior;
@@ -237,7 +220,7 @@ const VALUE_LOOSE: AgentValue = unsafe { AgentValue::new_unchecked(-1.) };
 impl Domain for TicTacToe {
 	type State = State;
 	type Diff = Diff;
-	type DisplayAction = Move;
+	type DisplayAction = Option<Move>; // Option, so that the idle placeholder action is None
 
 	fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
 		&[&MoveBehavior]
@@ -287,6 +270,8 @@ fn main() {
 	println!("Welcome to tic-tac-toe. You are player 'O', I'm player 'X'.");
 	loop {
 		state.print();
+
+		// Get input
 		println!("Please enter a coordinate with 'X Y' where X,Y are 0,1,2, or 'q' to quit.");
 		let mut input = String::new();
 		std::io::stdin()

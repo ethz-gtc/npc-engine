@@ -1,5 +1,4 @@
 use std::collections::{BTreeSet, BTreeMap};
-use std::fmt;
 use std::hash::Hash;
 
 use ordered_float::NotNan;
@@ -16,7 +15,8 @@ pub trait Domain: Sized + 'static {
     /// A compact set of changes towards a `State` that are accumulated throughout planning.
     type Diff: std::fmt::Debug + Default + Clone + Hash + Eq;
     /// A representation of a display action that can be fetched from a task.
-    type DisplayAction: fmt::Display + Default;
+    /// We need Default trait for creating the DisplayAction for the idle placeholder task.
+    type DisplayAction: std::fmt::Debug + Default;
 
     /// Returns all behaviors available for this domain.
     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>];
