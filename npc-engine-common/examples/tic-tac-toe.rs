@@ -217,6 +217,11 @@ impl Behavior<TicTacToe> for MoveBehavior {
 		agent: AgentId,
 		tasks: &mut Vec<Box<dyn Task<TicTacToe>>>,
 	) {
+		// if the game is already ended, no move are valid
+		let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
+		if winner(state).is_some() {
+			return;
+		}
 		for x in C_RANGE {
 			for y in C_RANGE {
 				let task = Move { x, y };

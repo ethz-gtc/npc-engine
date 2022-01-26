@@ -464,11 +464,12 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             let agent = active_task.agent;
 
             // Lazily fetch current and estimated values for current agent, before this task completed
+            let state_diff = StateDiffRef::new(initial_state, &diff);
             let (current_value, estimated_value) = values
                 .entry(active_task.agent)
                 .or_insert_with(||
                     (
-                        D::get_current_value(tick, StateDiffRef::new(initial_state, &diff), agent),
+                        D::get_current_value(tick, state_diff, agent),
                         0f32
                     )
                 );
@@ -477,13 +478,14 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             let elapsed = active_task.end - tick;
             tick = active_task.end;
 
+            // If task is invalid, stop rollout
+            if !active_task.task.is_valid(tick, state_diff, agent) {
+                break;
+            }
+
             // Execute the task
             let state_diff_mut = StateDiffRefMut::new(initial_state, &mut diff);
-            let new_task = if active_task.task.is_valid(tick, *state_diff_mut, agent) {
-                active_task.task.execute(tick, state_diff_mut, agent)
-            } else {
-                None
-            };
+            let new_task = active_task.task.execute(tick, state_diff_mut, agent);
             let new_state_diff = StateDiffRef::new(initial_state, &diff);
 
             // Compute discount
@@ -607,7 +609,7 @@ mod graphviz {
             node: &Node<D>,
             depth: usize,
         ) {
-            if depth >= 5 {
+            if depth >= 4 {
                 return;
             }
 
