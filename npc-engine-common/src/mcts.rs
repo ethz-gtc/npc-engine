@@ -200,7 +200,6 @@ impl<D: Domain> MCTS<D> {
                     .filter(|task| task.agent != node.active_agent)
                     .cloned()
                     .collect::<BTreeSet<_>>();
-
                 // Create and insert new active task for the active agent and the selected task
                 let active_task = ActiveTask::new(node.active_agent, task.clone(), node.tick, state_diff);
                 child_tasks.insert(active_task);
@@ -209,17 +208,17 @@ impl<D: Domain> MCTS<D> {
                     log::trace!("\t  {:?}: {:?} ends T{}", active_task.agent, active_task.task, active_task.end);
                 }
 
-                // Get next active task
+                // Get task that finishes in the next node
                 let next_active_task = child_tasks.iter().next().unwrap().clone();
                 log::trace!("\tNext Active Task: {:?}: {:?} ends T{}", next_active_task.agent, next_active_task.task, next_active_task.end);
 
+                // If it is not valid, abort this expansion
+                if !next_active_task.task.is_valid(next_active_task.end, state_diff, next_active_task.agent) {
+                    return None;
+                }
                 // Execute the task which finishes in the next node
-                let after_next_task = if next_active_task.task.is_valid(node.tick, state_diff, next_active_task.agent) {
-                    let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
-                    next_active_task.task.execute(node.tick, state_diff_mut, next_active_task.agent)
-                } else {
-                    None
-                };
+                let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
+                let after_next_task = next_active_task.task.execute(next_active_task.end, state_diff_mut, next_active_task.agent);
 
                 // Create expanded node state
                 let child_state = NodeInner::new(
@@ -321,7 +320,7 @@ impl<D: Domain> MCTS<D> {
 
                 // Get q value from child, or rollout value if leaf node, or 0 if not in rollout
                 let mut child_q_value =
-                    if let Some(value) = child_edges.value((visits, *q_value_ref), agent) {
+                    if let Some(value) = child_edges.q_value((visits, *q_value_ref), agent) {
                         value
                     } else {
                         rollout_values.get(&agent).copied().unwrap_or_default()
@@ -608,7 +607,7 @@ mod graphviz {
             node: &Node<D>,
             depth: usize,
         ) {
-            if depth >= 3 {
+            if depth >= 5 {
                 return;
             }
 
@@ -696,16 +695,21 @@ mod graphviz {
 
         fn node_label(&'a self, n: &Node<D>) -> LabelText<'a> {
             let edges = self.nodes.get(n).unwrap();
-            let v = edges.value((0, 0.), n.active_agent);
-
-            LabelText::LabelStr(Cow::Owned(format!(
-                "Agent {}\nV: {}\nFitnesses: {:?}",
+            let v = edges.q_value((0, 0.), n.active_agent);
+            let state_diff = StateDiffRef::new(&self.initial_state, &n.diff);
+            let mut state = D::get_state_description(n.tick, state_diff, n.active_agent);
+            if !state.is_empty() {
+                state = state.replace("\n", "<br/>");
+                state = format!("<br/><font point-size='10'>{state}</font>");
+            }
+            LabelText::HtmlStr(Cow::Owned(format!(
+                "Agent {}<br/>Q: {}<br/>V: {:?}{state}",
                 n.active_agent.0,
                 v.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "None".to_owned()),
                 n.current_values()
                     .iter()
-                    .map(|(agent, value)| { (agent.0, *value) })
-                    .collect::<SeededHashMap<_, _>>(),
+                    .map(|(agent, value)| { (agent.0, **value) })
+                    .collect::<BTreeMap<_, _>>(),
             )))
         }
 

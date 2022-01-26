@@ -1,4 +1,4 @@
-use std::{collections::BTreeSet, fmt};
+use std::{collections::BTreeSet, fmt, fs};
 use bounded_integer::BoundedU32;
 use cached::proc_macro::cached;
 
@@ -53,7 +53,7 @@ type CellCoord = BoundedU32<0, 2>;
 trait CellArray2D {
 	fn get(&self, x: CellCoord, y: CellCoord) -> Cell;
 	fn set(&mut self, x: CellCoord, y: CellCoord, cell: Cell);
-	fn print(&self);
+	fn description(&self) -> String;
 }
 type State = u32;
 impl CellArray2D for State {
@@ -76,13 +76,20 @@ impl CellArray2D for State {
 		*self &= !(0b11 << shift);
 		*self |= pattern << shift;
 	}
-	fn print(&self) {
+	fn description(&self) -> String {
+		let mut s = String::new();
 		for y in C_RANGE {
 			for x in C_RANGE {
-				print!("{} ", self.get(x, y).char());
+				s.push(self.get(x, y).char());
+				if x != C2 {
+					s.push(' ');
+				}
 			}
-			println!();
+			if y != C2 {
+				s.push('\n');
+			}
 		}
+		s
 	}
 }
 
@@ -147,6 +154,19 @@ struct Move {
 	y: CellCoord,
 }
 
+// Option, so that the idle placeholder action is None
+#[derive(Default)]
+struct DisplayAction(Option<Move>);
+impl fmt::Debug for DisplayAction {
+	fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
+		match &self.0 {
+			None => f.write_str("None"),
+			Some(m) => f.write_fmt(format_args!("Move({}, {})", m.x, m.y))
+		}
+	}
+}
+
+
 struct TicTacToe;
 
 impl Task<TicTacToe> for Move {
@@ -163,11 +183,12 @@ impl Task<TicTacToe> for Move {
 			&mut *state_diff.diff.as_mut().unwrap()
 		};
 		diff.set(self.x, self.y, Cell::Player(Player::from_agent(agent)));
+		assert!(state_diff.diff.is_some());
 		None
 	}
 
 	fn display_action(&self) -> <TicTacToe as Domain>::DisplayAction {
-        Some(self.clone())
+        DisplayAction(Some(self.clone()))
     }
 
 	fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> bool {
@@ -181,9 +202,9 @@ impl Task<TicTacToe> for Move {
 impl fmt::Debug for Move {
 	fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
 		f.debug_struct("Move")
-		.field("x", &self.x.get())
-		.field("y", &self.y.get())
-		.finish()
+			.field("x", &self.x.get())
+			.field("y", &self.y.get())
+			.finish()
     }
 }
 
@@ -220,7 +241,7 @@ const VALUE_LOOSE: AgentValue = unsafe { AgentValue::new_unchecked(-1.) };
 impl Domain for TicTacToe {
 	type State = State;
 	type Diff = Diff;
-	type DisplayAction = Option<Move>; // Option, so that the idle placeholder action is None
+	type DisplayAction = DisplayAction;
 
 	fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
 		&[&MoveBehavior]
@@ -238,8 +259,26 @@ impl Domain for TicTacToe {
 		agents.insert(AgentId(0));
 		agents.insert(AgentId(1));
 	}
+
+	fn get_state_description(_tick: u64, state_diff: StateDiffRef<Self>, _agent: AgentId) -> String {
+		let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
+        state.description()
+    }
 }
 
+fn write_tree(turn: u64, mcts: &MCTS::<TicTacToe>) -> std::io::Result<()> {
+	let temp_dir = std::env::temp_dir().display().to_string();
+	let path = format!("{temp_dir}/tic-tac-toe_graphs/");
+	fs::create_dir_all(&path)?;
+	let mut file = fs::OpenOptions::new()
+		.create(true)
+		.write(true)
+		.truncate(true)
+		.open(
+			format!("{path}turn{turn:02}.dot")
+		)?;
+	dot::render(mcts, &mut file)
+}
 
 fn main() {
 	const CONFIG: MCTSConfiguration = MCTSConfiguration {
@@ -268,8 +307,9 @@ fn main() {
 		}
 	};
 	println!("Welcome to tic-tac-toe. You are player 'O', I'm player 'X'.");
+	let mut turn = 0;
 	loop {
-		state.print();
+		println!("{}", state.description());
 
 		// Get input
 		println!("Please enter a coordinate with 'X Y' where X,Y are 0,1,2, or 'q' to quit.");
@@ -317,6 +357,10 @@ fn main() {
 		let task = task.downcast_ref::<Move>().unwrap();
 		println!("Computer played {} {}", task.x, task.y);
 		state.set(task.x, task.y, Cell::Player(Player::X));
+		if let Err(e) = write_tree(turn, &mcts) {
+			println!("Cannot write search tree: {e}");
+		}
+		turn += 1;
 
 		// Did computer win?
 		if game_finished(state) {
@@ -375,20 +419,22 @@ mod tests {
 			discount_hl: f32::INFINITY,
 			seed: None
 		};
-		let mut state = 0;
-		loop {
-			for agent in [AgentId(0), AgentId(1)] {
-				let mut mcts = MCTS::<TicTacToe>::new(
-					state,
-					agent,
-					CONFIG
-				);
-				let task = mcts.run();
-				let task = task.downcast_ref::<Move>().unwrap();
-				state.set(task.x, task.y, Cell::Player(Player::from_agent(agent)));
-				assert_eq!(winner(state), None);
-				if board_full(state) {
-					return;
+		for _ in 0..10 {
+			let mut state = 0;
+			loop {
+				for agent in [AgentId(0), AgentId(1)] {
+					let mut mcts = MCTS::<TicTacToe>::new(
+						state,
+						agent,
+						CONFIG
+					);
+					let task = mcts.run();
+					let task = task.downcast_ref::<Move>().unwrap();
+					state.set(task.x, task.y, Cell::Player(Player::from_agent(agent)));
+					assert_eq!(winner(state), None);
+					if board_full(state) {
+						return;
+					}
 				}
 			}
 		}

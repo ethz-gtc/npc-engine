@@ -50,6 +50,13 @@ pub trait Domain: Sized + 'static {
         actions.dedup();
         actions
     }
+
+    /// Gets a textual description of the given agent in the given tick and world state.
+    /// This will be used by the graph tool to show in each node.
+    #[cfg(feature = "graphviz")]
+    fn get_state_description(_tick: u64, _state_diff: StateDiffRef<Self>, _agent: AgentId) -> String {
+        String::new()
+    }
 }
 
 /// Estimator of state-value function: takes state of explored node and returns the estimated expected (discounted) values
