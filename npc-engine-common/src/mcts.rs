@@ -131,11 +131,13 @@ impl<D: Domain> MCTS<D> {
             // execute default policy and do back-propagation.
             if let Some((depth, leaf, path)) = tree_policy_result {
                 // Execute default policy
+                let edges = self.nodes.get(&leaf).unwrap();
                 let rollout_values = self.state_value_estimator.estimate(
                     &mut self.rng,
                     &self.config,
                     &self.initial_state,
                     &leaf,
+                    edges,
                     depth,
                     self.root_agent
                 );
@@ -214,6 +216,7 @@ impl<D: Domain> MCTS<D> {
 
                 // If it is not valid, abort this expansion
                 if !next_active_task.task.is_valid(next_active_task.end, state_diff, next_active_task.agent) {
+                    log::debug!("T{}\tNext active task {:?} is invalid, aborting expansion", next_active_task.end, next_active_task.task);
                     return None;
                 }
                 // Execute the task which finishes in the next node
@@ -298,54 +301,55 @@ impl<D: Domain> MCTS<D> {
         Some((depth, node, path))
     }
 
-    /// MCTS backpropagation phase.
-    fn backpropagation(&mut self, mut path: Vec<Edge<D>>, rollout_values: BTreeMap<AgentId, f32>) {
+    /// MCTS backpropagation phase. If rollout values are None, just increment the visits
+    fn backpropagation(&mut self, mut path: Vec<Edge<D>>, rollout_values: Option<BTreeMap<AgentId, f32>>) {
         // Backtracking
         path.drain(..).rev().for_each(|edge| {
             // Increment child node visit count
             let edge = &mut edge.borrow_mut();
             edge.visits += 1;
+            if let Some(rollout_values) = &rollout_values {
+                let parent_node = edge.parent.upgrade().unwrap();
+                let child_node = edge.child.upgrade().unwrap();
+                let visits = edge.visits;
+                let child_edges = self.nodes.get(&child_node).unwrap();
 
-            let parent_node = edge.parent.upgrade().unwrap();
-            let child_node = edge.child.upgrade().unwrap();
-            let visits = edge.visits;
-            let child_edges = self.nodes.get(&child_node).unwrap();
+                let discount_factor = Self::discount_factor(child_node.tick - parent_node.tick, &self.config);
 
-            let discount_factor = Self::discount_factor(child_node.tick - parent_node.tick, &self.config);
+                // Iterate all agents on edge
+                edge.q_values.iter_mut().for_each(|(&agent, q_value_ref)| {
+                    let parent_current_value = parent_node.current_value_or_compute(agent, &self.initial_state);
+                    let child_current_value = child_node.current_value_or_compute(agent, &self.initial_state);
 
-            // Iterate all agents on edge
-            edge.q_values.iter_mut().for_each(|(&agent, q_value_ref)| {
-                let parent_current_value = parent_node.current_value_or_compute(agent, &self.initial_state);
-                let child_current_value = child_node.current_value_or_compute(agent, &self.initial_state);
+                    // Get q value from child, or rollout value if leaf node, or 0 if not in rollout
+                    let mut child_q_value =
+                        if let Some(value) = child_edges.q_value((visits, *q_value_ref), agent) {
+                            value
+                        } else {
+                            rollout_values.get(&agent).copied().unwrap_or_default()
+                        };
 
-                // Get q value from child, or rollout value if leaf node, or 0 if not in rollout
-                let mut child_q_value =
-                    if let Some(value) = child_edges.q_value((visits, *q_value_ref), agent) {
-                        value
-                    } else {
-                        rollout_values.get(&agent).copied().unwrap_or_default()
-                    };
+                    // Apply discount, there is no risk of double-discounting as if the parent and the child node
+                    // have the same tick, the discount value will be 1.0
+                    child_q_value *= discount_factor;
 
-                // Apply discount, there is no risk of double-discounting as if the parent and the child node
-                // have the same tick, the discount value will be 1.0
-                child_q_value *= discount_factor;
+                    // Use Bellman Equation
+                    let q_value = child_current_value - parent_current_value + child_q_value;
 
-                // Use Bellman Equation
-                let q_value = child_current_value - parent_current_value + child_q_value;
+                    // Update q value for edge
+                    *q_value_ref = *q_value;
 
-                // Update q value for edge
-                *q_value_ref = *q_value;
-
-                // Update global q value range for agent
-                let q_value_range = self.q_value_ranges
-                    .entry(parent_node.active_agent)
-                    .or_insert_with(|| Range {
-                        start: VALUE_INFINITE,
-                        end: VALUE_NEG_INFINITE,
-                    });
-                q_value_range.start = q_value_range.start.min(q_value);
-                q_value_range.end = q_value_range.end.max(q_value);
-            });
+                    // Update global q value range for agent
+                    let q_value_range = self.q_value_ranges
+                        .entry(parent_node.active_agent)
+                        .or_insert_with(|| Range {
+                            start: VALUE_INFINITE,
+                            end: VALUE_NEG_INFINITE,
+                        });
+                    q_value_range.start = q_value_range.start.min(q_value);
+                    q_value_range.end = q_value_range.end.max(q_value);
+                });
+            }
         });
     }
 
@@ -430,10 +434,12 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         config: &MCTSConfiguration,
         initial_state: &D::State,
         node: &Node<D>,
+        edges: &Edges<D>,
         depth: u32,
         _root_agent: AgentId,
-    ) -> BTreeMap<AgentId, f32> {
+    ) -> Option<BTreeMap<AgentId, f32>> {
         let mut diff = node.diff.clone();
+        log::debug!("T{}\tStarting rollout with cur. values: {:?}", node.tick, node.current_values());
 
         // In this map we collect at the same time both:
         // - the current value (measured from state and replaced in the course of simulation)
@@ -446,15 +452,47 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             )
             .collect::<BTreeMap<_, _>>();
 
+        // Clone active tasks for child node, removing task of active agent
+        // let mut tasks = node.tasks.clone();
+        let mut tasks = node.tasks.iter()
+            .filter(|task| task.agent != node.active_agent)
+            .cloned()
+            .collect::<BTreeSet<_>>();
+
+        // Sample a task for the node's unexpanded list, and put it in the queue
+        let task = {
+            if let Some((weights, tasks)) = edges.unexpanded_tasks.as_ref() {
+                // Select task randomly
+                let idx = weights.sample(rng);
+                tasks[idx].clone()
+            } else {
+                // No unexpanded edges, q values are 0
+                log::debug!("T{}\tNo unexpanded edges in node passed to rollout", node.tick);
+                return None;
+            }
+        };
+        let new_active_task = ActiveTask::new(
+            node.active_agent,
+            task,
+            node.tick,
+            StateDiffRef::new(initial_state, &diff)
+        );
+        tasks.insert(new_active_task);
+
         // Create the state we need to perform the simulation
-        let mut tasks = node.tasks.clone();
         let start_tick = node.tick;
         let mut tick = node.tick;
-
         let mut depth = depth;
         while depth < config.depth {
+            let state_diff = StateDiffRef::new(initial_state, &diff);
+
             // If there is no more task to do, return what we have so far
             if tasks.is_empty() {
+                log::debug!("! T{} No more task to do in state\n{}",
+                    tick,
+                    D::get_state_description(state_diff)
+                );
+                // ROLLOUT_BREAK.fetch_add(1, Ordering::Relaxed);
                 break;
             }
 
@@ -464,7 +502,6 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             let agent = active_task.agent;
 
             // Lazily fetch current and estimated values for current agent, before this task completed
-            let state_diff = StateDiffRef::new(initial_state, &diff);
             let (current_value, estimated_value) = values
                 .entry(active_task.agent)
                 .or_insert_with(||
@@ -480,7 +517,14 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
             // If task is invalid, stop rollout
             if !active_task.task.is_valid(tick, state_diff, agent) {
+                log::debug!("! T{} Invalid task {:?} by {:?} in state\n{}",
+                    tick, active_task.task, agent, D::get_state_description(state_diff)
+                );
                 break;
+            } else {
+                log::trace!("✓ T{} Valid task {:?} by {:?} in state\n{}",
+                    tick, active_task.task, agent, D::get_state_description(state_diff)
+                );
             }
 
             // Execute the task
@@ -547,9 +591,9 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             .map(|(agent, (_, q_value))| (*agent, *q_value))
             .collect();
 
-        log::debug!("T{}\tRollout to T{}: cur. values: {:?}, q values: {:?}", node.tick, depth, node.current_values(), q_values);
+        log::debug!("T{}\tRollout to T{}: q values: {:?}", node.tick, depth, q_values);
 
-        q_values
+        Some(q_values)
     }
 }
 
@@ -699,7 +743,7 @@ mod graphviz {
             let edges = self.nodes.get(n).unwrap();
             let v = edges.q_value((0, 0.), n.active_agent);
             let state_diff = StateDiffRef::new(&self.initial_state, &n.diff);
-            let mut state = D::get_state_description(n.tick, state_diff, n.active_agent);
+            let mut state = D::get_state_description(state_diff);
             if !state.is_empty() {
                 state = state.replace("\n", "<br/>");
                 state = format!("<br/><font point-size='10'>{state}</font>");

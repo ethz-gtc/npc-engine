@@ -7,7 +7,10 @@ use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_meth
 // TODO: once Option::unwrap is const, use this
 // const DURATION_ONE: NonZeroU64 = NonZeroU64::new(1).unwrap();
 // SAFETY: 1 is non-zero
-const DURATION_ONE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1) };
+// const DURATION_ONE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1) };
+
+const DURATION_ONE: TaskDuration = 1;
+pub type TaskDuration = u64;
 
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     /// Returns the relative weight of the task for the given agent in the given tick and world state, by default weight is 1.0
@@ -16,7 +19,7 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     }
 
     /// Returns the duration of the task, for a given agent in a given tick and world state, by default lasts one tick
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> NonZeroU64 {
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration {
         DURATION_ONE
     }
 

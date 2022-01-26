@@ -4,7 +4,7 @@ use std::hash::Hash;
 use ordered_float::NotNan;
 use rand_chacha::ChaCha8Rng;
 
-use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef};
+use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef, Edges};
 
 pub type AgentValue = NotNan<f32>;
 
@@ -51,15 +51,16 @@ pub trait Domain: Sized + 'static {
         actions
     }
 
-    /// Gets a textual description of the given agent in the given tick and world state.
+    /// Gets a textual description of the given world state.
     /// This will be used by the graph tool to show in each node.
     #[cfg(feature = "graphviz")]
-    fn get_state_description(_tick: u64, _state_diff: StateDiffRef<Self>, _agent: AgentId) -> String {
+    fn get_state_description(_state_diff: StateDiffRef<Self>) -> String {
         String::new()
     }
 }
 
 /// Estimator of state-value function: takes state of explored node and returns the estimated expected (discounted) values
+/// Return None if the passed node has no unexpanded edge.
 pub trait StateValueEstimator<D: Domain> {
     fn estimate(
         &mut self,
@@ -67,7 +68,8 @@ pub trait StateValueEstimator<D: Domain> {
         config: &MCTSConfiguration,
         initial_state: &D::State,
         node: &Node<D>,
+        edges: &Edges<D>,
         depth: u32,
         agent: AgentId, // agent of the MCTS
-    ) -> BTreeMap<AgentId, f32>;
+    ) -> Option<BTreeMap<AgentId, f32>>;
 }

@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, fmt, fs};
 use bounded_integer::BoundedU32;
 use cached::proc_macro::cached;
 
-use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, AgentValue, Task, StateDiffRefMut, impl_task_boxed_methods, MCTS, MCTSConfiguration};
+use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, AgentValue, Task, StateDiffRefMut, impl_task_boxed_methods, MCTS, MCTSConfiguration, IdleTask, TaskDuration};
 use regex::Regex;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -170,6 +170,10 @@ impl fmt::Debug for DisplayAction {
 struct TicTacToe;
 
 impl Task<TicTacToe> for Move {
+	fn duration(&self, _tick: u64, _state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> TaskDuration {
+		0
+	}
+
 	fn execute(
         &self,
         _tick: u64,
@@ -184,7 +188,7 @@ impl Task<TicTacToe> for Move {
 		};
 		diff.set(self.x, self.y, Cell::Player(Player::from_agent(agent)));
 		assert!(state_diff.diff.is_some());
-		None
+		Some(Box::new(IdleTask))
 	}
 
 	fn display_action(&self) -> <TicTacToe as Domain>::DisplayAction {
@@ -193,7 +197,7 @@ impl Task<TicTacToe> for Move {
 
 	fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> bool {
 		let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
-		state.get(self.x, self.y) == Cell::Empty
+		winner(state).is_none() && state.get(self.x, self.y) == Cell::Empty
     }
 
     impl_task_boxed_methods!(TicTacToe);
@@ -265,7 +269,7 @@ impl Domain for TicTacToe {
 		agents.insert(AgentId(1));
 	}
 
-	fn get_state_description(_tick: u64, state_diff: StateDiffRef<Self>, _agent: AgentId) -> String {
+	fn get_state_description(state_diff: StateDiffRef<Self>) -> String {
 		let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
         state.description()
     }
@@ -287,7 +291,7 @@ fn write_tree(turn: u64, mcts: &MCTS::<TicTacToe>) -> std::io::Result<()> {
 
 fn main() {
 	const CONFIG: MCTSConfiguration = MCTSConfiguration {
-		visits: 5000,
+		visits: 1000,
 		depth: 9,
 		exploration: 1.414,
 		discount_hl: f32::INFINITY,

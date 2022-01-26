@@ -13,7 +13,7 @@ pub type ActiveTasks<D> = BTreeSet<ActiveTask<D>>;
 
 impl<D: Domain> ActiveTask<D> {
 	pub fn new(agent: AgentId, task: Box<dyn Task<D>>, tick: u64, state_diff: StateDiffRef<D>) -> ActiveTask<D> {
-		let end = tick + task.duration(tick, state_diff, agent).get();
+		let end = tick + task.duration(tick, state_diff, agent);//.get();
 		ActiveTask {
 			end,
 			agent,
