@@ -52,8 +52,7 @@ pub trait Domain: Sized + 'static {
     }
 
     /// Gets a textual description of the given world state.
-    /// This will be used by the graph tool to show in each node.
-    #[cfg(feature = "graphviz")]
+    /// This will be used by the graph tool to show in each node, and the log tool to dump the state.
     fn get_state_description(_state_diff: StateDiffRef<Self>) -> String {
         String::new()
     }
