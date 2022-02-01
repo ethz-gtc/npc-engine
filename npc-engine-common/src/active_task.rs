@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeSet;
 use std::{fmt, mem};
 use std::hash::{Hash, Hasher};
-use crate::{AgentId, Domain, Task, StateDiffRef};
+use crate::{AgentId, Domain, Task, StateDiffRef, IdleTask};
 
 pub struct ActiveTask<D: Domain> {
     pub end: u64,
@@ -20,6 +20,17 @@ impl<D: Domain> ActiveTask<D> {
 			task,
 		}
 	}
+    /// Create a new idle task for agent at a given tick, make sure that it will
+    /// execute in the future considering that we are currently processing active_agent.
+    pub fn new_idle(tick: u64, agent: AgentId, active_agent: AgentId) -> ActiveTask<D> {
+        ActiveTask {
+            // Make sure the idle tasks of added agents will not be
+            // executed before the active agent
+            end: if agent < active_agent { tick + 1 } else { tick },
+            agent,
+            task: Box::new(IdleTask)
+        }
+    }
 	pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
 		let mut size = 0;
 		size += mem::size_of::<Self>();

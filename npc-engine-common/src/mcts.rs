@@ -1,4 +1,4 @@
-use std::{collections::{BTreeMap, BTreeSet}};
+use std::{collections::{BTreeMap, BTreeSet, btree_map::Entry}};
 use std::f32;
 use std::hash::{Hash, Hasher};
 use std::ops::{Range};
@@ -516,92 +516,109 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 break;
             }
 
-            // Pop first task that is complete
+            // Pop first task that is completed
             let active_task = tasks.iter().next().unwrap().clone();
             tasks.remove(&active_task);
-            let agent = active_task.agent;
-
-            // Lazily fetch current and estimated values for current agent, before this task completed
-            let (current_value, current_value_tick, estimated_value) = values
-                .entry(agent)
-                .or_insert_with(||
-                    (
-                        D::get_current_value(tick, state_diff, agent),
-                        tick,
-                        0f32
-                    )
-                );
+            let active_agent = active_task.agent;
 
             // Compute elapsed time and update tick
             let elapsed = active_task.end - tick;
             tick = active_task.end;
 
             // If task is invalid, stop rollout
-            if !active_task.task.is_valid(tick, state_diff, agent) {
+            if !active_task.task.is_valid(tick, state_diff, active_agent) {
                 log::debug!("! T{} Invalid task {:?} by {:?} in state\n{}",
-                    tick, active_task.task, agent, D::get_state_description(state_diff)
+                    tick, active_task.task, active_agent, D::get_state_description(state_diff)
                 );
                 break;
             } else {
                 log::trace!("✓ T{} Valid task {:?} by {:?} in state\n{}",
-                    tick, active_task.task, agent, D::get_state_description(state_diff)
+                    tick, active_task.task, active_agent, D::get_state_description(state_diff)
                 );
             }
 
             // Execute the task
             let state_diff_mut = StateDiffRefMut::new(initial_state, &mut diff);
-            let new_task = active_task.task.execute(tick, state_diff_mut, agent);
+            let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
             let new_state_diff = StateDiffRef::new(initial_state, &diff);
 
-            // Compute discount
-            let discount = MCTS::<D>::discount_factor(active_task.end - *current_value_tick, config);
+            // if the values for the agent executing the task are being tracked, update them
+            if let Entry::Occupied(mut entry) = values.entry(active_agent) {
+                let (current_value, value_tick, estimated_value) = entry.get_mut();
 
-            // Update estimated value with discounted difference in current values
-            let new_current_value = D::get_current_value(
-                tick,
-                new_state_diff,
-                agent
-            );
-            *estimated_value += *(new_current_value - *current_value) * discount;
-            *current_value = new_current_value;
-            *current_value_tick = tick;
+                // Compute discount
+                let discount = MCTS::<D>::discount_factor(active_task.end - *value_tick, config);
 
-            // If no new task is available, select one randomly
-            let new_task = new_task.or_else(|| {
-                // Get possible tasks
-                let tasks = D::get_tasks(
+                // Update estimated value with discounted difference in current values
+                let new_current_value = D::get_current_value(
                     tick,
                     new_state_diff,
-                    agent
+                    active_agent
                 );
-                if tasks.is_empty() {
-                    return None;
-                }
-                // Safety-check that all tasks are valid
-                for task in &tasks {
-                    debug_assert!(task.is_valid(tick, new_state_diff, agent));
-                }
-                // Get the weight for each task
-                let weights =
-                    WeightedIndex::new(tasks.iter().map(|task| {
-                        task.weight(tick, new_state_diff, agent)
-                    }))
-                    .unwrap();
-                // Select task randomly
-                let idx = weights.sample(rng);
-                Some(tasks[idx].clone())
-            });
+                *estimated_value += *(new_current_value - *current_value) * discount;
+                *current_value = new_current_value;
+                *value_tick = tick;
+            }
 
-            // If still none is available, stop caring about this agent
-            if let Some(new_task) = new_task {
-                // Insert new task
-                let new_active_task = ActiveTask::new(
-                    agent,
-                    new_task,
-                    tick,
-                    StateDiffRef::new(initial_state, &diff)
-                );
-                tasks.insert(new_active_task);
+            // Update the list of tasks, only considering visible agents,
+            // excluding the active agent (a new task for it will be added later)
+            let agents = D::get_visible_agents(
+                tick,
+                initial_state,
+                &D::Diff::default(),
+                active_agent
+            );
+            tasks = agents
+                .iter()
+                .filter(|&&agent| agent != active_agent)
+                .map(|&agent|
+                    get_task_for_agent(&tasks, agent)
+                        .map_or_else(
+                            || ActiveTask::new_idle(tick, agent, active_agent),
+                            |task| task.clone()
+                        )
+                ).
+                collect();
+
+            // If active agent is visible, insert its next task, otherwise we forget about it
+            if agents.contains(&active_agent) {
+                // If no new task is available, select one randomly
+                let new_task = new_task.or_else(|| {
+                    // Get possible tasks
+                    let tasks = D::get_tasks(
+                        tick,
+                        new_state_diff,
+                        active_agent
+                    );
+                    if tasks.is_empty() {
+                        return None;
+                    }
+                    // Safety-check that all tasks are valid
+                    for task in &tasks {
+                        debug_assert!(task.is_valid(tick, new_state_diff, active_agent));
+                    }
+                    // Get the weight for each task
+                    let weights =
+                        WeightedIndex::new(tasks.iter().map(|task| {
+                            task.weight(tick, new_state_diff, active_agent)
+                        }))
+                        .unwrap();
+                    // Select task randomly
+                    let idx = weights.sample(rng);
+                    Some(tasks[idx].clone())
+                });
+
+                // If still none is available, stop caring about this agent
+                if let Some(new_task) = new_task {
+                    // Insert new task
+                    let new_active_task = ActiveTask::new(
+                        active_agent,
+                        new_task,
+                        tick,
+                        StateDiffRef::new(initial_state, &diff)
+                    );
+                    tasks.insert(new_active_task);
+                }
             }
 
             // Update depth

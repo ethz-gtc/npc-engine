@@ -1,6 +1,6 @@
 use std::{sync::{Arc, Weak}, collections::{BTreeMap, BTreeSet}, fmt, mem, hash::{Hash, Hasher}};
 
-use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue, active_task::{ActiveTask, ActiveTasks}, IdleTask, get_task_for_agent};
+use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue, active_task::{ActiveTask, ActiveTasks}, get_task_for_agent};
 
 /// Strong atomic reference counted node
 pub type Node<D> = Arc<NodeInner<D>>;
@@ -55,13 +55,7 @@ impl<D: Domain> NodeInner<D> {
             .map(|agent|
                 get_task_for_agent(&tasks, agent)
                     .map_or_else(
-                        || ActiveTask {
-                            // Make sure the idle tasks of added agents will not be
-                            // executed before the active agent
-                            end: if agent < active_agent { tick + 1 } else { tick },
-                            agent,
-                            task: Box::new(IdleTask)
-                        },
+                        || ActiveTask::new_idle(tick, agent, active_agent),
                         |task| task.clone()
                     )
             )
