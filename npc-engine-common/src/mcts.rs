@@ -465,12 +465,13 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
         // In this map we collect at the same time both:
         // - the current value (measured from state and replaced in the course of simulation)
+        // - the tick at which the current value was measured
         // - the Q value (initially 0, updated in the course of simulation)
-        let mut values: BTreeMap<AgentId, (AgentValue, f32)> = node
+        let mut values: BTreeMap<AgentId, (AgentValue, u64, f32)> = node
             .current_values()
             .iter()
             .map(|(&agent, &current_value)|
-                (agent, (current_value, 0f32))
+                (agent, (current_value, node.tick, 0f32))
             )
             .collect::<BTreeMap<_, _>>();
 
@@ -501,7 +502,6 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         tasks.insert(new_active_task);
 
         // Create the state we need to perform the simulation
-        let start_tick = node.tick;
         let mut tick = node.tick;
         let mut depth = depth;
         while depth < config.depth {
@@ -522,11 +522,12 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             let agent = active_task.agent;
 
             // Lazily fetch current and estimated values for current agent, before this task completed
-            let (current_value, estimated_value) = values
-                .entry(active_task.agent)
+            let (current_value, current_value_tick, estimated_value) = values
+                .entry(agent)
                 .or_insert_with(||
                     (
                         D::get_current_value(tick, state_diff, agent),
+                        tick,
                         0f32
                     )
                 );
@@ -553,7 +554,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             let new_state_diff = StateDiffRef::new(initial_state, &diff);
 
             // Compute discount
-            let discount = MCTS::<D>::discount_factor(active_task.end - start_tick, config);
+            let discount = MCTS::<D>::discount_factor(active_task.end - *current_value_tick, config);
 
             // Update estimated value with discounted difference in current values
             let new_current_value = D::get_current_value(
@@ -563,6 +564,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             );
             *estimated_value += *(new_current_value - *current_value) * discount;
             *current_value = new_current_value;
+            *current_value_tick = tick;
 
             // If no new task is available, select one randomly
             let new_task = new_task.or_else(|| {
@@ -608,7 +610,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
         let q_values = values
             .iter()
-            .map(|(agent, (_, q_value))| (*agent, *q_value))
+            .map(|(agent, (_, _, q_value))| (*agent, *q_value))
             .collect();
 
         log::debug!("T{}\tRollout to T{}: q values: {:?}", node.tick, depth, q_values);
