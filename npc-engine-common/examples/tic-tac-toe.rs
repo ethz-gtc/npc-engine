@@ -171,6 +171,7 @@ struct TicTacToe;
 
 impl Task<TicTacToe> for Move {
 	fn duration(&self, _tick: u64, _state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> TaskDuration {
+		// Moves affect the board instantly
 		0
 	}
 
@@ -188,6 +189,7 @@ impl Task<TicTacToe> for Move {
 		};
 		diff.set(self.x, self.y, Cell::Player(Player::from_agent(agent)));
 		assert!(state_diff.diff.is_some());
+		// After every move, one has to wait one's next turn
 		Some(Box::new(IdleTask))
 	}
 

@@ -475,7 +475,6 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             .collect::<BTreeMap<_, _>>();
 
         // Clone active tasks for child node, removing task of active agent
-        // let mut tasks = node.tasks.clone();
         let mut tasks = node.tasks.iter()
             .filter(|task| task.agent != node.active_agent)
             .cloned()
@@ -514,7 +513,6 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                     tick,
                     D::get_state_description(state_diff)
                 );
-                // ROLLOUT_BREAK.fetch_add(1, Ordering::Relaxed);
                 break;
             }
 
