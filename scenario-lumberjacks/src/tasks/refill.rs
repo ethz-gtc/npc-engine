@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
+use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
 
 use crate::{config, Action, Lumberjacks, WorldState, WorldStateMut, Tile, DIRECTIONS};
 
@@ -12,6 +12,10 @@ impl Task<Lumberjacks> for Refill {
         config().action_weights.refill
     }
 
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+        0
+    }
+
     fn execute(
         &self,
         _tick: u64,
@@ -21,7 +25,7 @@ impl Task<Lumberjacks> for Refill {
         state_diff.increment_time();
 
         state_diff.set_water(agent, true);
-        None
+        Some(Box::new(IdleTask))
     }
 
     fn display_action(&self) -> <Lumberjacks as Domain>::DisplayAction {

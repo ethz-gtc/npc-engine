@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
+use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
 
 use crate::{config, Action, Direction, Lumberjacks, WorldState, WorldStateMut, Tile, DIRECTIONS};
 
@@ -12,6 +12,10 @@ pub struct Barrier {
 impl Task<Lumberjacks> for Barrier {
     fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.barrier
+    }
+
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+        0
     }
 
     fn execute(
@@ -27,7 +31,7 @@ impl Task<Lumberjacks> for Barrier {
             state_diff.set_tile(x, y, Tile::Barrier);
             state_diff.decrement_inventory(agent);
 
-            None
+            Some(Box::new(IdleTask))
         } else {
             unreachable!()
         }

@@ -16,7 +16,7 @@ fn init_logger() {
 }
 
 mod deferment {
-	use npc_engine_common::AgentValue;
+	use npc_engine_common::{AgentValue, TaskDuration};
 
 	use super::*;
 
@@ -113,6 +113,10 @@ mod deferment {
 			1.
 		}
 
+		fn duration(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> TaskDuration {
+			1
+		}
+
 		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
@@ -141,6 +145,10 @@ mod deferment {
 	impl Task<TestEngine> for TestTaskDefer {
 		fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 			1.
+		}
+
+		fn duration(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> TaskDuration {
+			1
 		}
 
 		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
@@ -194,7 +202,7 @@ mod deferment {
 }
 
 mod negative {
-	use npc_engine_common::AgentValue;
+	use npc_engine_common::{AgentValue, TaskDuration};
 
 	use super::*;
 
@@ -278,6 +286,10 @@ mod negative {
 			1.
 		}
 
+		fn duration(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> TaskDuration {
+			1
+		}
+
 		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 			true
 		}
@@ -304,6 +316,10 @@ mod negative {
 	impl Task<TestEngine> for TestTaskNegative {
 		fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 			1.
+		}
+
+		fn duration(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> TaskDuration {
+			1
 		}
 
 		fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {

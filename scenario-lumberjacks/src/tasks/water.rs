@@ -1,6 +1,6 @@
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
+use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, TaskDuration, IdleTask};
 
 use crate::{config, Action, Direction, Lumberjacks, WorldState, WorldStateMut, Tile};
 
@@ -12,6 +12,10 @@ pub struct Water {
 impl Task<Lumberjacks> for Water {
     fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.water
+    }
+
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+        0
     }
 
     fn execute(
@@ -30,7 +34,7 @@ impl Task<Lumberjacks> for Water {
                 *height = config().map.tree_height;
             }
 
-            None
+            Some(Box::new(IdleTask))
         } else {
             unreachable!("Failed to find agent on map");
         }

@@ -1,6 +1,6 @@
 use std::{fmt, collections::BTreeSet, hash::Hash, ops::Range};
 
-use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue};
+use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue, TaskDuration};
 struct TestEngine;
 
 #[derive(Debug)]
@@ -81,6 +81,10 @@ impl Task<TestEngine> for TestTask {
 	fn weight(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
 		1.
 	}
+
+	fn duration(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> TaskDuration {
+		1
+    }
 
 	fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
 		true

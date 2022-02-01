@@ -4,12 +4,6 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_methods};
 
-// TODO: once Option::unwrap is const, use this
-// const DURATION_ONE: NonZeroU64 = NonZeroU64::new(1).unwrap();
-// SAFETY: 1 is non-zero
-// const DURATION_ONE: NonZeroU64 = unsafe { NonZeroU64::new_unchecked(1) };
-
-const DURATION_ONE: TaskDuration = 1;
 pub type TaskDuration = u64;
 
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
@@ -18,10 +12,8 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
         1.0
     }
 
-    /// Returns the duration of the task, for a given agent in a given tick and world state, by default lasts one tick
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration {
-        DURATION_ONE
-    }
+    /// Returns the duration of the task, for a given agent in a given tick and world state
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration;
 
     /// Executes one step of the task for the given agent on the given tick and world state.
     fn execute(&self, tick: u64, state_diff: StateDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
@@ -44,13 +36,17 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     fn box_eq(&self, other: &Box<dyn Task<D>>) -> bool;
 }
 
-/// An idle task that is used by the planner when the task of an agent is not known
+/// An idle task of duration 1 that is used by the planner when the task of an agent is not known
 #[derive(Debug, Hash, Clone, PartialEq)]
 pub struct IdleTask;
 
 impl<D: Domain> Task<D> for IdleTask {
     fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
         1f32
+    }
+
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration {
+        1
     }
 
     fn execute(&self, _tick: u64, _state_diff: StateDiffRefMut<D>, _agent: AgentId) -> Option<Box<dyn Task<D>>> {

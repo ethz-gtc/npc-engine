@@ -1,7 +1,7 @@
 
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
+use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
 
 use crate::{config, Action, Direction, Lumberjacks, Tile, WorldStateMut, WorldState};
 
@@ -15,6 +15,10 @@ pub struct Move {
 impl Task<Lumberjacks> for Move {
     fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.r#move
+    }
+
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+        0
     }
 
     fn execute(
@@ -34,13 +38,14 @@ impl Task<Lumberjacks> for Move {
             let path = self.path.iter().skip(1).copied().collect::<Vec<_>>();
 
             if !path.is_empty() {
-                Some(Box::new(Move {
+                panic!("Objectives are currently disabled in Lumberjack, so path do not make sense"); // objectives are disabled
+                /*Some(Box::new(Move {
                     path,
                     x: self.x,
                     y: self.y,
-                }))
+                }))*/
             } else {
-                None
+                Some(Box::new(IdleTask))
             }
         } else {
             unreachable!()

@@ -1,7 +1,7 @@
 use std::{num::NonZeroU8};
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
+use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
 
 use crate::{config, Action, Direction, Lumberjacks, WorldState, WorldStateMut, Tile};
 
@@ -13,6 +13,10 @@ pub struct Plant {
 impl Task<Lumberjacks> for Plant {
     fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.plant
+    }
+
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+        0
     }
 
     fn execute(
@@ -30,12 +34,12 @@ impl Task<Lumberjacks> for Plant {
                 Some(tile @ Tile::Empty) => {
                     *tile = Tile::Tree(NonZeroU8::new(1).unwrap());
                 }
-                _ => return None,
+                _ => return Some(Box::new(IdleTask)),
             }
 
             state_diff.decrement_inventory(agent);
 
-            None
+            Some(Box::new(IdleTask))
         } else {
             unreachable!("Could not find agent on map!")
         }

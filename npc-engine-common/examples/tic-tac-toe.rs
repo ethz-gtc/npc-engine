@@ -154,13 +154,13 @@ struct Move {
 	y: CellCoord,
 }
 
-// Option, so that the idle placeholder action is None
+// Option, so that the idle placeholder action is Wait
 #[derive(Default)]
 struct DisplayAction(Option<Move>);
 impl fmt::Debug for DisplayAction {
 	fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
 		match &self.0 {
-			None => f.write_str("None"),
+			None => f.write_str("Wait"),
 			Some(m) => f.write_fmt(format_args!("Move({}, {})", m.x, m.y))
 		}
 	}

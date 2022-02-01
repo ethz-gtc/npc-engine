@@ -1,7 +1,7 @@
 use std::{num::NonZeroU8};
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods};
+use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
 
 use crate::{config, Action, Direction, Lumberjacks, Tile, DIRECTIONS, WorldStateMut, WorldState};
 
@@ -18,6 +18,10 @@ pub struct Chop {
 impl Task<Lumberjacks> for Chop {
     fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
         config().action_weights.chop
+    }
+
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+        0
     }
 
     fn execute(
@@ -38,7 +42,7 @@ impl Task<Lumberjacks> for Chop {
                 Some(Tile::Tree(height)) => {
                     *height = NonZeroU8::new(height.get() - 1).unwrap();
                 }
-                _ => return None,
+                _ => return Some(Box::new(IdleTask)),
             }
 
             if config().features.teamwork {
@@ -52,7 +56,7 @@ impl Task<Lumberjacks> for Chop {
                 state_diff.increment_inventory(agent);
             }
 
-            None
+            Some(Box::new(IdleTask))
         } else {
             unreachable!("Could not find agent on map!")
         }
