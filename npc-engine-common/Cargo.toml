@@ -25,4 +25,7 @@ regex = "1"
 [features]
 default = []
 graphviz = [ "dot", "palette" ]
-heatmap = []
+
+[[example]]
+name = "tic-tac-toe"
+required-features = ["graphviz"]

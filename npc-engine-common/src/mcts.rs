@@ -54,7 +54,7 @@ pub struct MCTS<D: Domain> {
 enum TreePolicyOutcome<D: Domain> {
     NodeCreated(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
     NoValidTask(u32, Vec<Edge<D>>), // depth, path
-    NoMoreAgents(u32, Vec<Edge<D>>), // depth, path
+    ActiveAgentNotInHorizon(u32, Vec<Edge<D>>), // depth, path
     NoChildNode(u32, Node<D>, Vec<Edge<D>>), // depth, node, path
     DepthLimitReached(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
 }
@@ -154,7 +154,7 @@ impl<D: Domain> MCTS<D> {
                     (path, rollout_values)
                 },
                 TreePolicyOutcome::NoValidTask(_, path) => (path, None),
-                TreePolicyOutcome::NoMoreAgents(_, path) => (path, None),
+                TreePolicyOutcome::ActiveAgentNotInHorizon(_, path) => (path, None),
                 TreePolicyOutcome::NoChildNode(_, _, path) => (path, None),
                 TreePolicyOutcome::DepthLimitReached(_, _, path) => (path, None),
             };
@@ -250,7 +250,10 @@ impl<D: Domain> MCTS<D> {
 
                 // If no agents were found for this state, we cannot expand node
                 match child_state {
-                    None => return TreePolicyOutcome::NoMoreAgents(depth, path),
+                    None => {
+                        log::debug!("T{}\tActive agent not in horizon after task {:?}, aborting expansion", next_active_task.end, next_active_task.task);
+                        return TreePolicyOutcome::ActiveAgentNotInHorizon(depth, path);
+                    },
                     Some(child_state) => {
                         // Check if child node exists already
                         let child_node = if let Some((existing_node, _)) = self.nodes.get_key_value(&child_state)
@@ -278,6 +281,7 @@ impl<D: Domain> MCTS<D> {
                         path.push(edge);
 
                         depth += (child_node.tick - node.tick) as u32;
+                        log::debug!("T{}\tExpansion successful, node created with incoming task {:?}", child_node.tick, next_active_task.task);
                         return TreePolicyOutcome::NodeCreated(depth, child_node, path);
                     }
                 }
@@ -285,6 +289,7 @@ impl<D: Domain> MCTS<D> {
 
             // There is no child to this node, still return last node to ensure increase of visit count for this path
             if edges.child_visits() == 0 {
+                log::debug!("T{}\tNode has no children, aborting expansion", node.tick);
                 return TreePolicyOutcome::NoChildNode(depth, node, path)
             }
 
@@ -314,6 +319,7 @@ impl<D: Domain> MCTS<D> {
         }
 
         // We reached maximum depth, still return last node to ensure increase of visit count for this path
+        log::debug!("T{}\tReached maximum depth {}, aborting expansion", node.tick, depth);
         TreePolicyOutcome::DepthLimitReached(depth, node, path)
     }
 
@@ -615,9 +621,9 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
 
 #[cfg(feature = "graphviz")]
-mod graphviz {
+pub mod graphviz {
     use super::*;
-    use std::{borrow::Cow, sync::Arc};
+    use std::{borrow::Cow, sync::{Arc, atomic::AtomicUsize}};
 
     use dot::{Arrow, Edges, GraphWalk, Id, Kind, LabelText, Labeller, Nodes, Style};
 
@@ -662,6 +668,8 @@ mod graphviz {
         }
     }
 
+    pub static GRAPH_OUTPUT_DEPTH: AtomicUsize = AtomicUsize::new(4);
+
     impl<D: Domain> MCTS<D> {
         fn add_relevant_nodes(
             &self,
@@ -669,7 +677,7 @@ mod graphviz {
             node: &Node<D>,
             depth: usize,
         ) {
-            if depth >= 4 {
+            if depth >= GRAPH_OUTPUT_DEPTH.load(std::sync::atomic::Ordering::Relaxed) {
                 return;
             }
 

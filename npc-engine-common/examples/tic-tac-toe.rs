@@ -2,7 +2,7 @@ use std::{collections::BTreeSet, fmt, fs};
 use bounded_integer::BoundedU32;
 use cached::proc_macro::cached;
 
-use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, AgentValue, Task, StateDiffRefMut, impl_task_boxed_methods, MCTS, MCTSConfiguration, IdleTask, TaskDuration};
+use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, AgentValue, Task, StateDiffRefMut, impl_task_boxed_methods, MCTS, MCTSConfiguration, IdleTask, TaskDuration, graphviz};
 use regex::Regex;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -297,6 +297,7 @@ fn main() {
 		discount_hl: f32::INFINITY,
 		seed: None
 	};
+	graphviz::GRAPH_OUTPUT_DEPTH.store(6, std::sync::atomic::Ordering::Relaxed);
 	env_logger::init();
 	let mut state = 0;
 	let re = Regex::new(r"^([0-2])\s([0-2])$").unwrap();
