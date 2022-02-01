@@ -50,6 +50,15 @@ pub struct MCTS<D: Domain> {
     rng: ChaCha8Rng,
 }
 
+/// Possible outcomes from a tree policy pass
+enum TreePolicyOutcome<D: Domain> {
+    NodeCreated(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
+    NoValidTask(u32, Vec<Edge<D>>), // depth, path
+    NoMoreAgents(u32, Vec<Edge<D>>), // depth, path
+    NoChildNode(u32, Node<D>, Vec<Edge<D>>), // depth, node, path
+    DepthLimitReached(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
+}
+
 impl<D: Domain> MCTS<D> {
     /// Instantiate a new search tree for the given state, with idle tasks for all agents and starting at tick 0
     pub fn new(
@@ -125,26 +134,33 @@ impl<D: Domain> MCTS<D> {
         let max_visits = self.config.visits;
         for _ in 0..max_visits {
             // Execute tree policy, if expansion resulted in no node, do nothing
-            let tree_policy_result = self.tree_policy();
+            let tree_policy_outcome = self.tree_policy();
 
-            // Only if the tree policy resulted in a node expansion or reached the bottom of the tree,
-            // execute default policy and do back-propagation.
-            if let Some((depth, leaf, path)) = tree_policy_result {
-                // Execute default policy
-                let edges = self.nodes.get(&leaf).unwrap();
-                let rollout_values = self.state_value_estimator.estimate(
-                    &mut self.rng,
-                    &self.config,
-                    &self.initial_state,
-                    &leaf,
-                    edges,
-                    depth,
-                    self.root_agent
-                );
+            // Only if the tree policy resulted in a node expansion, we execute the default policy,
+            // but in any case we update the visit count.
+            let (path, rollout_values) = match tree_policy_outcome {
+                TreePolicyOutcome::NodeCreated(depth, leaf, path) => {
+                    // Execute default policy
+                    let edges = self.nodes.get(&leaf).unwrap();
+                    let rollout_values = self.state_value_estimator.estimate(
+                        &mut self.rng,
+                        &self.config,
+                        &self.initial_state,
+                        &leaf,
+                        edges,
+                        depth,
+                        self.root_agent
+                    );
+                    (path, rollout_values)
+                },
+                TreePolicyOutcome::NoValidTask(_, path) => (path, None),
+                TreePolicyOutcome::NoMoreAgents(_, path) => (path, None),
+                TreePolicyOutcome::NoChildNode(_, _, path) => (path, None),
+                TreePolicyOutcome::DepthLimitReached(_, _, path) => (path, None),
+            };
 
-                // Backpropagate results
-                self.backpropagation(path, rollout_values);
-            }
+            // Backpropagate results
+            self.backpropagation(path, rollout_values);
 
             // Early stopping if told so by some user-defined condition
             if let Some(early_stop_condition) = &self.early_stop_condition {
@@ -161,7 +177,7 @@ impl<D: Domain> MCTS<D> {
     /// MCTS tree policy. Executes the `selection` and `expansion` phases.
     fn tree_policy(
         &mut self,
-    ) -> Option<(u32, Node<D>, Vec<Edge<D>>)> {
+    ) -> TreePolicyOutcome<D> {
         let agents = self.root.agents();
 
         let mut node = self.root.clone();
@@ -217,7 +233,7 @@ impl<D: Domain> MCTS<D> {
                 // If it is not valid, abort this expansion
                 if !next_active_task.task.is_valid(next_active_task.end, state_diff, next_active_task.agent) {
                     log::debug!("T{}\tNext active task {:?} is invalid, aborting expansion", next_active_task.end, next_active_task.task);
-                    return None;
+                    return TreePolicyOutcome::NoValidTask(depth, path);
                 }
                 // Execute the task which finishes in the next node
                 let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
@@ -234,7 +250,7 @@ impl<D: Domain> MCTS<D> {
 
                 // If no agents were found for this state, we cannot expand node
                 match child_state {
-                    None => return None,
+                    None => return TreePolicyOutcome::NoMoreAgents(depth, path),
                     Some(child_state) => {
                         // Check if child node exists already
                         let child_node = if let Some((existing_node, _)) = self.nodes.get_key_value(&child_state)
@@ -262,14 +278,14 @@ impl<D: Domain> MCTS<D> {
                         path.push(edge);
 
                         depth += (child_node.tick - node.tick) as u32;
-                        return Some((depth, child_node, path));
+                        return TreePolicyOutcome::NodeCreated(depth, child_node, path);
                     }
                 }
             }
 
             // There is no child to this node, still return last node to ensure increase of visit count for this path
             if edges.child_visits() == 0 {
-                return Some((depth, node, path))
+                return TreePolicyOutcome::NoChildNode(depth, node, path)
             }
 
             // -------------------------
@@ -298,7 +314,7 @@ impl<D: Domain> MCTS<D> {
         }
 
         // We reached maximum depth, still return last node to ensure increase of visit count for this path
-        Some((depth, node, path))
+        TreePolicyOutcome::DepthLimitReached(depth, node, path)
     }
 
     /// MCTS backpropagation phase. If rollout values are None, just increment the visits
