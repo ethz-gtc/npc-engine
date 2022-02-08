@@ -36,7 +36,7 @@ impl<D: Domain> NodeInner<D> {
         active_agent: AgentId,
         tick: u64,
         tasks: BTreeSet<ActiveTask<D>>,
-    ) -> Option<Self> {
+    ) -> Self {
         let state_diff = StateDiffRef::new(initial_state, &diff);
         // Get list of agents we consider in planning
         let agents = D::get_visible_agents(
@@ -44,10 +44,6 @@ impl<D: Domain> NodeInner<D> {
             state_diff,
             active_agent
         );
-        // If the active agents is not in the list of visible agents, then this node is irrelevant
-        if !agents.contains(&active_agent) {
-            return None;
-        }
 
         // Assign idle tasks to agents without a task
         let (tasks, current_values): (ActiveTasks<D>, _) = agents
@@ -76,13 +72,13 @@ impl<D: Domain> NodeInner<D> {
             })
             .unzip();
 
-        Some(NodeInner {
+        NodeInner {
             active_agent,
             diff,
             tick,
             tasks,
             current_values
-        })
+        }
     }
 
     /// Returns agent who owns the node.

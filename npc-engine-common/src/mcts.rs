@@ -54,7 +54,6 @@ pub struct MCTS<D: Domain> {
 enum TreePolicyOutcome<D: Domain> {
     NodeCreated(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
     NoValidTask(u32, Vec<Edge<D>>), // depth, path
-    ActiveAgentNotInHorizon(u32, Vec<Edge<D>>), // depth, path
     NoChildNode(u32, Node<D>, Vec<Edge<D>>), // depth, node, path
     DepthLimitReached(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
 }
@@ -84,7 +83,7 @@ impl<D: Domain> MCTS<D> {
             root_agent,
             start_tick,
             tasks,
-        ).expect("root_agent is not in the list of initial agents"));
+        ));
 
         // Prepare nodes, reserve the maximum amount we could need
         let mut nodes = SeededHashMap::with_capacity_and_hasher(
@@ -164,7 +163,6 @@ impl<D: Domain> MCTS<D> {
                     (path, rollout_values)
                 },
                 TreePolicyOutcome::NoValidTask(_, path) => (path, None),
-                TreePolicyOutcome::ActiveAgentNotInHorizon(_, path) => (path, None),
                 TreePolicyOutcome::NoChildNode(_, _, path) => (path, None),
                 TreePolicyOutcome::DepthLimitReached(_, _, path) => (path, None),
             };
@@ -258,43 +256,34 @@ impl<D: Domain> MCTS<D> {
                     child_tasks
                 );
 
-                // If no agents were found for this state, we cannot expand node
-                match child_state {
-                    None => {
-                        log::debug!("T{}\tActive agent not in horizon after task {:?}, aborting expansion", next_active_task.end, next_active_task.task);
-                        return TreePolicyOutcome::ActiveAgentNotInHorizon(depth, path);
-                    },
-                    Some(child_state) => {
-                        // Check if child node exists already
-                        let child_node = if let Some((existing_node, _)) = self.nodes.get_key_value(&child_state)
-                        {
-                            // Link existing child node
-                            log::trace!("\tLinking to existing node {:?}", existing_node);
-                            existing_node.clone()
-                        } else {
-                            // Create and insert new child node
-                            log::trace!("\tCreating new node {:?}", child_state);
-                            let child_node = Node::new(child_state);
-                            self.nodes.insert(
-                                child_node.clone(),
-                                Edges::new(&child_node, &self.initial_state, after_next_task)
-                            );
-                            child_node
-                        };
+                // Check if child node exists already
+                let child_node = if let Some((existing_node, _)) = self.nodes.get_key_value(&child_state)
+                {
+                    // Link existing child node
+                    log::trace!("\tLinking to existing node {:?}", existing_node);
+                    existing_node.clone()
+                } else {
+                    // Create and insert new child node
+                    log::trace!("\tCreating new node {:?}", child_state);
+                    let child_node = Node::new(child_state);
+                    self.nodes.insert(
+                        child_node.clone(),
+                        Edges::new(&child_node, &self.initial_state, after_next_task)
+                    );
+                    child_node
+                };
 
-                        // Create edge from parent to child
-                        let edge = new_edge(&node, &child_node, &agents);
-                        let edges = self.nodes.get_mut(&node).unwrap();
-                        edges.expanded_tasks.insert(task, edge.clone());
+                // Create edge from parent to child
+                let edge = new_edge(&node, &child_node, &agents);
+                let edges = self.nodes.get_mut(&node).unwrap();
+                edges.expanded_tasks.insert(task, edge.clone());
 
-                        // Push edge to path
-                        path.push(edge);
+                // Push edge to path
+                path.push(edge);
 
-                        depth += (child_node.tick - node.tick) as u32;
-                        log::debug!("T{}\tExpansion successful, node created with incoming task {:?}", child_node.tick, next_active_task.task);
-                        return TreePolicyOutcome::NodeCreated(depth, child_node, path);
-                    }
-                }
+                depth += (child_node.tick - node.tick) as u32;
+                log::debug!("T{}\tExpansion successful, node created with incoming task {:?}", child_node.tick, next_active_task.task);
+                return TreePolicyOutcome::NodeCreated(depth, child_node, path);
             }
 
             // There is no child to this node, still return last node to ensure increase of visit count for this path
