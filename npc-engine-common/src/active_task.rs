@@ -12,7 +12,7 @@ pub struct ActiveTask<D: Domain> {
 pub type ActiveTasks<D> = BTreeSet<ActiveTask<D>>;
 
 impl<D: Domain> ActiveTask<D> {
-	pub fn new(agent: AgentId, task: Box<dyn Task<D>>, tick: u64, state_diff: StateDiffRef<D>) -> ActiveTask<D> {
+	pub fn new(agent: AgentId, task: Box<dyn Task<D>>, tick: u64, state_diff: StateDiffRef<D>) -> Self {
 		let end = tick + task.duration(tick, state_diff, agent);//.get();
 		ActiveTask {
 			end,
@@ -20,9 +20,16 @@ impl<D: Domain> ActiveTask<D> {
 			task,
 		}
 	}
+    pub fn new_with_end(end: u64, agent: AgentId, task: Box<dyn Task<D>>) -> Self {
+        ActiveTask {
+			end,
+			agent,
+			task,
+		}
+    }
     /// Create a new idle task for agent at a given tick, make sure that it will
     /// execute in the future considering that we are currently processing active_agent.
-    pub fn new_idle(tick: u64, agent: AgentId, active_agent: AgentId) -> ActiveTask<D> {
+    pub fn new_idle(tick: u64, agent: AgentId, active_agent: AgentId) -> Self {
         ActiveTask {
             // Make sure the idle tasks of added agents will not be
             // executed before the active agent

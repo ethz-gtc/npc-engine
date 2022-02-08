@@ -12,6 +12,7 @@
 		"hasher",
 		"mcts",
 		"powi",
+		"respawn",
 		"rollout",
 		"rollouts",
 		"seedable",

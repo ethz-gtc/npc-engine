@@ -650,12 +650,16 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 #[cfg(feature = "graphviz")]
 pub mod graphviz {
     use super::*;
-    use std::{borrow::Cow, sync::{Arc, atomic::AtomicUsize}};
+    use std::{borrow::Cow, sync::{Arc, atomic::AtomicUsize}, io::{Write, self}};
     use std::hash::{Hash, Hasher};
 
     use dot::{Arrow, Edges, GraphWalk, Id, Kind, LabelText, Labeller, Nodes, Style};
 
-    pub fn agent_color_hsv(agent: AgentId) -> (f32, f32, f32) {
+    pub fn plot_mcts_tree<D: Domain, W: Write>(mcts: &MCTS<D>, w: &mut W) -> io::Result<()> {
+        dot::render(mcts, w)
+    }
+
+    fn agent_color_hsv(agent: AgentId) -> (f32, f32, f32) {
         use palette::IntoColor;
         let mut hasher = std::collections::hash_map::DefaultHasher::default();
         agent.0.hash(&mut hasher);
@@ -793,7 +797,7 @@ pub mod graphviz {
 
         fn node_label(&'a self, n: &Node<D>) -> LabelText<'a> {
             let edges = self.nodes.get(n).unwrap();
-            let v = edges.q_value((0, 0.), n.active_agent);
+            let q_v = edges.q_value((0, 0.), n.active_agent);
             let state_diff = StateDiffRef::new(&self.initial_state, &n.diff);
             let mut state = D::get_state_description(state_diff);
             if !state.is_empty() {
@@ -801,9 +805,10 @@ pub mod graphviz {
                 state = format!("<br/><font point-size='10'>{state}</font>");
             }
             LabelText::HtmlStr(Cow::Owned(format!(
-                "Agent {}<br/>Q: {}<br/>V: {:?}{state}",
+                "Agent {}<br/>T: {}, Q: {}<br/>V: {:?}{state}",
                 n.active_agent.0,
-                v.map(|v| format!("{:.2}", v)).unwrap_or_else(|| "None".to_owned()),
+                n.tick,
+                q_v.map(|q_v| format!("{:.2}", q_v)).unwrap_or_else(|| "None".to_owned()),
                 n.current_values()
                     .iter()
                     .map(|(agent, value)| { (agent.0, **value) })

@@ -1,8 +1,9 @@
-use std::{collections::BTreeSet, fmt, fs};
+use std::{collections::BTreeSet, fmt};
 use bounded_integer::BoundedU32;
 use cached::proc_macro::cached;
 
 use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, AgentValue, Task, StateDiffRefMut, impl_task_boxed_methods, MCTS, MCTSConfiguration, IdleTask, TaskDuration, graphviz};
+use npc_engine_utils::plot_tree_in_tmp;
 use regex::Regex;
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
@@ -277,20 +278,6 @@ impl Domain for TicTacToe {
     }
 }
 
-fn write_tree(turn: u64, mcts: &MCTS::<TicTacToe>) -> std::io::Result<()> {
-	let temp_dir = std::env::temp_dir().display().to_string();
-	let path = format!("{temp_dir}/tic-tac-toe_graphs/");
-	fs::create_dir_all(&path)?;
-	let mut file = fs::OpenOptions::new()
-		.create(true)
-		.write(true)
-		.truncate(true)
-		.open(
-			format!("{path}turn{turn:02}.dot")
-		)?;
-	dot::render(mcts, &mut file)
-}
-
 fn main() {
 	const CONFIG: MCTSConfiguration = MCTSConfiguration {
 		allow_invalid_tasks: false,
@@ -335,14 +322,16 @@ fn main() {
 			"q" => break,
 			s => {
 				let cap = re.captures(s);
-				if cap.is_none() || cap.as_ref().unwrap().len() < 3 {
-					println!("Input error, try again!");
-					continue;
-				} else {
-					let cap = cap.unwrap();
+				let cap = cap.filter(
+					|cap| cap.len() >= 3
+				);
+				if let Some(cap) = cap {
 					let x = CellCoord::new(cap[1].parse().unwrap()).unwrap();
 					let y = CellCoord::new(cap[2].parse().unwrap()).unwrap();
 					(x, y)
+				} else {
+					println!("Input error, try again!");
+					continue;
 				}
 			}
 		};
@@ -370,7 +359,7 @@ fn main() {
 		let task = task.downcast_ref::<Move>().unwrap();
 		println!("Computer played {} {}", task.x, task.y);
 		state.set(task.x, task.y, Cell::Player(Player::X));
-		if let Err(e) = write_tree(turn, &mcts) {
+		if let Err(e) = plot_tree_in_tmp(&mcts, "tic-tac-toe_graphs", &format!("turn{turn:02}")) {
 			println!("Cannot write search tree: {e}");
 		}
 		turn += 1;
