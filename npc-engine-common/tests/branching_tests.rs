@@ -128,7 +128,7 @@ fn ucb() {
 		CONFIG
 	);
 
-	let task = mcts.run();
+	let task = mcts.run().unwrap();
 	assert!(task.downcast_ref::<TestTask>().is_some());
 	assert_eq!((CONFIG.depth * 2 + 1) as usize, mcts.node_count());
 

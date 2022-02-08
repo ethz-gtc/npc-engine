@@ -115,7 +115,7 @@ impl<D: Domain> MCTS<D> {
     }
 
     /// Return best task, using exploration value of 0
-    pub fn best_task_at_root(&mut self) -> Box<dyn Task<D>> {
+    pub fn best_task_at_root(&mut self) -> Option<Box<dyn Task<D>>> {
         let range = self.min_max_range(self.root_agent);
         let edges = self.nodes.get(&self.root).unwrap();
         edges
@@ -130,12 +130,11 @@ impl<D: Domain> MCTS<D> {
                     Some(tasks[index].clone())
                 }
             ))
-            .expect("No valid task!")
             .clone()
     }
 
-    /// Execute the MCTS search. Returns the current best task.
-    pub fn run(&mut self) -> Box<dyn Task<D>> {
+    /// Execute the MCTS search. Returns the current best task, if there is at least one task for the root node.
+    pub fn run(&mut self) -> Option<Box<dyn Task<D>>> {
         // Reset globals
         self.q_value_ranges.clear();
 

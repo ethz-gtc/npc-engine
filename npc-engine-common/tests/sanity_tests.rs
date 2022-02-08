@@ -196,7 +196,7 @@ mod deferment {
 			CONFIG
 		);
 
-		let task = mcts.run();
+		let task = mcts.run().unwrap();
 		assert!(task.downcast_ref::<TestTaskDefer>().is_some());
 	}
 }
@@ -369,7 +369,7 @@ mod negative {
 					config,
 				);
 
-				let task = mcts.run();
+				let task = mcts.run().unwrap();
 				if task.downcast_ref::<TestTaskNoop>().is_some() {
 					noop += 1;
 				} else {

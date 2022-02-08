@@ -262,7 +262,7 @@ impl GameState {
         );
 
         println!("planning start, turn {} {:?}", turn, agent);
-        let objective = mcts.run();
+        let objective = mcts.run().unwrap();
         println!("planning end");
       
         self.post_mcts_hooks.iter_mut().for_each(|f| {

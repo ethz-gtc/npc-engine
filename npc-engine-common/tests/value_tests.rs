@@ -120,7 +120,7 @@ fn linear_bellman() {
 		value
 	}
 
-	let task = mcts.run();
+	let task = mcts.run().unwrap();
 	assert!(task.downcast_ref::<TestTask>().is_some());
 	// Check length is depth with root
 	assert_eq!((CONFIG.depth + 1) as usize, mcts.node_count());

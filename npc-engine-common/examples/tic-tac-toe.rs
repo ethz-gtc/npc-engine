@@ -365,7 +365,7 @@ fn main() {
 			AgentId(1),
 			CONFIG
 		);
-		let task = mcts.run();
+		let task = mcts.run().unwrap();
 		let task = task.downcast_ref::<Move>().unwrap();
 		println!("Computer played {} {}", task.x, task.y);
 		state.set(task.x, task.y, Cell::Player(Player::X));
@@ -440,7 +440,7 @@ mod tests {
 						agent,
 						CONFIG
 					);
-					let task = mcts.run();
+					let task = mcts.run().unwrap();
 					let task = task.downcast_ref::<Move>().unwrap();
 					state.set(task.x, task.y, Cell::Player(Player::from_agent(agent)));
 					assert_eq!(winner(state), None);
