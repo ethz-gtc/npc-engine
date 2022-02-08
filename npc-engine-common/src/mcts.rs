@@ -5,7 +5,7 @@ use std::ops::{Range};
 use std::time::{Duration, Instant};
 use std::mem;
 
-use rand::{prelude::{thread_rng, Distribution, RngCore, SeedableRng}, distributions::WeightedIndex};
+use rand::{prelude::{thread_rng, Distribution, RngCore, SeedableRng}, distributions::WeightedIndex, Rng};
 use rand_chacha::ChaCha8Rng;
 
 use crate::*;
@@ -116,11 +116,21 @@ impl<D: Domain> MCTS<D> {
     }
 
     /// Return best task, using exploration value of 0
-    pub fn best_task_at_root(&self) -> Box<dyn Task<D>> {
+    pub fn best_task_at_root(&mut self) -> Box<dyn Task<D>> {
         let range = self.min_max_range(self.root_agent);
         let edges = self.nodes.get(&self.root).unwrap();
         edges
+            // Get best expanded tasks.
             .best_task(self.root_agent, 0., range)
+            // If none, sample unexpanded tasks.
+            .or_else(|| edges.unexpanded_tasks.as_ref().map_or(None,
+                |(_, tasks)| if tasks.is_empty() {
+                    None
+                } else {
+                    let index = self.rng.gen_range(0..tasks.len());
+                    Some(tasks[index].clone())
+                }
+            ))
             .expect("No valid task!")
             .clone()
     }
