@@ -564,8 +564,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             // excluding the active agent (a new task for it will be added later)
             let agents = D::get_visible_agents(
                 tick,
-                initial_state,
-                &D::Diff::default(),
+                new_state_diff,
                 active_agent
             );
             tasks = agents

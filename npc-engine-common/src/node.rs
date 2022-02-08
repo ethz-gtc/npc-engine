@@ -37,11 +37,11 @@ impl<D: Domain> NodeInner<D> {
         tick: u64,
         tasks: BTreeSet<ActiveTask<D>>,
     ) -> Option<Self> {
+        let state_diff = StateDiffRef::new(initial_state, &diff);
         // Get list of agents we consider in planning
         let agents = D::get_visible_agents(
             tick,
-            initial_state,
-            &D::Diff::default(),
+            state_diff,
             active_agent
         );
         // If the active agents is not in the list of visible agents, then this node is irrelevant
@@ -68,7 +68,7 @@ impl<D: Domain> NodeInner<D> {
                         agent,
                         D::get_current_value(
                             tick,
-                            StateDiffRef::new(initial_state, &diff),
+                            state_diff,
                             agent
                         )
                     )
