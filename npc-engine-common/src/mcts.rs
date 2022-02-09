@@ -1,6 +1,5 @@
 use std::{collections::{BTreeMap, BTreeSet, btree_map::Entry}};
 use std::f32;
-use std::hash::{Hash, Hasher};
 use std::ops::{Range};
 use std::time::{Duration, Instant};
 use std::mem;
@@ -653,6 +652,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 pub mod graphviz {
     use super::*;
     use std::{borrow::Cow, sync::{Arc, atomic::AtomicUsize}};
+    use std::hash::{Hash, Hasher};
 
     use dot::{Arrow, Edges, GraphWalk, Id, Kind, LabelText, Labeller, Nodes, Style};
 
