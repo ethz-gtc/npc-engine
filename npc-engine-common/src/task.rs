@@ -6,6 +6,9 @@ use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_meth
 
 pub type TaskDuration = u64;
 
+/// A task that modifies the state.
+/// It is illegal to have a task of both 0-duration and not modifying the state,
+/// as this would lead to self-looping nodes in the planner.
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     /// Returns the relative weight of the task for the given agent in the given tick and world state, by default weight is 1.0
     fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {

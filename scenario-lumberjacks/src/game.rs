@@ -81,6 +81,7 @@ impl GameState {
         }
 
         let config = MCTSConfiguration {
+            allow_invalid_tasks: false,
             visits: config().mcts.visits,
             depth: config().mcts.depth,
             exploration: config().mcts.exploration,

@@ -112,6 +112,7 @@ const EPSILON: f32 = 0.001;
 #[test]
 fn ucb() {
 	const CONFIG: MCTSConfiguration = MCTSConfiguration {
+		allow_invalid_tasks: false,
 		visits: 10,
 		depth: 1,
 		exploration: 1.414,

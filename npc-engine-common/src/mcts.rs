@@ -238,13 +238,18 @@ impl<D: Domain> MCTS<D> {
                 log::trace!("\tNext Active Task: {:?}: {:?} ends T{}", next_active_task.agent, next_active_task.task, next_active_task.end);
 
                 // If it is not valid, abort this expansion
-                if !next_active_task.task.is_valid(next_active_task.end, state_diff, next_active_task.agent) {
-                    log::debug!("T{}\tNext active task {:?} is invalid, aborting expansion", next_active_task.end, next_active_task.task);
+                let is_task_valid = next_active_task.task.is_valid(next_active_task.end, state_diff, next_active_task.agent);
+                if !is_task_valid && !self.config.allow_invalid_tasks {
+                    log::debug!("T{}\tNext active task {:?} is invalid and that is not allowed, aborting expansion", next_active_task.end, next_active_task.task);
                     return TreePolicyOutcome::NoValidTask(depth, path);
                 }
                 // Execute the task which finishes in the next node
-                let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
-                let after_next_task = next_active_task.task.execute(next_active_task.end, state_diff_mut, next_active_task.agent);
+                let after_next_task = if is_task_valid {
+                    let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
+                    next_active_task.task.execute(next_active_task.end, state_diff_mut, next_active_task.agent)
+                } else {
+                    None
+                };
 
                 // Create expanded node state
                 let child_state = NodeInner::new(
@@ -524,20 +529,29 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             tick = active_task.end;
 
             // If task is invalid, stop rollout
-            if !active_task.task.is_valid(tick, state_diff, active_agent) {
-                log::debug!("! T{} Invalid task {:?} by {:?} in state\n{}",
+            let is_task_valid = active_task.task.is_valid(tick, state_diff, active_agent);
+            if !is_task_valid && !config.allow_invalid_tasks {
+                log::debug!("! T{} Not allowed invalid task {:?} by {:?} in state\n{}",
                     tick, active_task.task, active_agent, D::get_state_description(state_diff)
                 );
                 break;
-            } else {
+            } else if is_task_valid {
                 log::trace!("✓ T{} Valid task {:?} by {:?} in state\n{}",
+                    tick, active_task.task, active_agent, D::get_state_description(state_diff)
+                );
+            } else {
+                log::trace!("✓ T{} Skipping invalid task {:?} by {:?} in state\n{}",
                     tick, active_task.task, active_agent, D::get_state_description(state_diff)
                 );
             }
 
             // Execute the task
-            let state_diff_mut = StateDiffRefMut::new(initial_state, &mut diff);
-            let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
+            let new_task = if is_task_valid {
+                let state_diff_mut = StateDiffRefMut::new(initial_state, &mut diff);
+                active_task.task.execute(tick, state_diff_mut, active_agent)
+            } else {
+                None
+            };
             let new_state_diff = StateDiffRef::new(initial_state, &diff);
 
             // if the values for the agent executing the task are being tracked, update them

@@ -10,6 +10,7 @@ pub type EarlyStopCondition = dyn Fn() -> bool;
 ///
 #[derive(Clone, Debug)]
 pub struct MCTSConfiguration {
+    pub allow_invalid_tasks: bool,
     pub visits: u32,
     pub depth: u32,
     pub exploration: f32,

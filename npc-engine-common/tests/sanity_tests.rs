@@ -177,6 +177,7 @@ mod deferment {
 	fn deferment() {
 		init_logger();
 		const CONFIG: MCTSConfiguration = MCTSConfiguration {
+			allow_invalid_tasks: false,
 			visits: 1000,
 			depth: 10,
 			exploration: 1.414,
@@ -352,6 +353,7 @@ mod negative {
 
 			for _ in 0..20 {
 				let config = MCTSConfiguration {
+					allow_invalid_tasks: false,
 					visits: 1.5f32.powi(depth as i32) as u32 / 10 + 100,
 					depth,
 					exploration: 1.414,

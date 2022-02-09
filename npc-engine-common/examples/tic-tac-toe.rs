@@ -293,6 +293,7 @@ fn write_tree(turn: u64, mcts: &MCTS::<TicTacToe>) -> std::io::Result<()> {
 
 fn main() {
 	const CONFIG: MCTSConfiguration = MCTSConfiguration {
+		allow_invalid_tasks: false,
 		visits: 1000,
 		depth: 9,
 		exploration: 1.414,
@@ -425,6 +426,7 @@ mod tests {
 	fn ai_vs_ai_must_be_a_draw() {
 		use crate::winner;
 		const CONFIG: MCTSConfiguration = MCTSConfiguration {
+			allow_invalid_tasks: false,
 			visits: 5000,
 			depth: 9,
 			exploration: 1.414,

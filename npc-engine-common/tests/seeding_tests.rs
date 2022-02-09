@@ -98,6 +98,7 @@ fn seed() {
 	for _ in 0..5 {
 		let seed = thread_rng().next_u64();
 		let config = MCTSConfiguration {
+			allow_invalid_tasks: false,
 			visits: 1000,
 			depth: 10,
 			exploration: 1.414,
