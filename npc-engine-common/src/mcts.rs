@@ -122,15 +122,16 @@ impl<D: Domain> MCTS<D> {
             // Get best expanded tasks.
             .best_task(self.root_agent, 0., range)
             // If none, sample unexpanded tasks.
-            .or_else(|| edges.unexpanded_tasks.as_ref().map_or(None,
-                |(_, tasks)| if tasks.is_empty() {
-                    None
-                } else {
-                    let index = self.rng.gen_range(0..tasks.len());
-                    Some(tasks[index].clone())
-                }
-            ))
-            .clone()
+            .or_else(|| edges.unexpanded_tasks
+                .as_ref()
+                .and_then(|(_, tasks)|
+                    if tasks.is_empty() {
+                        None
+                    } else {
+                        let index = self.rng.gen_range(0..tasks.len());
+                        Some(tasks[index].clone())
+                    })
+                )
     }
 
     /// Execute the MCTS search. Returns the current best task, if there is at least one task for the root node.
