@@ -468,13 +468,12 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
         // In this map we collect at the same time both:
         // - the current value (measured from state and replaced in the course of simulation)
-        // - the tick at which the current value was measured
-        // - the Q value (initially 0, updated in the course of simulation)
-        let mut values: BTreeMap<AgentId, (AgentValue, u64, f32)> = node
+         // - the Q value (initially 0, updated in the course of simulation)
+        let mut values: BTreeMap<AgentId, (AgentValue, f32)> = node
             .current_values()
             .iter()
             .map(|(&agent, &current_value)|
-                (agent, (current_value, node.tick, 0f32))
+                (agent, (current_value, 0f32))
             )
             .collect::<BTreeMap<_, _>>();
 
@@ -505,6 +504,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         tasks.insert(new_active_task);
 
         // Create the state we need to perform the simulation
+        let start_tick = node.tick;
         let mut tick = node.tick;
         let mut depth = depth;
         while depth < config.depth {
@@ -556,10 +556,10 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
             // if the values for the agent executing the task are being tracked, update them
             if let Entry::Occupied(mut entry) = values.entry(active_agent) {
-                let (current_value, value_tick, estimated_value) = entry.get_mut();
+                let (current_value, estimated_value) = entry.get_mut();
 
                 // Compute discount
-                let discount = MCTS::<D>::discount_factor(active_task.end - *value_tick, config);
+                let discount = MCTS::<D>::discount_factor(active_task.end - start_tick, config);
 
                 // Update estimated value with discounted difference in current values
                 let new_current_value = D::get_current_value(
@@ -569,7 +569,6 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 );
                 *estimated_value += *(new_current_value - *current_value) * discount;
                 *current_value = new_current_value;
-                *value_tick = tick;
             }
 
             // Update the list of tasks, only considering visible agents,
@@ -638,7 +637,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
         let q_values = values
             .iter()
-            .map(|(agent, (_, _, q_value))| (*agent, *q_value))
+            .map(|(agent, (_, q_value))| (*agent, *q_value))
             .collect();
 
         log::debug!("T{}\tRollout to T{}: q values: {:?}", node.tick, depth, q_values);
