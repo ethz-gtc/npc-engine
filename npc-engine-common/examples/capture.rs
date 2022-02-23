@@ -4,7 +4,7 @@ use nonmax::NonMaxU8;
 extern crate lazy_static;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, impl_task_boxed_methods, StateDiffRefMut, Domain, IdleTask, TaskDuration, Behavior, AgentValue, ActiveTask, MCTSConfiguration, MCTS, graphviz};
-use npc_engine_utils::plot_tree_in_tmp;
+use npc_engine_utils::{plot_tree_in_tmp, TaskQueue, run_simple_executor, ExecutorCallbacks, ExecutableDomain};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 struct Location(NonMaxU8);
@@ -266,8 +266,7 @@ impl Task<CaptureGame> for Shoot {
 			diff.agents.remove(&self.0);
 		}
 		// After Shoot, the agent must wait one tick.
-		// Some(Box::new(IdleTask))
-		None
+		Some(Box::new(IdleTask))
 	}
 
 	fn display_action(&self) -> <CaptureGame as Domain>::DisplayAction {
@@ -643,38 +642,84 @@ impl Domain for CaptureGame {
 		s
 	}
 }
+impl ExecutableDomain for CaptureGame {
+	fn apply_diff(diff: Self::Diff, state: &mut Self::State) {
+		if let Some(diff) = diff {
+			*state = diff;
+		}
+	}
+}
 
-fn create_initial_state() -> State {
-	let agent0_id = AgentId(0);
-	let agent0_state = AgentState {
-		acc_capture: 0,
-		cur_or_last_location: Location::new(0),
-		next_location: None,
-		hp: MAX_HP,
-		ammo: 0 //MAX_AMMO,
-	};
-	let agent1_id = AgentId(1);
-	let agent1_state = AgentState {
-		acc_capture: 0,
-		cur_or_last_location: Location::new(6),
-		next_location: None,
-		hp: MAX_HP,
-		ammo: 0 //MAX_AMMO,
-	};
-	State {
-		agents: BTreeMap::from([
-			(agent0_id, agent0_state),
-			(agent1_id, agent1_state),
-		]),
-		capture_points: [
-			CapturePointState::Free,
-			CapturePointState::Free,
-			CapturePointState::Free
-		],
-		ammo: 1,
-		ammo_tick: 0,
-		medkit: 1,
-		medkit_tick: 0
+struct CaptureGameCallbacks;
+impl ExecutorCallbacks<CaptureGame> for CaptureGameCallbacks {
+
+	fn create_initial_state() -> State {
+		let agent0_id = AgentId(0);
+		let agent0_state = AgentState {
+			acc_capture: 0,
+			cur_or_last_location: Location::new(0),
+			next_location: None,
+			hp: MAX_HP,
+			ammo: 0 //MAX_AMMO,
+		};
+		let agent1_id = AgentId(1);
+		let agent1_state = AgentState {
+			acc_capture: 0,
+			cur_or_last_location: Location::new(6),
+			next_location: None,
+			hp: MAX_HP,
+			ammo: 0 //MAX_AMMO,
+		};
+		State {
+			agents: BTreeMap::from([
+				(agent0_id, agent0_state),
+				(agent1_id, agent1_state),
+			]),
+			capture_points: [
+				CapturePointState::Free,
+				CapturePointState::Free,
+				CapturePointState::Free
+			],
+			ammo: 1,
+			ammo_tick: 0,
+			medkit: 1,
+			medkit_tick: 0
+		}
+	}
+
+	fn init_queue() -> TaskQueue<CaptureGame> {
+		vec![
+			ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)),
+			ActiveTask::new_with_end(0, AgentId(1), Box::new(IdleTask)),
+			ActiveTask::new_with_end(0, WORLD_AGENT_ID, Box::new(WorldStep)),
+		].into_iter().collect()
+	}
+
+	fn keep_agent(state: &State, agent: AgentId) -> bool {
+		agent == WORLD_AGENT_ID || state.agents.contains_key(&agent)
+	}
+
+	fn post_mcts_run_hook(mcts: &MCTS<CaptureGame>, last_active_task: &ActiveTask<CaptureGame>) {
+		let time_text = format!("T{}", mcts.start_tick);
+		let agent_id_text = format!("A{}", mcts.agent().0);
+		let task_name = format!("{:?}", last_active_task.task);
+		let last_task_name = task_name
+			.replace(" ", "")
+			.replace("(", "")
+			.replace(")", "")
+			.replace("{", "_")
+			.replace("}", "")
+			.replace(" ", "_")
+			.replace(":", "_")
+			.replace(",", "_")
+		;
+		if let Err(e) = plot_tree_in_tmp(
+			mcts,
+			"capture_graphs",
+			&format!("{agent_id_text}-{time_text}-{last_task_name}")
+		) {
+			println!("Cannot write search tree: {e}");
+		}
 	}
 }
 
@@ -688,84 +733,12 @@ fn main() {
 		seed: None
 	};
 	graphviz::GRAPH_OUTPUT_DEPTH.store(7, std::sync::atomic::Ordering::Relaxed);
-	env_logger::init();
-	let mut state = create_initial_state();
-	let mut queue = BTreeSet::new();
-	queue.insert(ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)));
-	queue.insert(ActiveTask::new_with_end(0, AgentId(1), Box::new(IdleTask)));
-	queue.insert(ActiveTask::new_with_end(0, WORLD_AGENT_ID, Box::new(WorldStep)));
-	let highlight_style = ansi_term::Style::new().bold().fg(ansi_term::Colour::Green);
-	while !queue.is_empty() {
-		// Pop first task that is completed
-		let active_task = queue.iter().next().unwrap().clone();
-		queue.remove(&active_task);
-		let active_agent = active_task.agent;
-		let tick = active_task.end;
-
-		// If agent is not in the state, it is dead, so we can stop considering it
-		if active_agent != WORLD_AGENT_ID && !state.agents.contains_key(&active_agent) {
-			continue;
-		}
-
-		// Show state
-		let state_diff = StateDiffRef::<CaptureGame>::new(&state, &None);
-		let time_text = format!("T{}", tick);
-		let task_name = format!("{:?}", active_task.task);
-		let agent_id_text = format!("A{}", active_agent.0);
-		println!("\n{}, State:\n{}\n{} task to be executed: {}", highlight_style.paint(&time_text), CaptureGame::get_state_description(state_diff), highlight_style.paint(&agent_id_text), highlight_style.paint(&task_name));
-
-		// Execute task
-		let is_task_valid = active_task.task.is_valid(tick, state_diff, active_agent);
-		let new_task = if is_task_valid {
-			println!("Valid task, executing...");
-			let mut diff = None;
-			let state_diff_mut = StateDiffRefMut::new(&state, &mut diff);
-			let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
-			if let Some(diff) = diff {
-				state = diff;
-			}
-			new_task
-		} else {
-			println!("Invalid task!");
-			None
-		};
-
-		// If no next task, plan and get the task for this agent
-		let new_task = new_task.unwrap_or_else(|| {
-			println!("No subsequent task, planning!");
-			let mut mcts = MCTS::<CaptureGame>::new_with_tasks(
-				state.clone(),
-				active_agent,
-				tick,
-				queue.clone(),
-				CONFIG
-			);
-			let new_task = mcts.run().unwrap_or_else(|| Box::new(IdleTask));
-			let last_task_name = task_name
-				.replace(" ", "")
-				.replace("(", "")
-				.replace(")", "")
-				.replace("{", "_")
-				.replace("}", "")
-				.replace(" ", "_")
-				.replace(":", "_")
-				.replace(",", "_")
-			;
-			if let Err(e) = plot_tree_in_tmp(
-				&mcts,
-				"capture_graphs",
-				&format!("{agent_id_text}-{time_text}-{last_task_name}")
-			) {
-				println!("Cannot write search tree: {e}");
-			}
-			new_task
-		});
-
-		// Add new task to queue
-		let state_diff = StateDiffRef::new(&state, &None);
-		let new_task_name = format!("{:?}", new_task);
-		let new_active_task = ActiveTask::new(active_agent, new_task, tick, state_diff);
-		println!("Queuing new task for {} until T{}: {}", agent_id_text, new_active_task.end, new_task_name);
-		queue.insert(new_active_task);
-	}
+	use std::io::Write;
+	env_logger::builder()
+		.format(|buf, record|
+			writeln!(buf, "{}", record.args())
+		)
+		.filter(None, log::LevelFilter::Info)
+		.init();
+	run_simple_executor::<CaptureGame, CaptureGameCallbacks>(&CONFIG);
 }

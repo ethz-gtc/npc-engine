@@ -1,12 +1,12 @@
 use std::{collections::BTreeSet, marker::PhantomData};
 use npc_engine_common::{Domain, AgentId, ActiveTask, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask};
 
-type TaskQueue<D> = BTreeSet<ActiveTask<D>>;
+pub type TaskQueue<D> = BTreeSet<ActiveTask<D>>;
 
 /// A domain for which we can run a generic executor
 pub trait ExecutableDomain: Domain {
     /// Applies a diff to a mutable state
-    fn apply_diff(diff: &Self::Diff, state: &mut Self::State);
+    fn apply_diff(diff: Self::Diff, state: &mut Self::State);
 }
 
 /// User-defined functions for the executor
@@ -78,7 +78,7 @@ impl<D, CB> SimpleExecutor<D, CB>
 			let state_diff_mut = StateDiffRefMut::new(&self.state, &mut diff);
 			let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
 			CB::post_action_execute_hook(&self.state, &diff, &mut self.queue);
-			D::apply_diff(&diff, &mut self.state);
+			D::apply_diff(diff, &mut self.state);
 			new_task
 		} else {
 			log::info!("Invalid task!");
