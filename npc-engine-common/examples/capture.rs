@@ -92,10 +92,11 @@ lazy_static! {
 		Map { links, capture_locations }
 	};
 }
-const MAX_HP: u8 = 1;
-const MAX_AMMO: u8 = 1;
+const MAX_HP: u8 = 2;
+const MAX_AMMO: u8 = 4;
 const CAPTURE_DURATION: TaskDuration = 1;
-const RESPAWN_DURATION: u8 = 16;
+const RESPAWN_AMMO_DURATION: u8 = 2;
+const RESPAWN_MEDKIT_DURATION: u8 = 17;
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct AgentState {
@@ -202,7 +203,7 @@ impl Task<CaptureGame> for Pick {
 				diff.ammo_tick = (tick & 0xff) as u8;
 			},
 			_ if location == MAP.medkit_location() =>  {
-				agent_state.hp = MAX_HP;
+				agent_state.hp = (agent_state.hp + 1).min(MAX_HP);
 				diff.medkit = 0;
 				diff.medkit_tick = (tick & 0xff) as u8;
 			},
@@ -510,8 +511,11 @@ impl Behavior<CaptureGame> for AgentBehavior {
 
 const WORLD_AGENT_ID: AgentId = AgentId(9); // 9 could be u32::MAX in a realistic scenario
 
-fn respawn_timeout(now: u8, before: u8) -> bool {
-	now.wrapping_sub(before) > RESPAWN_DURATION
+fn respawn_timeout_ammo(now: u8, before: u8) -> bool {
+	now.wrapping_sub(before) > RESPAWN_AMMO_DURATION
+}
+fn respawn_timeout_medkit(now: u8, before: u8) -> bool {
+	now.wrapping_sub(before) > RESPAWN_MEDKIT_DURATION
 }
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
@@ -538,11 +542,11 @@ impl Task<CaptureGame> for WorldStep {
 		}
 		// respawn if timeout
 		let now = (tick & 0xff) as u8;
-		if respawn_timeout(now, diff.ammo_tick) {
+		if respawn_timeout_ammo(now, diff.ammo_tick) {
 			diff.ammo = 1;
 			diff.ammo_tick = now;
 		}
-		if respawn_timeout(now, diff.medkit_tick) {
+		if respawn_timeout_medkit(now, diff.medkit_tick) {
 			diff.medkit = 1;
 			diff.medkit_tick = now;
 		}
@@ -633,7 +637,7 @@ impl Domain for CaptureGame {
 			if let Some(target) = state.next_location {
 				s += &format!("\nA{} in {}-{}, ❤️ {}, • {}, ⚡{}", id.0, state.cur_or_last_location.0, target.0, state.hp, state.ammo, state.acc_capture);
 			} else {
-				s += &format!("\nA{} @ {}, ❤️ {}, • {}, ⚡{}", id.0, state.cur_or_last_location.0, state.hp, state.ammo, state.acc_capture);
+				s += &format!("\nA{} @    {}, ❤️ {}, • {}, ⚡{}", id.0, state.cur_or_last_location.0, state.hp, state.ammo, state.acc_capture);
 			}
 		}
 		s
@@ -677,10 +681,10 @@ fn create_initial_state() -> State {
 fn main() {
 	const CONFIG: MCTSConfiguration = MCTSConfiguration {
 		allow_invalid_tasks: true,
-		visits: 10000,
-		depth: 30,
+		visits: 5000,
+		depth: 50,
 		exploration: 1.414,
-		discount_hl: 8.,
+		discount_hl: 17.,
 		seed: None
 	};
 	graphviz::GRAPH_OUTPUT_DEPTH.store(7, std::sync::atomic::Ordering::Relaxed);
