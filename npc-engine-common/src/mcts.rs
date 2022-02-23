@@ -157,7 +157,6 @@ impl<D: Domain> MCTS<D> {
                         &leaf,
                         edges,
                         depth,
-                        self.root_agent
                     );
                     (path, rollout_values)
                 },
@@ -461,7 +460,6 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         node: &Node<D>,
         edges: &Edges<D>,
         depth: u32,
-        _root_agent: AgentId,
     ) -> Option<BTreeMap<AgentId, f32>> {
         let mut diff = node.diff.clone();
         log::debug!("T{}\tStarting rollout with cur. values: {:?}", node.tick, node.current_values());

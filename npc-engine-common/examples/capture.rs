@@ -14,13 +14,6 @@ impl Location {
 	}
 }
 
-/*enum LocationOption {
-	Empty,
-	CapturePoint(u8),
-	Ammo,
-	MedKit
-}*/
-
 struct Map {
 	links: HashMap<Location, HashMap<Location, u64>>,
 	capture_locations: Vec<Location>

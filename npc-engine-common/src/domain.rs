@@ -68,6 +68,5 @@ pub trait StateValueEstimator<D: Domain> {
         node: &Node<D>,
         edges: &Edges<D>,
         depth: u32,
-        agent: AgentId, // agent of the MCTS
     ) -> Option<BTreeMap<AgentId, f32>>;
 }
