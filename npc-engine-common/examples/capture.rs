@@ -3,8 +3,8 @@ use nonmax::NonMaxU8;
 #[macro_use]
 extern crate lazy_static;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, impl_task_boxed_methods, StateDiffRefMut, Domain, IdleTask, TaskDuration, Behavior, AgentValue, ActiveTask, MCTSConfiguration, MCTS, graphviz};
-use npc_engine_utils::{plot_tree_in_tmp, TaskQueue, run_simple_executor, ExecutorCallbacks, ExecutableDomain};
+use npc_engine_common::{AgentId, Task, StateDiffRef, impl_task_boxed_methods, StateDiffRefMut, Domain, IdleTask, TaskDuration, Behavior, AgentValue, ActiveTask, MCTSConfiguration, MCTS, graphviz, ActiveTasks};
+use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorCallbacks, ExecutableDomain};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 struct Location(NonMaxU8);
@@ -680,7 +680,7 @@ impl ExecutorCallbacks<CaptureGame> for CaptureGameCallbacks {
 		}
 	}
 
-	fn init_queue() -> TaskQueue<CaptureGame> {
+	fn init_task_queue() -> ActiveTasks<CaptureGame> {
 		vec![
 			ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)),
 			ActiveTask::new_with_end(0, AgentId(1), Box::new(IdleTask)),

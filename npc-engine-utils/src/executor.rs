@@ -1,7 +1,6 @@
-use std::{collections::BTreeSet, marker::PhantomData};
-use npc_engine_common::{Domain, AgentId, ActiveTask, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask};
+use std::marker::PhantomData;
+use npc_engine_common::{Domain, AgentId, ActiveTask, ActiveTasks, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask,};
 
-pub type TaskQueue<D> = BTreeSet<ActiveTask<D>>;
 
 /// A domain for which we can run a generic executor
 pub trait ExecutableDomain: Domain {
@@ -11,24 +10,32 @@ pub trait ExecutableDomain: Domain {
 
 /// User-defined functions for the executor
 pub trait ExecutorCallbacks<D: ExecutableDomain> {
+	/// Creates the initial state
 	fn create_initial_state() -> D::State;
-	fn init_queue() -> TaskQueue<D>;
+	/// Fills the initial queue of tasks
+	fn init_task_queue() -> ActiveTasks<D>;
+	/// Returns whether an agent should be kept in a given state (to remove dead agents)
 	fn keep_agent(state: &D::State, agent: AgentId) -> bool;
-	fn post_action_execute_hook(_state: &D::State, _diff: &D::Diff, _queue: &mut TaskQueue<D>) {}
+	/// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents
+	fn post_action_execute_hook(_state: &D::State, _diff: &D::Diff, _queue: &mut ActiveTasks<D>) {}
+	/// Method called after MCTS has run, to perform tasks such as printing the search tree
 	fn post_mcts_run_hook(_mcts: &MCTS<D>, _last_active_task: &ActiveTask<D>) {}
 }
 
-
+/// A single-threaded generic executor
 pub struct SimpleExecutor<D, CB>
 	where
 		D: ExecutableDomain,
 		D::State: Clone,
 		CB: ExecutorCallbacks<D>
 {
+	/// The attached MCTS configuration
 	pub config: MCTSConfiguration,
+	/// The current state of the world
 	pub state: D::State,
-	pub queue: TaskQueue<D>,
-	phantom: PhantomData<CB>,
+	/// The current queue of tasks
+	pub task_queue: ActiveTasks<D>,
+	_phantom: PhantomData<CB>,
 }
 impl<D, CB> SimpleExecutor<D, CB>
 	where
@@ -36,22 +43,25 @@ impl<D, CB> SimpleExecutor<D, CB>
 		D::State: Clone,
 		CB: ExecutorCallbacks<D>
 {
+	/// Creates a new executor, initializes state and task queue from the CB trait
 	pub fn new(config: MCTSConfiguration) -> Self {
 		Self {
 			config,
 			state: CB::create_initial_state(),
-			queue: CB::init_queue(),
-			phantom: PhantomData
+			task_queue: CB::init_task_queue(),
+			_phantom: PhantomData
 		}
 	}
+
+	/// Executes one task, returns whether there are still tasks in the queue
 	pub fn step(&mut self) -> bool {
-		if self.queue.is_empty() {
+		if self.task_queue.is_empty() {
 			return false;
 		}
 
 		// Pop first task that is completed
-		let active_task = self.queue.iter().next().unwrap().clone();
-		self.queue.remove(&active_task);
+		let active_task = self.task_queue.iter().next().unwrap().clone();
+		self.task_queue.remove(&active_task);
 		let active_agent = active_task.agent;
 		let tick = active_task.end;
 
@@ -77,7 +87,7 @@ impl<D, CB> SimpleExecutor<D, CB>
 			log::info!("Valid task, executing...");
 			let state_diff_mut = StateDiffRefMut::new(&self.state, &mut diff);
 			let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
-			CB::post_action_execute_hook(&self.state, &diff, &mut self.queue);
+			CB::post_action_execute_hook(&self.state, &diff, &mut self.task_queue);
 			D::apply_diff(diff, &mut self.state);
 			new_task
 		} else {
@@ -92,7 +102,7 @@ impl<D, CB> SimpleExecutor<D, CB>
 				self.state.clone(),
 				active_agent,
 				tick,
-				self.queue.clone(),
+				self.task_queue.clone(),
 				self.config.clone()
 			);
 			let new_task = mcts.run().unwrap_or_else(|| Box::new(IdleTask));
@@ -108,13 +118,13 @@ impl<D, CB> SimpleExecutor<D, CB>
 			log::info!("Queuing new task for A{} until T{}: {:?}", active_agent.0, new_active_task.end, new_task);
 		}
 		let new_active_task = ActiveTask::new(active_agent, new_task, tick, state_diff);
-		self.queue.insert(new_active_task);
+		self.task_queue.insert(new_active_task);
 
 		true
 	}
 }
 
-/// A simple executor
+/// Creates and runs a single-threaded executor, initializes state and task queue from the CB trait
 pub fn run_simple_executor<D, CB>(config: &MCTSConfiguration)
 	where
 		D: ExecutableDomain,
