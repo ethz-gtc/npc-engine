@@ -17,7 +17,7 @@ pub trait ExecutorCallbacks<D: ExecutableDomain> {
 	/// Returns whether an agent should be kept in a given state (to remove dead agents)
 	fn keep_agent(state: &D::State, agent: AgentId) -> bool;
 	/// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents
-	fn post_action_execute_hook(_state: &D::State, _diff: &D::Diff, _queue: &mut ActiveTasks<D>) {}
+	fn post_action_execute_hook(_state: &D::State, _diff: &D::Diff, _active_task: &ActiveTask<D>, _queue: &mut ActiveTasks<D>) {}
 	/// Method called after MCTS has run, to perform tasks such as printing the search tree
 	fn post_mcts_run_hook(_mcts: &MCTS<D>, _last_active_task: &ActiveTask<D>) {}
 }
@@ -87,7 +87,7 @@ impl<D, CB> SimpleExecutor<D, CB>
 			log::info!("Valid task, executing...");
 			let state_diff_mut = StateDiffRefMut::new(&self.state, &mut diff);
 			let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
-			CB::post_action_execute_hook(&self.state, &diff, &mut self.task_queue);
+			CB::post_action_execute_hook(&self.state, &diff, &active_task, &mut self.task_queue);
 			D::apply_diff(diff, &mut self.state);
 			new_task
 		} else {
