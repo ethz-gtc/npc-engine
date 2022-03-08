@@ -101,7 +101,7 @@ impl<D: Domain> NodeInner<D> {
 
     /// Return the current value from an agent, panic if not present in the node
     pub fn current_value(&self, agent: AgentId) -> AgentValue {
-        *self.current_values.get(&agent).unwrap()
+        self.current_values.get(&agent).copied().unwrap_or_else(|| AgentValue::new(0.0).unwrap())
     }
 
     /// Return the current value from an agent, compute if not present in the node
