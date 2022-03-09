@@ -4,7 +4,7 @@ use nonmax::NonMaxU8;
 extern crate lazy_static;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, impl_task_boxed_methods, StateDiffRefMut, Domain, IdleTask, TaskDuration, Behavior, AgentValue, ActiveTask, MCTSConfiguration, MCTS, graphviz, ActiveTasks};
-use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorCallbacks, ExecutableDomain};
+use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorCallbacks, ExecutableDomain, OptionDiffDomain};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 struct Location(NonMaxU8);
@@ -575,24 +575,6 @@ impl Behavior<CaptureGame> for WorldBehavior {
 }
 
 struct CaptureGame;
-impl CaptureGame {
-	fn get_cur_state(state_diff: StateDiffRef<CaptureGame>) -> &State {
-		if let Some(diff) = state_diff.diff {
-			diff
-		} else {
-			state_diff.initial_state
-		}
-	}
-	fn get_cur_state_mut(state_diff: StateDiffRefMut<CaptureGame>) -> &mut State {
-		if let Some(diff) = state_diff.diff {
-			diff
-		} else {
-			let diff = state_diff.initial_state.clone();
-			*state_diff.diff = Some(diff);
-			&mut *state_diff.diff.as_mut().unwrap()
-		}
-	}
-}
 impl Domain for CaptureGame {
 	type State = State;
 	type Diff = Diff;
@@ -635,6 +617,10 @@ impl Domain for CaptureGame {
 		}
 		s
 	}
+}
+impl OptionDiffDomain for CaptureGame {
+	type Domain = CaptureGame;
+	type State = <CaptureGame as Domain>::State;
 }
 impl ExecutableDomain for CaptureGame {
 	fn apply_diff(diff: Self::Diff, state: &mut Self::State) {
