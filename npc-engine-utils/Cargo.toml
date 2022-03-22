@@ -9,3 +9,4 @@ edition = "2021"
 npc-engine-common = { path = "../npc-engine-common", features = ["graphviz"] }
 log = "0.4"
 ansi_term = "0.12"
+rand = "0.8"
