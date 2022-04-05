@@ -1,3 +1,4 @@
+use std::hash::Hash;
 use npc_engine_common::{Domain, StateDiffRef, StateDiffRefMut};
 
 /// In case your domain has a Diff that is an Option of its State,
@@ -21,4 +22,13 @@ pub trait OptionDiffDomain {
 			&mut *state_diff.diff.as_mut().unwrap()
 		}
 	}
+}
+
+impl<
+	S: std::fmt::Debug + Sized + Clone + Hash + Eq,
+	DA: std::fmt::Debug + Default,
+	D: Domain<State = S, Diff = Option<S>, DisplayAction = DA>,
+> OptionDiffDomain for D {
+	type Domain = D;
+	type State = <D as Domain>::State;
 }

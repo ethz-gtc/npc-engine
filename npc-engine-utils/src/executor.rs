@@ -1,11 +1,22 @@
 use std::marker::PhantomData;
+use std::hash::Hash;
 use npc_engine_common::{Domain, AgentId, ActiveTask, ActiveTasks, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask,};
-
 
 /// A domain for which we can run a generic executor
 pub trait ExecutableDomain: Domain {
     /// Applies a diff to a mutable state
     fn apply_diff(diff: Self::Diff, state: &mut Self::State);
+}
+impl<
+	S: std::fmt::Debug + Sized + Clone + Hash + Eq,
+	DA: std::fmt::Debug + Default,
+	D: Domain<State = S, Diff = Option<S>, DisplayAction = DA>,
+> ExecutableDomain for D {
+	fn apply_diff(diff: Self::Diff, state: &mut Self::State) {
+		if let Some(diff) = diff {
+			*state = diff;
+		}
+	}
 }
 
 /// User-defined functions for the executor
