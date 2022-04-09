@@ -21,6 +21,7 @@ impl<D: Domain> fmt::Debug for NodeInner<D> {
         f.debug_struct("NodeInner")
             .field("diff", &self.diff)
             .field("agent", &self.active_agent)
+            .field("tick", &self.tick)
             .field("tasks", &self.tasks)
             .field("current_values", &self.current_values)
             .finish()
@@ -146,12 +147,13 @@ impl<D: Domain> Hash for NodeInner<D> {
         self.active_agent.hash(hasher);
         self.diff.hash(hasher);
         self.tasks.hash(hasher);
+        self.tick.hash(hasher);
     }
 }
 
 impl<D: Domain> PartialEq for NodeInner<D> {
     fn eq(&self, other: &Self) -> bool {
-        self.active_agent.eq(&other.active_agent) && self.diff.eq(&other.diff) && self.tasks.eq(&other.tasks)
+        self.active_agent.eq(&other.active_agent) && self.diff.eq(&other.diff) && self.tasks.eq(&other.tasks) && self.tick.eq(&other.tick)
     }
 }
 

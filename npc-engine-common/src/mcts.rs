@@ -1,4 +1,4 @@
-use std::{collections::{BTreeMap, BTreeSet, btree_map::Entry}};
+use std::{collections::{BTreeMap, BTreeSet, btree_map::Entry, HashSet}};
 use std::f32;
 use std::ops::{Range};
 use std::time::{Duration, Instant};
@@ -500,6 +500,9 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             StateDiffRef::new(initial_state, &diff)
         );
         tasks.insert(new_active_task);
+        let mut agents_with_tasks = tasks.iter()
+            .map(|task| task.agent)
+            .collect::<HashSet<AgentId>>();
 
         // Create the state we need to perform the simulation
         let start_tick = node.tick;
@@ -521,6 +524,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             let active_task = tasks.iter().next().unwrap().clone();
             tasks.remove(&active_task);
             let active_agent = active_task.agent;
+            agents_with_tasks.remove(&active_agent);
 
             // Compute elapsed time and update tick
             let elapsed = active_task.end - tick;
@@ -576,17 +580,14 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 new_state_diff,
                 active_agent
             );
-            tasks = agents
-                .iter()
-                .filter(|&&agent| agent != active_agent)
-                .map(|&agent|
-                    get_task_for_agent(&tasks, agent)
-                        .map_or_else(
-                            || ActiveTask::new_idle(tick, agent, active_agent),
-                            |task| task.clone()
-                        )
-                ).
-                collect();
+            for agent in agents.iter() {
+                if *agent != active_agent {
+                    if !agents_with_tasks.contains(agent) {
+                        tasks.insert(ActiveTask::new_idle(tick, *agent, active_agent));
+                        agents_with_tasks.insert(*agent);
+                    }
+                }
+            }
 
             // If active agent is visible, insert its next task, otherwise we forget about it
             if agents.contains(&active_agent) {
@@ -626,7 +627,13 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                         StateDiffRef::new(initial_state, &diff)
                     );
                     tasks.insert(new_active_task);
+                    agents_with_tasks.insert(active_agent);
                 }
+            }
+            
+            // Make sure we do not keep track of the agents outside of the horizon
+            if tasks.len() > agents.len() {
+                tasks.retain(|active_task| agents.contains(&active_task.agent) );
             }
 
             // Update depth
