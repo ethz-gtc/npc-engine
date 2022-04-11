@@ -632,8 +632,8 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             }
             
             // Make sure we do not keep track of the agents outside of the horizon
-            if tasks.len() > agents.len() {
-                tasks.retain(|active_task| agents.contains(&active_task.agent) );
+            if agents_with_tasks.len() > agents.len() {
+                agents_with_tasks.retain(|id| agents.contains(id) );
             }
 
             // Update depth
