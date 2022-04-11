@@ -27,13 +27,6 @@ pub trait Domain: Sized + 'static {
     /// Updates the list of agents which are in the horizon of the given agent in the given tick and world state.
     fn update_visible_agents(tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
 
-    /// Gets all agents which are in the horizon of the given agent in the given tick and world state.
-    fn get_visible_agents(tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> BTreeSet<AgentId> {
-        let mut agents = BTreeSet::new();
-        Self::update_visible_agents(tick, state_diff, agent, &mut agents);
-        agents
-    }
-
     /// Gets all possible valid tasks for a given agent in a given tick and world state.
     fn get_tasks(
         tick: u64,

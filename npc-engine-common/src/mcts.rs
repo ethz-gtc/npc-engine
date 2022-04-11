@@ -503,6 +503,9 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         let mut agents_with_tasks = tasks.iter()
             .map(|task| task.agent)
             .collect::<HashSet<AgentId>>();
+        let mut agents = agents_with_tasks.iter()
+            .copied()
+            .collect();
 
         // Create the state we need to perform the simulation
         let start_tick = node.tick;
@@ -575,10 +578,11 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
             // Update the list of tasks, only considering visible agents,
             // excluding the active agent (a new task for it will be added later)
-            let agents = D::get_visible_agents(
+            D::update_visible_agents(
                 tick,
                 new_state_diff,
-                active_agent
+                active_agent,
+                &mut agents,
             );
             for agent in agents.iter() {
                 if *agent != active_agent {

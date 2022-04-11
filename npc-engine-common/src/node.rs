@@ -40,10 +40,15 @@ impl<D: Domain> NodeInner<D> {
     ) -> Self {
         let state_diff = StateDiffRef::new(initial_state, &diff);
         // Get list of agents we consider in planning
-        let agents = D::get_visible_agents(
+        let mut agents = tasks
+            .iter()
+            .map(|task| task.agent)
+            .collect();
+        D::update_visible_agents(
             tick,
             state_diff,
-            active_agent
+            active_agent,
+            &mut agents
         );
 
         // Assign idle tasks to agents without a task
