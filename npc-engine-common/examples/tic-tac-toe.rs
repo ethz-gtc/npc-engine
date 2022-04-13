@@ -267,7 +267,7 @@ impl Domain for TicTacToe {
 		}
 	}
 
-	fn update_visible_agents(_tick: u64, _state_diff: StateDiffRef<Self>, _agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+	fn update_visible_agents(_start_tick: u64, _tick: u64, _state_diff: StateDiffRef<Self>, _agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 		agents.insert(AgentId(0));
 		agents.insert(AgentId(1));
 	}

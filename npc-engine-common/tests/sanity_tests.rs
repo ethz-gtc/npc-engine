@@ -49,7 +49,7 @@ mod deferment {
 			state.value().into()
 		}
 
-		fn update_visible_agents(_tick: u64, _state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+		fn update_visible_agents(_start_tick: u64, _tick: u64, _state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 			agents.insert(agent);
 		}
 	}
@@ -234,7 +234,7 @@ mod negative {
 			state.value().into()
 		}
 
-		fn update_visible_agents(_tick: u64, _state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+		fn update_visible_agents(_start_tick: u64, _tick: u64, _state: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 			agents.insert(agent);
 		}
 	}

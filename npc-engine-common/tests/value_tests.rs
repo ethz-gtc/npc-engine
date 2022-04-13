@@ -31,7 +31,7 @@ impl Domain for TestEngine {
 		(state_diff.initial_state.0 + state_diff.diff.0).into()
 	}
 
-	fn update_visible_agents(_tick: u64, _state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+	fn update_visible_agents(_start_tick: u64, _tick: u64, _state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 		agents.insert(agent);
 	}
 }

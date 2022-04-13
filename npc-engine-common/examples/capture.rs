@@ -611,7 +611,7 @@ impl Domain for CaptureGame {
 		)
 	}
 
-	fn update_visible_agents(_tick: u64, state_diff: StateDiffRef<Self>, _agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+	fn update_visible_agents(_start_tick: u64, _tick: u64, state_diff: StateDiffRef<Self>, _agent: AgentId, agents: &mut BTreeSet<AgentId>) {
 		let state = Self::get_cur_state(state_diff);
 		agents.clear();		
 		agents.extend(state.agents.keys());

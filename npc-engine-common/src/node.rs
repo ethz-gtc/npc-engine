@@ -33,6 +33,7 @@ impl<D: Domain> NodeInner<D> {
     /// Return None if no active agent is not visible, and Some(node) otherwise.
     pub fn new(
         initial_state: &D::State,
+        start_tick: u64,
         diff: D::Diff,
         active_agent: AgentId,
         tick: u64,
@@ -45,6 +46,7 @@ impl<D: Domain> NodeInner<D> {
             .map(|task| task.agent)
             .collect();
         D::update_visible_agents(
+            start_tick,
             tick,
             state_diff,
             active_agent,

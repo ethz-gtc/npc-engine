@@ -78,6 +78,7 @@ impl<D: Domain> MCTS<D> {
         // Create new root node
         let root = Node::new(NodeInner::new(
             &initial_state,
+            start_tick,
             Default::default(),
             root_agent,
             start_tick,
@@ -154,6 +155,7 @@ impl<D: Domain> MCTS<D> {
                         &mut self.rng,
                         &self.config,
                         &self.initial_state,
+                        self.start_tick,
                         &leaf,
                         edges,
                         depth,
@@ -253,6 +255,7 @@ impl<D: Domain> MCTS<D> {
                 // Create expanded node state
                 let child_state = NodeInner::new(
                     &self.initial_state,
+                    self.start_tick,
                     diff,
                     next_active_task.agent,
                     next_active_task.end,
@@ -457,6 +460,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
         rng: &mut ChaCha8Rng,
         config: &MCTSConfiguration,
         initial_state: &D::State,
+        start_tick: u64,
         node: &Node<D>,
         edges: &Edges<D>,
         depth: u32,
@@ -508,7 +512,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             .collect();
 
         // Create the state we need to perform the simulation
-        let start_tick = node.tick;
+        let rollout_start_tick = node.tick;
         let mut tick = node.tick;
         let mut depth = depth;
         while depth < config.depth {
@@ -564,7 +568,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 let (current_value, estimated_value) = entry.get_mut();
 
                 // Compute discount
-                let discount = MCTS::<D>::discount_factor(active_task.end - start_tick, config);
+                let discount = MCTS::<D>::discount_factor(active_task.end - rollout_start_tick, config);
 
                 // Update estimated value with discounted difference in current values
                 let new_current_value = D::get_current_value(
@@ -579,6 +583,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             // Update the list of tasks, only considering visible agents,
             // excluding the active agent (a new task for it will be added later)
             D::update_visible_agents(
+                start_tick,
                 tick,
                 new_state_diff,
                 active_agent,

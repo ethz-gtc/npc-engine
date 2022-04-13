@@ -25,7 +25,7 @@ impl Domain for Lumberjacks {
         AgentValue::new(value).unwrap()
     }
 
-    fn update_visible_agents(_tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+    fn update_visible_agents(_start_tick: u64, _tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
         if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.plan_others {
                 agents.extend(

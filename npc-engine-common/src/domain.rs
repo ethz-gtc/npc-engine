@@ -25,7 +25,7 @@ pub trait Domain: Sized + 'static {
     fn get_current_value(tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue;
 
     /// Updates the list of agents which are in the horizon of the given agent in the given tick and world state.
-    fn update_visible_agents(tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
+    fn update_visible_agents(start_tick: u64, tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
 
     /// Gets all possible valid tasks for a given agent in a given tick and world state.
     fn get_tasks(
@@ -58,6 +58,7 @@ pub trait StateValueEstimator<D: Domain> {
         rnd: &mut ChaCha8Rng,
         config: &MCTSConfiguration,
         initial_state: &D::State,
+        start_tick: u64,
         node: &Node<D>,
         edges: &Edges<D>,
         depth: u32,
