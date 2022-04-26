@@ -64,7 +64,15 @@ impl<D: Domain> MCTS<D> {
         root_agent: AgentId,
         config: MCTSConfiguration,
     ) -> Self {
-        Self::new_with_tasks(initial_state, root_agent, 0, Default::default(), config)
+        let state_value_estimator = Box::new(DefaultPolicyEstimator {});
+        Self::new_with_tasks(
+            initial_state,
+            root_agent,
+            0,
+            Default::default(),
+            config,
+            state_value_estimator
+        )
     }
 
     /// Instantiate a new search tree for the given state, with active tasks for all agents and starting at a given tick
@@ -74,6 +82,7 @@ impl<D: Domain> MCTS<D> {
         start_tick: u64,
         tasks: ActiveTasks<D>,
         config: MCTSConfiguration,
+        state_value_estimator: Box<dyn StateValueEstimator<D>>
     ) -> Self {
         // Create new root node
         let root = Node::new(NodeInner::new(
@@ -101,7 +110,7 @@ impl<D: Domain> MCTS<D> {
         MCTS {
             time: Duration::default(),
             config,
-            state_value_estimator: Box::new(DefaultPolicyEstimator {}),
+            state_value_estimator,
             early_stop_condition: None,
             seed: cur_seed,
             root_agent,
@@ -132,6 +141,12 @@ impl<D: Domain> MCTS<D> {
                         Some(tasks[index].clone())
                     })
                 )
+    }
+
+    /// Return the q-value at root
+    pub fn q_value_at_root(&self, agent: AgentId) -> f32 {
+        let edges = self.nodes.get(&self.root).unwrap();
+		edges.q_value((0, 0.), agent).unwrap()
     }
 
     /// Execute the MCTS search. Returns the current best task, if there is at least one task for the root node.
@@ -452,7 +467,7 @@ impl<D: Domain> MCTS<D> {
     }
 }
 
-struct DefaultPolicyEstimator {}
+pub struct DefaultPolicyEstimator {}
 impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
     /// MCTS default policy. Performs the simulation phase.
     fn estimate(

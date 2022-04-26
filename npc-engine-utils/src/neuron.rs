@@ -4,7 +4,7 @@ use rand::Rng;
 
 const RELU_LEAK: f32 = 0.01;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 /// A simple leaky ReLU neuron
 pub struct Neuron<const I: usize> {
 	pub weights: [f32; I],
@@ -29,6 +29,13 @@ impl<const I: usize> Neuron<I> {
 		Self {
 			weights: [0.; I].map(|_| rng.gen_range(-1.0..1.0)),
 			bias: rng.gen_range(-1.0..1.0)
+		}
+	}
+	pub fn random_with_range(range: f32) -> Self {
+		let mut rng = rand::thread_rng();
+		Self {
+			weights: [0.; I].map(|_| rng.gen_range(-range..range)),
+			bias: rng.gen_range(-range..range)
 		}
 	}
 	fn leaky_relu(x: f32) -> f32 {
@@ -94,7 +101,7 @@ impl<const I: usize> Neuron<I> {
 	}
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NetworkWithHiddenLayer<const I: usize, const H: usize> {
 	pub hidden_layer: [Neuron<I>; H],
 	pub output_layer: Neuron<H>

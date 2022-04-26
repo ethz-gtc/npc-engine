@@ -1,6 +1,5 @@
-use std::marker::PhantomData;
 use std::hash::Hash;
-use npc_engine_common::{Domain, AgentId, ActiveTask, ActiveTasks, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask,};
+use npc_engine_common::{Domain, AgentId, ActiveTask, ActiveTasks, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask, StateValueEstimator, DefaultPolicyEstimator};
 
 /// A domain for which we can run a generic executor
 pub trait ExecutableDomain: Domain {
@@ -19,48 +18,54 @@ impl<
 	}
 }
 
-/// User-defined functions for the executor
-pub trait ExecutorCallbacks<D: ExecutableDomain> {
-	/// Creates the initial state
-	fn create_initial_state() -> D::State;
+/// User-defined properties for the executor, consisting of a set of
+/// helper functions and possibly an associated state.
+pub trait ExecutorState<D: ExecutableDomain> {
+	/// Creates the state value estimator
+	fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<D>> {
+		Box::new(DefaultPolicyEstimator {})
+	}
+	/// Creates the initial world state
+	fn create_initial_state(&self) -> D::State;
 	/// Fills the initial queue of tasks
-	fn init_task_queue() -> ActiveTasks<D>;
+	fn init_task_queue(&self) -> ActiveTasks<D>;
 	/// Returns whether an agent should be kept in a given state (to remove dead agents)
-	fn keep_agent(state: &D::State, agent: AgentId) -> bool;
+	fn keep_agent(&self, tick: u64, state: &D::State, agent: AgentId) -> bool;
 	/// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents
-	fn post_action_execute_hook(_state: &D::State, _diff: &D::Diff, _active_task: &ActiveTask<D>, _queue: &mut ActiveTasks<D>) {}
+	fn post_action_execute_hook(&mut self, _state: &D::State, _diff: &D::Diff, _active_task: &ActiveTask<D>, _queue: &mut ActiveTasks<D>) {}
 	/// Method called after MCTS has run, to perform tasks such as printing the search tree
-	fn post_mcts_run_hook(_mcts: &MCTS<D>, _last_active_task: &ActiveTask<D>) {}
+	fn post_mcts_run_hook(&mut self, _mcts: &MCTS<D>, _last_active_task: &ActiveTask<D>) {}
 }
 
 /// A single-threaded generic executor
-pub struct SimpleExecutor<D, CB>
+pub struct SimpleExecutor<'a, D, S>
 	where
 		D: ExecutableDomain,
 		D::State: Clone,
-		CB: ExecutorCallbacks<D>
+		S: ExecutorState<D>
 {
 	/// The attached MCTS configuration
-	pub config: MCTSConfiguration,
+	pub mcts_config: MCTSConfiguration,
+	/// The state of this executor
+	pub executor_state: &'a mut S,
 	/// The current state of the world
 	pub state: D::State,
 	/// The current queue of tasks
 	pub task_queue: ActiveTasks<D>,
-	_phantom: PhantomData<CB>,
 }
-impl<D, CB> SimpleExecutor<D, CB>
+impl<'a, D, S> SimpleExecutor<'a, D, S>
 	where
 		D: ExecutableDomain,
 		D::State: Clone,
-		CB: ExecutorCallbacks<D>
+		S: ExecutorState<D>
 {
 	/// Creates a new executor, initializes state and task queue from the CB trait
-	pub fn new(config: MCTSConfiguration) -> Self {
+	pub fn new(mcts_config: MCTSConfiguration, executor_state: &'a mut S) -> Self {
 		Self {
-			config,
-			state: CB::create_initial_state(),
-			task_queue: CB::init_task_queue(),
-			_phantom: PhantomData
+			mcts_config,
+			state: executor_state.create_initial_state(),
+			task_queue: executor_state.init_task_queue(),
+			executor_state
 		}
 	}
 
@@ -77,7 +82,7 @@ impl<D, CB> SimpleExecutor<D, CB>
 		let tick = active_task.end;
 
 		// Should we continue considering that agent?
-		if !CB::keep_agent(&self.state, active_agent) {
+		if !self.executor_state.keep_agent(tick, &self.state, active_agent) {
 			return true;
 		}
 
@@ -98,7 +103,7 @@ impl<D, CB> SimpleExecutor<D, CB>
 			log::info!("Valid task, executing...");
 			let state_diff_mut = StateDiffRefMut::new(&self.state, &mut diff);
 			let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
-			CB::post_action_execute_hook(&self.state, &diff, &active_task, &mut self.task_queue);
+			self.executor_state.post_action_execute_hook(&self.state, &diff, &active_task, &mut self.task_queue);
 			D::apply_diff(diff, &mut self.state);
 			new_task
 		} else {
@@ -114,10 +119,11 @@ impl<D, CB> SimpleExecutor<D, CB>
 				active_agent,
 				tick,
 				self.task_queue.clone(),
-				self.config.clone()
+				self.mcts_config.clone(),
+				self.executor_state.create_state_value_estimator()
 			);
 			let new_task = mcts.run().unwrap_or_else(|| Box::new(IdleTask));
-			CB::post_mcts_run_hook(&mcts, &active_task);
+			self.executor_state.post_mcts_run_hook(&mcts, &active_task);
 			new_task
 		});
 
@@ -136,14 +142,17 @@ impl<D, CB> SimpleExecutor<D, CB>
 }
 
 /// Creates and runs a single-threaded executor, initializes state and task queue from the CB trait
-pub fn run_simple_executor<D, CB>(config: &MCTSConfiguration)
+pub fn run_simple_executor<D, S>(mcts_config: &MCTSConfiguration, executor_state: &mut S)
 	where
 		D: ExecutableDomain,
 		D::State: Clone,
-		CB: ExecutorCallbacks<D>
+		S: ExecutorState<D>
 {
 	// Initialize the state and the agent queue
-	let mut executor = SimpleExecutor::<D, CB>::new(config.clone());
+	let mut executor = SimpleExecutor::<D, S>::new(
+		mcts_config.clone(),
+		executor_state
+	);
 	loop {
 		if !executor.step() {
 			break;

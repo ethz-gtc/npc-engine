@@ -4,7 +4,7 @@ use nonmax::NonMaxU8;
 extern crate lazy_static;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, impl_task_boxed_methods, StateDiffRefMut, Domain, IdleTask, TaskDuration, Behavior, AgentValue, ActiveTask, MCTSConfiguration, MCTS, graphviz, ActiveTasks};
-use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorCallbacks, OptionDiffDomain};
+use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorState, OptionDiffDomain};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 struct Location(NonMaxU8);
@@ -619,10 +619,9 @@ impl Domain for CaptureGame {
 	}
 }
 
-struct CaptureGameCallbacks;
-impl ExecutorCallbacks<CaptureGame> for CaptureGameCallbacks {
-
-	fn create_initial_state() -> State {
+struct CaptureGameExecutorState;
+impl ExecutorState<CaptureGame> for CaptureGameExecutorState {
+	fn create_initial_state(&self) -> State {
 		let agent0_id = AgentId(0);
 		let agent0_state = AgentState {
 			acc_capture: 0,
@@ -656,7 +655,7 @@ impl ExecutorCallbacks<CaptureGame> for CaptureGameCallbacks {
 		}
 	}
 
-	fn init_task_queue() -> ActiveTasks<CaptureGame> {
+	fn init_task_queue(&self) -> ActiveTasks<CaptureGame> {
 		vec![
 			ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)),
 			ActiveTask::new_with_end(0, AgentId(1), Box::new(IdleTask)),
@@ -664,11 +663,11 @@ impl ExecutorCallbacks<CaptureGame> for CaptureGameCallbacks {
 		].into_iter().collect()
 	}
 
-	fn keep_agent(state: &State, agent: AgentId) -> bool {
+	fn keep_agent(&self, _tick: u64, state: &State, agent: AgentId) -> bool {
 		agent == WORLD_AGENT_ID || state.agents.contains_key(&agent)
 	}
 
-	fn post_mcts_run_hook(mcts: &MCTS<CaptureGame>, last_active_task: &ActiveTask<CaptureGame>) {
+	fn post_mcts_run_hook(&mut self, mcts: &MCTS<CaptureGame>, last_active_task: &ActiveTask<CaptureGame>) {
 		let time_text = format!("T{}", mcts.start_tick);
 		let agent_id_text = format!("A{}", mcts.agent().0);
 		let task_name = format!("{:?}", last_active_task.task);
@@ -709,5 +708,9 @@ fn main() {
 		)
 		.filter(None, log::LevelFilter::Info)
 		.init();
-	run_simple_executor::<CaptureGame, CaptureGameCallbacks>(&CONFIG);
+	let mut executor_state = CaptureGameExecutorState;
+	run_simple_executor::<CaptureGame, CaptureGameExecutorState>(
+		&CONFIG,
+		&mut executor_state
+	);
 }
