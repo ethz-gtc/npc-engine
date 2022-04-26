@@ -41,12 +41,16 @@ A 1-D woodcutter simulation where the agent's performance improves over time due
 An agent must collect wood in a 1-D world, while using a low number of visits for the MCTS.
 The state value function estimator is not the traditional roll-out simulation, but instead a feed-forward neural network with one hidden layer containing two neurons.
 The simulation is repeated over multiple epochs, each time using the MCTS-based state value estimation to train the neural network for the next epoch using back-propagation.
-This simulations shows that on the course of some hundreads of epochs, the performance of the agent — the amount of wood collected during a certain duration — doubles.
+This simulations shows that on the course of some hundreads of epochs, the performance of the agent — the amount of wood collected during a certain duration — improves by more than 50 %.
 
 With Python 3, `scipy` and `matplotlib` installed, the performance over epochs, averaged over 20 runs, can be seen with the following command:
 ```
 npc-engine-common/examples/plot-learn.py
 ```
+
+The curve should look like that:
+
+![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
 ## Please cite us
 

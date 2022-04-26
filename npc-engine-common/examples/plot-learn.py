@@ -13,6 +13,7 @@ for run in range(20):
 	os.system('target/release/examples/learn > output.csv')
 	with open('output.csv') as f:
 		Xs.append([float(x) for x in f.readlines()])
+os.system('rm -f output.csv')
 X = np.average(Xs, axis = 0)
 avg_X = ndimage.uniform_filter1d(X, 100)
 plt.plot(X)
