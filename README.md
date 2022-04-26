@@ -19,13 +19,13 @@ We provide several examples that illustrate the various features of the engine.
 
 ### Tic-tac-toe
 
-File [`tic-tac-toe.rs`](ncp-engine-common/examples/tic-tac-toe.rs)
+File [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
 
 A traditional tic-tac-toe turn-based game to play interactively against the computer.
 
 ### Capture
 
-File [`capture.rs`](ncp-engine-common/examples/capture.rs)
+File [`capture.rs`](npc-engine-common/examples/capture.rs)
 
 A simulation of a competitive battle for capturing locations between two agents.
 
@@ -34,7 +34,7 @@ This domain demonstrates actions of various durations, a world agent that respaw
 
 ### Learn
 
-File [`learn.rs`](ncp-engine-common/examples/learn.rs)
+File [`learn.rs`](npc-engine-common/examples/learn.rs)
 
 A 1-D woodcutter simulation where the agent's performance improves over time due to self learning.
 
