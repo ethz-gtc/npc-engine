@@ -48,11 +48,27 @@ pub trait Domain: Sized + 'static {
     fn get_state_description(_state_diff: StateDiffRef<Self>) -> String {
         String::new()
     }
+
+    /// Gets the new agents present in a diff but not in a state
+    fn get_new_agents(_state_diff: StateDiffRef<Self>) -> Vec<AgentId> {
+        vec![]
+    }
+
+    /// Gets the display actions for idle task
+    fn display_action_task_idle() -> Self::DisplayAction {
+        Default::default()
+    }
+
+    /// Gets the display actions for planning task
+    fn display_action_task_planning() -> Self::DisplayAction {
+        Default::default()
+    }
 }
+
 
 /// Estimator of state-value function: takes state of explored node and returns the estimated expected (discounted) values
 /// Return None if the passed node has no unexpanded edge.
-pub trait StateValueEstimator<D: Domain> {
+pub trait StateValueEstimator<D: Domain>: Send {
     fn estimate(
         &mut self,
         rnd: &mut ChaCha8Rng,

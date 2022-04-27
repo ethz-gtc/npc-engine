@@ -267,7 +267,7 @@ struct LearnExecutorState {
 	planned_values: Vec<([f32; 5], f32)>
 }
 impl ExecutorState<LearnDomain> for LearnExecutorState {
-	fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<LearnDomain>> {
+	fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<LearnDomain> + Send> {
 		Box::new(self.estimator.clone())
 	}
 
@@ -314,7 +314,8 @@ fn main() {
 		depth: TICKS_PER_ROUND as u32,
 		exploration: 1.414,
 		discount_hl: TICKS_PER_ROUND as f32 / 3.,
-		seed: None
+		seed: None,
+		planning_task_duration: None,
 	};
 	graphviz::GRAPH_OUTPUT_DEPTH.store(4, std::sync::atomic::Ordering::Relaxed);
 	/*use std::io::Write;

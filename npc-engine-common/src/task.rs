@@ -1,4 +1,4 @@
-use std::{hash::{Hash, Hasher}};
+use std::{hash::{Hash, Hasher}, num::NonZeroU64};
 
 use downcast_rs::{impl_downcast, Downcast};
 
@@ -61,7 +61,35 @@ impl<D: Domain> Task<D> for IdleTask {
     }
 
     fn display_action(&self) -> D::DisplayAction {
-        Default::default()
+        D::display_action_task_idle()
+    }
+
+    impl_task_boxed_methods!(D);
+}
+
+/// A task to represent planning in the planning tree, if these need to be represented
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PlanningTask(pub NonZeroU64);
+
+impl<D: Domain> Task<D> for PlanningTask {
+    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
+        1f32
+    }
+
+    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration {
+        self.0.get()
+    }
+
+    fn execute(&self, _tick: u64, _state_diff: StateDiffRefMut<D>, _agent: AgentId) -> Option<Box<dyn Task<D>>> {
+        None
+    }
+
+    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> bool {
+        true
+    }
+
+    fn display_action(&self) -> D::DisplayAction {
+        D::display_action_task_planning()
     }
 
     impl_task_boxed_methods!(D);

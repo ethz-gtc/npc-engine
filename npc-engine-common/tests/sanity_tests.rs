@@ -182,7 +182,8 @@ mod deferment {
 			depth: 10,
 			exploration: 1.414,
 			discount_hl: 15.,
-			seed: None
+			seed: None,
+			planning_task_duration: None,
 		};
 		init_logger();
 		let agent = AgentId(0);
@@ -358,7 +359,8 @@ mod negative {
 					depth,
 					exploration: 1.414,
 					discount_hl: 15.,
-					seed: None
+					seed: None,
+					planning_task_duration: None,
 				};
 				let agent = AgentId(0);
 

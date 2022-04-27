@@ -89,9 +89,14 @@ impl<D: Domain> NodeInner<D> {
         }
     }
 
-    /// Returns agent who owns the node.
+    /// Return agent who owns the node
     pub fn agent(&self) -> AgentId {
         self.active_agent
+    }
+
+    /// Return the tick
+    pub fn tick(&self) -> u64 {
+        self.tick
     }
 
     /// Return all agents that are in considered by this node
@@ -102,7 +107,7 @@ impl<D: Domain> NodeInner<D> {
             .collect()
     }
 
-    /// Returns diff of current node.
+    /// Return diff of current node.
     pub fn diff(&self) -> &D::Diff {
         &self.diff
     }

@@ -87,6 +87,7 @@ impl GameState {
             exploration: config().mcts.exploration,
             discount_hl: 2f32.powf(-1.0 / config().mcts.discount),
             seed: Some(seed),
+            ..Default::default()
         };
         let objectives = BTreeMap::new();
 

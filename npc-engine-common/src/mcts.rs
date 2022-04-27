@@ -27,8 +27,8 @@ pub struct MCTS<D: Domain> {
 
     // Config
     pub(crate) config: MCTSConfiguration,
-    state_value_estimator: Box<dyn StateValueEstimator<D>>,
-    early_stop_condition: Option<Box<EarlyStopCondition>>,
+    state_value_estimator: Box<dyn StateValueEstimator<D> + Send>,
+    pub early_stop_condition: Option<Box<EarlyStopCondition>>,
 
     // Run-specific parameters
     pub(crate) root_agent: AgentId,
@@ -36,7 +36,7 @@ pub struct MCTS<D: Domain> {
 
     // Nodes
     pub root: Node<D>,
-    nodes: SeededHashMap<Node<D>, Edges<D>>,
+    pub nodes: SeededHashMap<Node<D>, Edges<D>>,
 
     // Globals
     q_value_ranges: BTreeMap<AgentId, Range<AgentValue>>,
@@ -82,7 +82,7 @@ impl<D: Domain> MCTS<D> {
         start_tick: u64,
         tasks: ActiveTasks<D>,
         config: MCTSConfiguration,
-        state_value_estimator: Box<dyn StateValueEstimator<D>>
+        state_value_estimator: Box<dyn StateValueEstimator<D> + Send>
     ) -> Self {
         // Create new root node
         let root = Node::new(NodeInner::new(
@@ -156,7 +156,7 @@ impl<D: Domain> MCTS<D> {
 
         let start = Instant::now();
         let max_visits = self.config.visits;
-        for _ in 0..max_visits {
+        for i in 0..max_visits {
             // Execute tree policy, if expansion resulted in no node, do nothing
             let tree_policy_outcome = self.tree_policy();
 
@@ -188,6 +188,7 @@ impl<D: Domain> MCTS<D> {
             // Early stopping if told so by some user-defined condition
             if let Some(early_stop_condition) = &self.early_stop_condition {
                 if early_stop_condition() {
+                    log::debug!("{:?} early stops planning after {} visits", self.agent(), i);
                     break;
                 }
             }
@@ -267,7 +268,26 @@ impl<D: Domain> MCTS<D> {
                     None
                 };
 
+                // If we do not have a forced follow-up task...
+                let after_next_task = if after_next_task.is_none() {
+                    // And we have a forced planning task, handle it
+                    if let Some(planning_task_duration) = self.config.planning_task_duration {
+                        if next_active_task.task.downcast_ref::<PlanningTask>().is_none() {
+                            // the incoming task was not planning, so the next one should be
+                            let task: Box<dyn Task<D>> = Box::new(PlanningTask(planning_task_duration));
+                            Some(task)
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    after_next_task
+                };
+
                 // Create expanded node state
+                // let was_planning = task.downcast_ref::<Plan>().is_some();
                 let child_state = NodeInner::new(
                     &self.initial_state,
                     self.start_tick,
@@ -328,7 +348,7 @@ impl<D: Domain> MCTS<D> {
             // New node is the current child node
             let parent_tick = node.tick;
             node = {
-                let edge = edge.borrow();
+                let edge = edge.lock().unwrap();
                 edge.child.upgrade().unwrap()
             };
             let child_tick = node.tick;
@@ -348,7 +368,7 @@ impl<D: Domain> MCTS<D> {
         // Backtracking
         path.drain(..).rev().for_each(|edge| {
             // Increment child node visit count
-            let edge = &mut edge.borrow_mut();
+            let edge = &mut edge.lock().unwrap();
             edge.visits += 1;
             if let Some(rollout_values) = &rollout_values {
                 let parent_node = edge.parent.upgrade().unwrap();
@@ -408,7 +428,7 @@ impl<D: Domain> MCTS<D> {
     }
 
     // Returns the range of minimum and maximum global values.
-    fn min_max_range(&self, agent: AgentId) -> Range<AgentValue> {
+    pub fn min_max_range(&self, agent: AgentId) -> Range<AgentValue> {
         self.q_value_ranges
             .get(&agent)
             .cloned()
@@ -578,6 +598,24 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             };
             let new_state_diff = StateDiffRef::new(initial_state, &diff);
 
+            // If we do not have a forced follow-up task...
+            let new_task = if new_task.is_none() {
+                // And we have a forced planning task, handle it
+                if let Some(planning_task_duration) = config.planning_task_duration {
+                    if active_task.task.downcast_ref::<PlanningTask>().is_none() {
+                        // the incoming task was not planning, so the next one should be
+                        let task: Box<dyn Task<D>> = Box::new(PlanningTask(planning_task_duration));
+                        Some(task)
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            } else {
+                new_task
+            };
+
             // if the values for the agent executing the task are being tracked, update them
             if let Entry::Occupied(mut entry) = values.entry(active_agent) {
                 let (current_value, estimated_value) = entry.get_mut();
@@ -746,7 +784,7 @@ pub mod graphviz {
 
             let edges = self.nodes.get(node).unwrap();
             for edge in edges.expanded_tasks.values() {
-                if let Ok(edge) = edge.try_borrow() {
+                if let Ok(edge) = edge.try_lock() {
                     // Prevent recursion
                     if let Some(child) = edge.child.upgrade() {
                         // TODO: Priority queue
@@ -778,7 +816,7 @@ pub mod graphviz {
                     let best_task = edges.best_task(node.active_agent, 0., range.clone()).unwrap();
                     let visits = edges.child_visits();
                     edges.expanded_tasks.iter().for_each(|(obj, _edge)| {
-                        let edge = _edge.borrow();
+                        let edge = _edge.lock().unwrap();
 
                         let parent = edge.parent.upgrade().unwrap();
                         let child = edge.child.upgrade().unwrap();

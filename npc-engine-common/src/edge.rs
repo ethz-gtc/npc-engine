@@ -1,4 +1,4 @@
-use std::{ops::Range, mem, sync::Arc, cell::RefCell, fmt, collections::BTreeSet};
+use std::{ops::Range, mem, sync::{Arc, Mutex}, fmt, collections::BTreeSet};
 
 use crate::{Domain, AgentId, SeededHashMap, Task, StateDiffRef, Node, WeakNode, AgentValue};
 
@@ -81,7 +81,7 @@ impl<D: Domain> Edges<D> {
     pub fn child_visits(&self) -> usize {
         self.expanded_tasks
             .values()
-            .map(|edge| edge.borrow().visits)
+            .map(|edge| edge.lock().unwrap().visits)
             .sum()
     }
 
@@ -96,8 +96,8 @@ impl<D: Domain> Edges<D> {
         self.expanded_tasks
             .iter()
             .max_by(|(_, a), (_, b)| {
-                let a = a.borrow();
-                let b = b.borrow();
+                let a = a.lock().unwrap();
+                let b = b.lock().unwrap();
                 a.uct(agent, visits, exploration, range.clone())
                     .partial_cmp(&b.uct(agent, visits, exploration, range.clone()))
                     .unwrap()
@@ -111,7 +111,7 @@ impl<D: Domain> Edges<D> {
         self.expanded_tasks
             .values()
             .map(|edge| {
-                edge.try_borrow()
+                edge.try_lock()
                     .map(|edge| {
                         (
                             edge.visits,
@@ -147,14 +147,14 @@ impl<D: Domain> Edges<D> {
 
         for (task, edge) in &self.expanded_tasks {
             size += task_size(&**task);
-            size += edge.borrow().size();
+            size += edge.lock().unwrap().size();
         }
 
         size
     }
 }
 
-pub type Edge<D> = Arc<RefCell<EdgeInner<D>>>;
+pub type Edge<D> = Arc<Mutex<EdgeInner<D>>>;
 
 pub struct EdgeInner<D: Domain> {
     pub parent: WeakNode<D>,
@@ -175,7 +175,7 @@ impl<D: Domain> fmt::Debug for EdgeInner<D> {
 }
 
 pub fn new_edge<D: Domain>(parent: &Node<D>, child: &Node<D>, agents: &BTreeSet<AgentId>) -> Edge<D> {
-    Arc::new(RefCell::new(EdgeInner {
+    Arc::new(Mutex::new(EdgeInner {
         parent: Node::downgrade(parent),
         child: Node::downgrade(child),
         visits: Default::default(),

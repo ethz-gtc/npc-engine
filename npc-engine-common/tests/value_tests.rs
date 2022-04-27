@@ -98,7 +98,8 @@ fn linear_bellman() {
 		depth: 5,
 		exploration: 1.414,
 		discount_hl: 15.,
-		seed: None
+		seed: None,
+		planning_task_duration: None,
 	};
 	env_logger::init();
 	let agent = AgentId(0);
@@ -136,7 +137,7 @@ fn linear_bellman() {
 		let edges = mcts.get_edges(&node).unwrap();
 		assert_eq!(edges.expanded_tasks.len(), 1);
 		let edge_rc = edges.expanded_tasks.values().next().unwrap();
-		let edge = edge_rc.borrow();
+		let edge = edge_rc.lock().unwrap();
 
 		node = edge.child.upgrade().unwrap();
 

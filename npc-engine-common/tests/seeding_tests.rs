@@ -104,6 +104,7 @@ fn seed() {
 			exploration: 1.414,
 			discount_hl: 15.,
 			seed: Some(seed),
+			planning_task_duration: None,
 		};
 		let state = State(Default::default());
 		let mut mcts = MCTS::<TestEngine>::new(

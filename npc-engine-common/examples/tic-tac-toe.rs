@@ -285,7 +285,8 @@ fn main() {
 		depth: 9,
 		exploration: 1.414,
 		discount_hl: f32::INFINITY,
-		seed: None
+		seed: None,
+		planning_task_duration: None,
 	};
 	graphviz::GRAPH_OUTPUT_DEPTH.store(6, std::sync::atomic::Ordering::Relaxed);
 	env_logger::init();

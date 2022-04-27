@@ -698,7 +698,8 @@ fn main() {
 		depth: 50,
 		exploration: 1.414,
 		discount_hl: 17.,
-		seed: None
+		seed: None,
+		planning_task_duration: None,
 	};
 	graphviz::GRAPH_OUTPUT_DEPTH.store(7, std::sync::atomic::Ordering::Relaxed);
 	use std::io::Write;

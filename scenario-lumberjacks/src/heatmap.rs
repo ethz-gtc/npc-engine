@@ -36,7 +36,7 @@ pub fn heatmap_hook() -> PostMCTSHookFn {
                 // Get nodes for this agent
                 mcts.nodes().for_each(|(_, edges)| {
                     edges.into_iter().for_each(|(_, edge)| {
-                        let edge = edge.borrow();
+                        let edge = edge.lock().unwrap();
                         let child = edge.child.upgrade().unwrap();
 
                         if child.agent() == agent {

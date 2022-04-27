@@ -117,7 +117,8 @@ fn ucb() {
 		depth: 1,
 		exploration: 1.414,
 		discount_hl: 15.,
-		seed: None
+		seed: None,
+		planning_task_duration: None
 	};
 	env_logger::init();
 	let agent = AgentId(0);
@@ -141,12 +142,14 @@ fn ucb() {
 		.expanded_tasks
 		.get(&(Box::new(TestTask(true)) as Box<dyn Task<TestEngine>>))
 		.unwrap()
-		.borrow();
+		.lock()
+		.unwrap();
 	let edge_b = edges
 		.expanded_tasks
 		.get(&(Box::new(TestTask(false)) as Box<dyn Task<TestEngine>>))
 		.unwrap()
-		.borrow();
+		.lock()
+		.unwrap();
 
 	assert!(
 		(edge_a.uct(
