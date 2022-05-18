@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import os
 import numpy as np
 import scipy.ndimage as ndimage
@@ -16,8 +17,14 @@ for run in range(20):
 os.system('rm -f output.csv')
 X = np.average(Xs, axis = 0)
 avg_X = ndimage.uniform_filter1d(X, 100)
+plot_to_file = len(sys.argv) > 1
+if plot_to_file:
+	plt.rcParams["figure.figsize"] = (3.3, 1.6)
 plt.plot(X)
 plt.plot(avg_X)
 plt.xlabel('epoch')
 plt.ylabel('wood collected')
-plt.show()
+if plot_to_file:
+	plt.savefig(sys.argv[1], bbox_inches='tight')
+else:
+	plt.show()
