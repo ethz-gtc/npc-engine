@@ -1,6 +1,6 @@
 # NPC engine
 
-A customizable Monte Carlo Tree Search (MCTS) planner with advanced featured tailored at multi-agent simulations and emergent narratives, by [ETH Game Technology Center](https://gtc.inf.ethz.ch/research/emergent-narrative.html).
+A customizable Monte Carlo Tree Search (MCTS) planner with advanced featured tailored at multi-agent simulations and emergent narratives, by the [ETH Game Technology Center](https://gtc.inf.ethz.ch/research/emergent-narrative.html).
 
 NPC engine provides the following features:
 

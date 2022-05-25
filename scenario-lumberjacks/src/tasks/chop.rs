@@ -2,8 +2,9 @@ use std::{num::NonZeroU8};
 use std::hash::Hash;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_utils::{Direction, DIRECTIONS};
 
-use crate::{config, Action, Direction, Lumberjacks, Tile, DIRECTIONS, WorldStateMut, WorldState};
+use crate::{config, Action, Lumberjacks, Tile, WorldStateMut, WorldState, apply_direction};
 
 // SAFETY: this is safe as 1 is non-zero. This is actually a work-around the fact
 // that Option::unwrap() is currently not const, but we need a constant in the match arm below.
@@ -33,7 +34,7 @@ impl Task<Lumberjacks> for Chop {
         state_diff.increment_time();
 
         if let Some((x, y)) = state_diff.find_agent(agent) {
-            let (x, y) = self.direction.apply(x, y);
+            let (x, y) = apply_direction(self.direction, x, y);
 
             match state_diff.get_tile_ref_mut(x, y) {
                 Some(tile @ Tile::Tree(NON_ZERO_U8_1)) => {
@@ -47,7 +48,7 @@ impl Task<Lumberjacks> for Chop {
 
             if config().features.teamwork {
                 for direction in DIRECTIONS {
-                    let (x, y) = direction.apply(x, y);
+                    let (x, y) = apply_direction(direction, x, y);
                     if let Some(Tile::Agent(agent)) = state_diff.get_tile(x, y) {
                         state_diff.increment_inventory(agent);
                     }
@@ -68,7 +69,7 @@ impl Task<Lumberjacks> for Chop {
 
     fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((x, y)) = state_diff.find_agent(agent) {
-            let (x, y) = self.direction.apply(x, y);
+            let (x, y) = apply_direction(self.direction, x, y);
             matches!(state_diff.get_tile(x, y), Some(Tile::Tree(_)))
         } else {
             unreachable!("Could not find agent on map!")

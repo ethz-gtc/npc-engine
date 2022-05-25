@@ -2,8 +2,9 @@
 use std::hash::Hash;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_utils::Direction;
 
-use crate::{config, Action, Direction, Lumberjacks, Tile, WorldStateMut, WorldState};
+use crate::{config, Action, Lumberjacks, Tile, WorldStateMut, WorldState, apply_direction};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Move {
@@ -31,7 +32,7 @@ impl Task<Lumberjacks> for Move {
 
         if let Some((x, y)) = state_diff.find_agent(agent) {
             let direction = self.path.first().unwrap();
-            let (_x, _y) = direction.apply(x, y);
+            let (_x, _y) = apply_direction(*direction, x, y);
             state_diff.set_tile(x, y, Tile::Empty);
             state_diff.set_tile(_x, _y, Tile::Agent(agent));
 
@@ -59,7 +60,7 @@ impl Task<Lumberjacks> for Move {
     fn is_valid(&self, _tick: u64,state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((mut x, mut y)) = state_diff.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
-                let tmp = direction.apply(x, y);
+                let tmp = apply_direction(*direction, x, y);
                 x = tmp.0;
                 y = tmp.1;
                 state_diff

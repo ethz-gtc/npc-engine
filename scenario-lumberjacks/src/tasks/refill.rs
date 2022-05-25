@@ -1,8 +1,9 @@
 use std::hash::Hash;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_utils::DIRECTIONS;
 
-use crate::{config, Action, Lumberjacks, WorldState, WorldStateMut, Tile, DIRECTIONS};
+use crate::{config, Action, Lumberjacks, WorldState, WorldStateMut, Tile, apply_direction};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Refill;
@@ -36,7 +37,7 @@ impl Task<Lumberjacks> for Refill {
         if let Some((x, y)) = state_diff.find_agent(agent) {
             !state_diff.get_water(agent)
                 && DIRECTIONS.iter().any(|direction| {
-                    let (x, y) = direction.apply(x, y);
+                    let (x, y) = apply_direction(*direction, x, y);
                     matches!(state_diff.get_tile(x, y), Some(Tile::Well))
                 })
         } else {

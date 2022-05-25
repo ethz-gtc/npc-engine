@@ -1,8 +1,9 @@
 use std::hash::Hash;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, TaskDuration, IdleTask};
+use npc_engine_utils::Direction;
 
-use crate::{config, Action, Direction, Lumberjacks, WorldState, WorldStateMut, Tile};
+use crate::{config, Action, Lumberjacks, WorldState, WorldStateMut, Tile, apply_direction};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Water {
@@ -29,7 +30,7 @@ impl Task<Lumberjacks> for Water {
         if let Some((x, y)) = state_diff.find_agent(agent) {
             state_diff.set_water(agent, false);
 
-            let (x, y) = self.direction.apply(x, y);
+            let (x, y) = apply_direction(self.direction, x, y);
             if let Some(Tile::Tree(height)) = state_diff.get_tile_ref_mut(x, y) {
                 *height = config().map.tree_height;
             }
@@ -47,7 +48,7 @@ impl Task<Lumberjacks> for Water {
     fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         state_diff.get_water(agent)
             && if let Some((x, y)) = state_diff.find_agent(agent) {
-                let (x, y) = self.direction.apply(x, y);
+                let (x, y) = apply_direction(self.direction, x, y);
                 matches!(state_diff.get_tile(x, y), Some(Tile::Tree(_)))
             } else {
                 unreachable!("Failed to find agent on map");

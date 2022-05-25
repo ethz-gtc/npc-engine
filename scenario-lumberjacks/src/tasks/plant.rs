@@ -2,8 +2,9 @@ use std::{num::NonZeroU8};
 use std::hash::Hash;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_utils::Direction;
 
-use crate::{config, Action, Direction, Lumberjacks, WorldState, WorldStateMut, Tile};
+use crate::{config, Action, Lumberjacks, WorldState, WorldStateMut, Tile, apply_direction};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Plant {
@@ -28,7 +29,7 @@ impl Task<Lumberjacks> for Plant {
         state_diff.increment_time();
 
         if let Some((x, y)) = state_diff.find_agent(agent) {
-            let (x, y) = self.direction.apply(x, y);
+            let (x, y) = apply_direction(self.direction, x, y);
 
             match state_diff.get_tile_ref_mut(x, y) {
                 Some(tile @ Tile::Empty) => {
@@ -51,7 +52,7 @@ impl Task<Lumberjacks> for Plant {
 
     fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((x, y)) = state_diff.find_agent(agent) {
-            let (x, y) = self.direction.apply(x, y);
+            let (x, y) = apply_direction(self.direction, x, y);
             matches!(state_diff.get_tile(x, y), Some(Tile::Empty))
         } else {
             unreachable!("Could not find agent on map!")

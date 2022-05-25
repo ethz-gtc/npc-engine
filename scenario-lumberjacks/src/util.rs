@@ -5,6 +5,8 @@ use std::hash::{Hash, Hasher};
 use std::mem;
 
 use ggez::graphics::Color;
+use npc_engine_utils::Direction;
+use npc_engine_utils::DirectionConverterYDown;
 use num_traits::{AsPrimitive, PrimInt};
 use serde::Serialize;
 
@@ -98,52 +100,15 @@ pub fn agent_color(agent: AgentId) -> Color {
     }
 }
 
-pub const DIRECTIONS: &[Direction] = &[
-    Direction::Up,
-    Direction::Right,
-    Direction::Down,
-    Direction::Left,
-];
-
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Direction {
-    Up,
-    Down,
-    Left,
-    Right,
+pub fn apply_direction(direction: Direction, x: isize, y: isize) -> (isize, isize) {
+    let (x, y) = DirectionConverterYDown::apply(direction, x as i32, y as i32);
+    (x as isize, y as isize)
 }
 
-impl fmt::Display for Direction {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Direction::Up => write!(f, "Up"),
-            Direction::Down => write!(f, "Down"),
-            Direction::Left => write!(f, "Left"),
-            Direction::Right => write!(f, "Right"),
-        }
-    }
-}
-
-impl Direction {
-    pub fn apply(&self, x: isize, y: isize) -> (isize, isize) {
-        match self {
-            Direction::Up => (x, y - 1),
-            Direction::Down => (x, y + 1),
-            Direction::Left => (x - 1, y),
-            Direction::Right => (x + 1, y),
-        }
-    }
-
-    pub fn from(start: (isize, isize), end: (isize, isize)) -> Direction {
-        match (end.0 - start.0, end.1 - start.1) {
-            (1, _) => Direction::Right,
-            (-1, _) => Direction::Left,
-            (_, 1) => Direction::Down,
-            (_, -1) => Direction::Up,
-            _ => unreachable!(),
-        }
-    }
+pub fn from_direction(start: (isize, isize), end: (isize, isize)) -> Direction {
+    let start = (start.0 as i32, start.1 as i32);
+    let end = (end.0 as i32, end.1 as i32);
+    DirectionConverterYDown::from(start, end)
 }
 
 #[derive(Copy, Clone, Debug, Serialize)]

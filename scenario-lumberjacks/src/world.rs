@@ -5,9 +5,10 @@ use ggez::graphics;
 use ggez::graphics::Image;
 use ggez::Context;
 use npc_engine_common::{AgentId, StateDiffRef, StateDiffRefMut};
+use npc_engine_utils::DIRECTIONS;
 use serde::Serialize;
 
-use crate::{Action, AgentInventory, DIRECTIONS, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, SPRITE_SIZE, Tile, TileMap, TileMapDiff, TileMapSnapshot, config};
+use crate::{Action, AgentInventory, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, SPRITE_SIZE, Tile, TileMap, TileMapDiff, TileMapSnapshot, config, apply_direction};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -144,7 +145,7 @@ impl WorldState for StateDiffRef<'_, Lumberjacks> {
                     .map(|tile| tile.is_pathfindable())
                     .unwrap_or(false)
                     && DIRECTIONS.iter().any(|direction| {
-                        let (x, y) = direction.apply(x, y);
+                        let (x, y) = apply_direction(*direction, x, y);
                         self.get_tile(x, y)
                             .map(|tile| tile.is_point_of_interest())
                             .unwrap_or(false)

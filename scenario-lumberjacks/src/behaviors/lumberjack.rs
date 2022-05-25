@@ -3,10 +3,10 @@ use std::collections::BinaryHeap;
 use std::fmt;
 
 use npc_engine_common::{AgentId, Behavior, StateDiffRef, Task};
+use npc_engine_utils::DIRECTIONS;
 
 use crate::{
-    config, Barrier, Chop, Direction, Lumberjacks, Map2D, Move, Plant, Refill, WorldState, Wait, Water,
-    DIRECTIONS,
+    config, Barrier, Chop, Lumberjacks, Map2D, Move, Plant, Refill, WorldState, Wait, Water, apply_direction, from_direction,
 };
 
 pub struct Lumberjack;
@@ -198,7 +198,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
                                     .map(|slice| {
                                         let start = slice[0];
                                         let end = slice[1];
-                                        Direction::from(
+                                        from_direction(
                                             (start.0 as _, start.1 as _),
                                             (end.0 as _, end.1 as _),
                                         )
@@ -215,8 +215,8 @@ impl Behavior<Lumberjacks> for Lumberjack {
                     }
                 });
             } else {
-                for &direction in DIRECTIONS {
-                    let adjacent = direction.apply(x, y);
+                for direction in DIRECTIONS {
+                    let adjacent = apply_direction(direction, x, y);
 
                     if state_diff
                         .get_tile(adjacent.0, adjacent.1)
@@ -233,7 +233,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
             }
 
             // Chopping
-            for &direction in DIRECTIONS {
+            for direction in DIRECTIONS {
                 if (Chop { direction }).is_valid(tick, state_diff, agent) {
                     tasks.push(Box::new(Chop { direction }));
                 }
@@ -241,7 +241,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
 
             // Barriers
             if config().features.barriers && state_diff.get_inventory(agent) > 0 {
-                for &direction in DIRECTIONS {
+                for direction in DIRECTIONS {
                     if (Barrier { direction }).is_valid(tick, state_diff, agent) {
                         tasks.push(Box::new(Barrier { direction }));
                     }
@@ -251,7 +251,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
             // Watering
             if config().features.watering {
                 if state_diff.get_water(agent) {
-                    for &direction in DIRECTIONS {
+                    for direction in DIRECTIONS {
                         if (Water { direction }.is_valid(tick, state_diff, agent)) {
                             tasks.push(Box::new(Water { direction }));
                         }
@@ -263,7 +263,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
 
             // Planting
             if config().features.planting && state_diff.get_inventory(agent) > 0 {
-                for &direction in DIRECTIONS {
+                for direction in DIRECTIONS {
                     if (Plant { direction }).is_valid(tick, state_diff, agent) {
                         tasks.push(Box::new(Plant { direction }));
                     }
