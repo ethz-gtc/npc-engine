@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use npc_engine_common::{MCTSConfiguration, graphviz, Task, StateDiffRef, AgentId, Domain, TaskDuration, StateDiffRefMut, impl_task_boxed_methods, ActiveTasks, ActiveTask, IdleTask, AgentValue, Behavior, StateValueEstimator, MCTS};
-use npc_engine_utils::{run_simple_executor, OptionDiffDomain, ExecutorState, NetworkWithHiddenLayer, Neuron};
+use npc_engine_utils::{run_simple_executor, OptionDiffDomain, ExecutorState, NetworkWithHiddenLayer, Neuron, ExecutorStateLocal};
 use rand::{thread_rng, Rng};
 
 const TOTAL_WOOD: usize = 20;
@@ -266,11 +266,7 @@ struct LearnExecutorState {
 	estimator: NNStateValueEstimator,
 	planned_values: Vec<([f32; 5], f32)>
 }
-impl ExecutorState<LearnDomain> for LearnExecutorState {
-	fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<LearnDomain> + Send> {
-		Box::new(self.estimator.clone())
-	}
-
+impl ExecutorStateLocal<LearnDomain> for LearnExecutorState {
 	fn create_initial_state(&self) -> State {
 		let mut rng = thread_rng();
 		let mut map = [0; 14];
@@ -286,6 +282,11 @@ impl ExecutorState<LearnDomain> for LearnExecutorState {
 			wood_count: 0,
 			agent_pos: rng.gen_range(0..14),
 		}
+	}
+}
+impl ExecutorState<LearnDomain> for LearnExecutorState {
+	fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<LearnDomain> + Send> {
+		Box::new(self.estimator.clone())
 	}
 
 	fn init_task_queue(&self) -> ActiveTasks<LearnDomain> {

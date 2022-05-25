@@ -10,5 +10,5 @@ pub trait GlobalDomain: Domain {
     fn derive_local_state(global_state: &Self::GlobalState, agent: AgentId) -> Self::State;
 
     /// Applies a diff from a local state to the global state.
-    fn apply(global_state: &mut Self::GlobalState, snapshot: &Self::State, diff: &Self::Diff);
+    fn apply(global_state: &mut Self::GlobalState, local_state: &Self::State, diff: &Self::Diff);
 }

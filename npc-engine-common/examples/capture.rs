@@ -4,7 +4,7 @@ use nonmax::NonMaxU8;
 extern crate lazy_static;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, impl_task_boxed_methods, StateDiffRefMut, Domain, IdleTask, TaskDuration, Behavior, AgentValue, ActiveTask, MCTSConfiguration, MCTS, graphviz, ActiveTasks};
-use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorState, OptionDiffDomain};
+use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorState, OptionDiffDomain, ExecutorStateLocal};
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 struct Location(NonMaxU8);
@@ -620,7 +620,7 @@ impl Domain for CaptureGame {
 }
 
 struct CaptureGameExecutorState;
-impl ExecutorState<CaptureGame> for CaptureGameExecutorState {
+impl ExecutorStateLocal<CaptureGame> for CaptureGameExecutorState {
 	fn create_initial_state(&self) -> State {
 		let agent0_id = AgentId(0);
 		let agent0_state = AgentState {
@@ -654,7 +654,8 @@ impl ExecutorState<CaptureGame> for CaptureGameExecutorState {
 			medkit_tick: 0
 		}
 	}
-
+}
+impl ExecutorState<CaptureGame> for CaptureGameExecutorState {
 	fn init_task_queue(&self) -> ActiveTasks<CaptureGame> {
 		vec![
 			ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)),
