@@ -52,6 +52,13 @@ The curve should look like that:
 
 ![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
+## Generate PDF graphs
+
+Using the generated `.dot` files, you can create PDF trees with the following command:
+```
+for file in $(ls *.dot); do dot -Tpdf $file -o `basename -s .dot $file`.pdf; done
+```
+
 ## Please cite us
 
 If you use this software in an academic context, please cite our paper:

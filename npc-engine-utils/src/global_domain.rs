@@ -11,4 +11,6 @@ pub trait GlobalDomain: Domain {
 
     /// Applies a diff from a local state to the global state.
     fn apply(global_state: &mut Self::GlobalState, local_state: &Self::State, diff: &Self::Diff);
+
+    // TODO: add a way to tell agents are not live
 }

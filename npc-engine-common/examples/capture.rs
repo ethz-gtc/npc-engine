@@ -1,10 +1,11 @@
-use std::{fmt, collections::{BTreeMap, HashMap, BTreeSet}};
+use std::{fmt, collections::{BTreeMap, HashMap, BTreeSet}, iter};
 use nonmax::NonMaxU8;
 #[macro_use]
 extern crate lazy_static;
 
 use npc_engine_common::{AgentId, Task, StateDiffRef, impl_task_boxed_methods, StateDiffRefMut, Domain, IdleTask, TaskDuration, Behavior, AgentValue, ActiveTask, MCTSConfiguration, MCTS, graphviz, ActiveTasks};
-use npc_engine_utils::{plot_tree_in_tmp, run_simple_executor, ExecutorState, OptionDiffDomain, ExecutorStateLocal};
+use npc_engine_utils::{run_simple_executor, ExecutorState, OptionDiffDomain, ExecutorStateLocal, plot_tree_in_tmp_with_task_name};
+use num_traits::Zero;
 
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 struct Location(NonMaxU8);
@@ -585,10 +586,9 @@ impl Domain for CaptureGame {
 	}
 
 	fn get_current_value(_tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue {
-		let value_zero: AgentValue = AgentValue::new(0.).unwrap();
 		let state = Self::get_cur_state(state_diff);
 		state.agents.get(&agent).map_or(
-			value_zero,
+			AgentValue::zero(),
 			|agent_state| AgentValue::from(agent_state.acc_capture)
 		)
 	}
@@ -654,39 +654,26 @@ impl ExecutorStateLocal<CaptureGame> for CaptureGameExecutorState {
 			medkit_tick: 0
 		}
 	}
-}
-impl ExecutorState<CaptureGame> for CaptureGameExecutorState {
-	fn init_task_queue(&self) -> ActiveTasks<CaptureGame> {
-		vec![
-			ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)),
-			ActiveTask::new_with_end(0, AgentId(1), Box::new(IdleTask)),
-			ActiveTask::new_with_end(0, WORLD_AGENT_ID, Box::new(WorldStep)),
-		].into_iter().collect()
+
+	fn init_task_queue(&self, state: &State) -> ActiveTasks<CaptureGame> {
+		state.agents.iter()
+			.map(|(id, _)|
+				ActiveTask::new_with_end(0, *id, Box::new(IdleTask))
+			)
+			.chain(iter::once(
+				ActiveTask::new_with_end(0, WORLD_AGENT_ID, Box::new(WorldStep))
+			))
+			.collect()
 	}
 
 	fn keep_agent(&self, _tick: u64, state: &State, agent: AgentId) -> bool {
 		agent == WORLD_AGENT_ID || state.agents.contains_key(&agent)
 	}
+}
 
+impl ExecutorState<CaptureGame> for CaptureGameExecutorState {
 	fn post_mcts_run_hook(&mut self, mcts: &MCTS<CaptureGame>, last_active_task: &ActiveTask<CaptureGame>) {
-		let time_text = format!("T{}", mcts.start_tick);
-		let agent_id_text = format!("A{}", mcts.agent().0);
-		let task_name = format!("{:?}", last_active_task.task);
-		let last_task_name = task_name
-			.replace(" ", "")
-			.replace("(", "")
-			.replace(")", "")
-			.replace("{", "_")
-			.replace("}", "")
-			.replace(" ", "_")
-			.replace(":", "_")
-			.replace(",", "_")
-		;
-		if let Err(e) = plot_tree_in_tmp(
-			mcts,
-			"capture_graphs",
-			&format!("{agent_id_text}-{time_text}-{last_task_name}")
-		) {
+		if let Err(e) = plot_tree_in_tmp_with_task_name(mcts, "capture_graphs", last_active_task) {
 			println!("Cannot write search tree: {e}");
 		}
 	}

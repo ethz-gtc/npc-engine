@@ -84,6 +84,10 @@ impl<D: Domain> MCTS<D> {
         config: MCTSConfiguration,
         state_value_estimator: Box<dyn StateValueEstimator<D> + Send>
     ) -> Self {
+        // Check whether there is a task for this agent already
+        let next_task = get_task_for_agent(&tasks, root_agent)
+            .map(|active_task| active_task.task.clone());
+
         // Create new root node
         let root = Node::new(NodeInner::new(
             &initial_state,
@@ -101,7 +105,7 @@ impl<D: Domain> MCTS<D> {
         );
 
         // Insert new root node
-        let root_edges = Edges::new(&root, &initial_state, None);
+        let root_edges = Edges::new(&root, &initial_state, next_task);
         nodes.insert(root.clone(), root_edges);
 
         // Compute seed
@@ -188,7 +192,7 @@ impl<D: Domain> MCTS<D> {
             // Early stopping if told so by some user-defined condition
             if let Some(early_stop_condition) = &self.early_stop_condition {
                 if early_stop_condition() {
-                    log::debug!("{:?} early stops planning after {} visits", self.agent(), i);
+                    log::info!("{:?} early stops planning after {} visits", self.agent(), i);
                     break;
                 }
             }

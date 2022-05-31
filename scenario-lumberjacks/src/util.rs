@@ -5,6 +5,7 @@ use std::hash::{Hash, Hasher};
 use std::mem;
 
 use ggez::graphics::Color;
+use npc_engine_utils::Coord2D;
 use npc_engine_utils::Direction;
 use npc_engine_utils::DirectionConverterYDown;
 use num_traits::{AsPrimitive, PrimInt};
@@ -101,13 +102,13 @@ pub fn agent_color(agent: AgentId) -> Color {
 }
 
 pub fn apply_direction(direction: Direction, x: isize, y: isize) -> (isize, isize) {
-    let (x, y) = DirectionConverterYDown::apply(direction, x as i32, y as i32);
-    (x as isize, y as isize)
+    let pos = DirectionConverterYDown::apply(direction, Coord2D::new(x as i32, y as i32));
+    (pos.x as isize, pos.y as isize)
 }
 
 pub fn from_direction(start: (isize, isize), end: (isize, isize)) -> Direction {
-    let start = (start.0 as i32, start.1 as i32);
-    let end = (end.0 as i32, end.1 as i32);
+    let start = Coord2D::new(start.0 as i32, start.1 as i32);
+    let end = Coord2D::new(end.0 as i32, end.1 as i32);
     DirectionConverterYDown::from(start, end)
 }
 

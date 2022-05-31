@@ -421,6 +421,7 @@ mod tests {
 			depth: 9,
 			exploration: 1.414,
 			discount_hl: f32::INFINITY,
+			planning_task_duration: None,
 			seed: None
 		};
 		for _ in 0..10 {

@@ -1,6 +1,8 @@
 use std::{fmt, marker::PhantomData};
 use serde::Serialize;
 
+use crate::Coord2D;
+
 pub trait YUpDown {
 	fn up() -> i32;
 	fn down() -> i32;
@@ -40,18 +42,20 @@ pub struct DirectionConverter<YDir: YUpDown> {
 	_phantom: PhantomData<YDir>
 }
 impl<YDir: YUpDown> DirectionConverter<YDir> {
-    pub fn apply(direction: Direction, x: i32, y: i32) -> (i32, i32) {
-        match direction {
+    pub fn apply(direction: Direction, coord: Coord2D) -> Coord2D {
+        let Coord2D { x, y } = coord;
+        let (x, y) = match direction {
             Direction::Up => (x, y + YDir::up()),
             Direction::Down => (x, y + YDir::down()),
             Direction::Left => (x - 1, y),
             Direction::Right => (x + 1, y),
-        }
+        };
+        Coord2D::new(x, y)
     }
 
-    pub fn from(start: (i32, i32), end: (i32, i32)) -> Direction {
-		let dx = end.0 - start.0;
-		let dy = end.1 - start.1;
+    pub fn from(start: Coord2D, end: Coord2D) -> Direction {
+		let dx = end.x - start.x;
+		let dy = end.y - start.y;
         match (dx, dy) {
             (1, _) => Direction::Right,
             (-1, _) => Direction::Left,

@@ -45,6 +45,7 @@ impl<D: Domain> ActiveTask<D> {
 		size
 	}
 }
+
 pub fn contains_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) -> bool {
 	for task in set {
 		if task.agent == agent {
@@ -53,6 +54,7 @@ pub fn contains_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) 
 	}
 	false
 }
+
 pub fn get_task_for_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) -> Option<&ActiveTask<D>> {
     for task in set {
 		if task.agent == agent {
@@ -69,6 +71,12 @@ impl<D: Domain> fmt::Debug for ActiveTask<D> {
             .field("agent", &self.agent)
             .field("task", &self.task)
             .finish()
+    }
+}
+
+impl<D: Domain> std::fmt::Display for ActiveTask<D> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {:?} ends T{}", self.agent, self.task, self.end)
     }
 }
 

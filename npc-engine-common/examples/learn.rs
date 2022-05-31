@@ -283,13 +283,8 @@ impl ExecutorStateLocal<LearnDomain> for LearnExecutorState {
 			agent_pos: rng.gen_range(0..14),
 		}
 	}
-}
-impl ExecutorState<LearnDomain> for LearnExecutorState {
-	fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<LearnDomain> + Send> {
-		Box::new(self.estimator.clone())
-	}
 
-	fn init_task_queue(&self) -> ActiveTasks<LearnDomain> {
+	fn init_task_queue(&self, _: &State) -> ActiveTasks<LearnDomain> {
         vec![
 			ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)),
 		].into_iter().collect()
@@ -298,6 +293,11 @@ impl ExecutorState<LearnDomain> for LearnExecutorState {
 	fn keep_agent(&self, tick: u64, _state: &State, _agent: AgentId) -> bool {
         tick < TICKS_PER_ROUND
     }
+}
+impl ExecutorState<LearnDomain> for LearnExecutorState {
+	fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<LearnDomain> + Send> {
+		Box::new(self.estimator.clone())
+	}
 
 	fn post_mcts_run_hook(&mut self, mcts: &MCTS<LearnDomain>, _last_active_task: &ActiveTask<LearnDomain>) {
 		self.planned_values.push((

@@ -6,6 +6,18 @@ use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_meth
 
 pub type TaskDuration = u64;
 
+pub fn debug_name_to_filename_safe(debug_name: &str) -> String {
+    debug_name
+        .replace(' ', "")
+        .replace('(', "")
+        .replace(')', "")
+        .replace('{', "_")
+        .replace('}', "")
+        .replace(' ', "_")
+        .replace(':', "_")
+        .replace(',', "_")  
+}
+
 /// A task that modifies the state.
 /// It is illegal to have a task of both 0-duration and not modifying the state,
 /// as this would lead to self-looping nodes in the planner.
