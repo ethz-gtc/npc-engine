@@ -20,7 +20,7 @@ const VALUE_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(std::f32::
 // SAFETY: NEG_INFINITY is not NaN
 const VALUE_NEG_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(std::f32::NEG_INFINITY) };
 
-/// The state of a running planner instance
+/// The state of a running planner instance.
 pub struct MCTS<D: Domain> {
     // Statistics
     time: Duration,
@@ -49,7 +49,7 @@ pub struct MCTS<D: Domain> {
     rng: ChaCha8Rng,
 }
 
-/// Possible outcomes from a tree policy pass
+/// The possible outcomes from a tree policy pass.
 enum TreePolicyOutcome<D: Domain> {
     NodeCreated(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
     NoValidTask(u32, Vec<Edge<D>>), // depth, path
@@ -58,7 +58,7 @@ enum TreePolicyOutcome<D: Domain> {
 }
 
 impl<D: Domain> MCTS<D> {
-    /// Instantiate a new search tree for the given state, with idle tasks for all agents and starting at tick 0
+    /// Instantiates a new search tree for the given state, with idle tasks for all agents and starting at tick 0.
     pub fn new(
         initial_state: D::State,
         root_agent: AgentId,
@@ -75,7 +75,7 @@ impl<D: Domain> MCTS<D> {
         )
     }
 
-    /// Instantiate a new search tree for the given state, with active tasks for all agents and starting at a given tick
+    /// Instantiates a new search tree for the given state, with active tasks for all agents and starting at a given tick.
     pub fn new_with_tasks(
         initial_state: D::State,
         root_agent: AgentId,
@@ -127,7 +127,7 @@ impl<D: Domain> MCTS<D> {
         }
     }
 
-    /// Return best task, using exploration value of 0
+    /// Returns the best task, using exploration value of 0.
     pub fn best_task_at_root(&mut self) -> Option<Box<dyn Task<D>>> {
         let range = self.min_max_range(self.root_agent);
         let edges = self.nodes.get(&self.root).unwrap();
@@ -147,13 +147,15 @@ impl<D: Domain> MCTS<D> {
                 )
     }
 
-    /// Return the q-value at root
+    /// Returns the q-value at root.
     pub fn q_value_at_root(&self, agent: AgentId) -> f32 {
         let edges = self.nodes.get(&self.root).unwrap();
 		edges.q_value((0, 0.), agent).unwrap()
     }
 
-    /// Execute the MCTS search. Returns the current best task, if there is at least one task for the root node.
+    /// Executes the MCTS search.
+    ///
+    /// Returns the current best task, if there is at least one task for the root node.
     pub fn run(&mut self) -> Option<Box<dyn Task<D>>> {
         // Reset globals
         self.q_value_ranges.clear();
@@ -367,7 +369,7 @@ impl<D: Domain> MCTS<D> {
         TreePolicyOutcome::DepthLimitReached(depth, node, path)
     }
 
-    /// MCTS backpropagation phase. If rollout values are None, just increment the visits
+    /// MCTS backpropagation phase. If rollout values are None, just increment the visits.
     fn backpropagation(&mut self, mut path: Vec<Edge<D>>, rollout_values: Option<BTreeMap<AgentId, f32>>) {
         // Backtracking
         path.drain(..).rev().for_each(|edge| {
@@ -420,18 +422,19 @@ impl<D: Domain> MCTS<D> {
     }
 
     /// Calculates the discount factor for the tick duration.
+    ///
     /// This basically calculates a half-life decay factor for the given duration.
     /// This means the discount factor will be 0.5 if the given ticks are equal to the configured half-life in the MCTS.
     fn discount_factor(duration: u64, config: &MCTSConfiguration) -> f32 {
         2f64.powf((-(duration as f64)) / (config.discount_hl as f64)) as f32
     }
 
-    // Returns the agent the tree searches for.
+    /// Returns the agent the tree searches for.
     pub fn agent(&self) -> AgentId {
         self.root_agent
     }
 
-    // Returns the range of minimum and maximum global values.
+    /// Returns the range of minimum and maximum global values.
     pub fn min_max_range(&self, agent: AgentId) -> Range<AgentValue> {
         self.q_value_ranges
             .get(&agent)
@@ -439,42 +442,37 @@ impl<D: Domain> MCTS<D> {
             .unwrap_or(Range { start: VALUE_ZERO, end: VALUE_ZERO })
     }
 
-    // Returns iterator over all nodes and edges in the tree.
+    /// Returns an iterator over all nodes and edges in the tree.
     pub fn nodes(&self) -> impl Iterator<Item = (&Node<D>, &Edges<D>)> {
         self.nodes.iter()
     }
 
-    // Returns edges associated to a given node
+    /// Returns the edges associated to a given node.
     pub fn get_edges(&self, node: &Node<D>) -> Option<&Edges<D>> {
         self.nodes.get(node)
     }
 
-    // Returns the edges associated with a given node.
-    pub fn edges(&self, node: &Node<D>) -> Option<&Edges<D>> {
-        self.nodes.get(node)
-    }
-
-    // Returns the seed of the tree.
+    /// Returns the seed of the tree.
     pub fn seed(&self) -> u64 {
         self.seed
     }
 
-    // Returns the number of nodes
+    /// Returns the number of nodes.
     pub fn node_count(&self) -> usize {
         self.nodes.len()
     }
 
-    // Returns the number of nodes
+    /// Returns the number of nodes.
     pub fn edge_count(&self) -> usize {
         self.nodes.values().map(|edges| edges.expanded_tasks.len()).sum()
     }
 
-    // Returns the duration of the last run
+    /// Returns the duration of the last run.
     pub fn time(&self) -> Duration {
         self.time
     }
 
-    // Returns the size of MCTS struct
+    /// Returns an estimation of the memory footprint of the MCTS struct.
     pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
         let mut size = 0;
 
@@ -491,9 +489,9 @@ impl<D: Domain> MCTS<D> {
     }
 }
 
+/// MCTS default policy using simulation-based rollout.
 pub struct DefaultPolicyEstimator {}
 impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
-    /// MCTS default policy. Performs the simulation phase.
     fn estimate(
         &mut self,
         rng: &mut ChaCha8Rng,
@@ -718,6 +716,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 }
 
 
+/// When feature graphviz is enabled, provides plotting of the search tree.
 #[cfg(feature = "graphviz")]
 pub mod graphviz {
     use super::*;
@@ -726,6 +725,7 @@ pub mod graphviz {
 
     use dot::{Arrow, Edges, GraphWalk, Id, Kind, LabelText, Labeller, Nodes, Style};
 
+    /// Renders the search tree as graphviz's dot format.
     pub fn plot_mcts_tree<D: Domain, W: Write>(mcts: &MCTS<D>, w: &mut W) -> io::Result<()> {
         dot::render(mcts, w)
     }

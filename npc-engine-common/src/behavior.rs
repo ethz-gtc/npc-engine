@@ -1,6 +1,6 @@
 use crate::{AgentId, Domain, StateDiffRef, Task};
 
-/// A possibly-recursive set of possible tasks
+/// A possibly-recursive set of possible tasks.
 pub trait Behavior<D: Domain>: 'static {
     /// Returns dependent behaviors.
     fn get_dependent_behaviors(&self) -> &'static [&'static dyn Behavior<D>] {

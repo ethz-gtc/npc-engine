@@ -4,8 +4,10 @@ use downcast_rs::{impl_downcast, Downcast};
 
 use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_methods};
 
+/// The duration of a task, in ticks.
 pub type TaskDuration = u64;
 
+/// Transforms the debug string of a task to a string that can safely be used for filenames.
 pub fn debug_name_to_filename_safe(debug_name: &str) -> String {
     debug_name
         .replace(' ', "")
@@ -19,15 +21,16 @@ pub fn debug_name_to_filename_safe(debug_name: &str) -> String {
 }
 
 /// A task that modifies the state.
+///
 /// It is illegal to have a task of both 0-duration and not modifying the state,
 /// as this would lead to self-looping nodes in the planner.
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
-    /// Returns the relative weight of the task for the given agent in the given tick and world state, by default weight is 1.0
+    /// Returns the relative weight of the task for the given agent in the given tick and world state, by default weight is 1.0.
     fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
         1.0
     }
 
-    /// Returns the duration of the task, for a given agent in a given tick and world state
+    /// Returns the duration of the task, for a given agent in a given tick and world state.
     fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration;
 
     /// Executes one step of the task for the given agent on the given tick and world state.
@@ -39,10 +42,10 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     /// Returns the display actions corresponding to this task.
     fn display_action(&self) -> D::DisplayAction;
 
-    /// Utility method for cloning, since `Self: Clone` is not object-safe
+    /// Utility method for cloning, since `Self: Clone` is not object-safe.
     fn box_clone(&self) -> Box<dyn Task<D>>;
 
-    /// Utility method for hashing, since `Self: Hash` is not object-safe
+    /// Utility method for hashing, since `Self: Hash` is not object-safe.
     fn box_hash(&self, state: &mut dyn Hasher);
 
     /// Utility method for equality, since trait objects are not inherently `Eq`.
@@ -51,7 +54,7 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     fn box_eq(&self, other: &Box<dyn Task<D>>) -> bool;
 }
 
-/// An idle task of duration 1 that is used by the planner when the task of an agent is not known
+/// An idle task of duration 1 that is used by the planner when the task of an agent is not known.
 #[derive(Debug, Hash, Clone, PartialEq)]
 pub struct IdleTask;
 
@@ -79,7 +82,7 @@ impl<D: Domain> Task<D> for IdleTask {
     impl_task_boxed_methods!(D);
 }
 
-/// A task to represent planning in the planning tree, if these need to be represented
+/// A task to represent planning in the planning tree, if these need to be represented.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct PlanningTask(pub NonZeroU64);
 
@@ -132,6 +135,7 @@ impl<D: Domain> PartialEq for Box<dyn Task<D>> {
 
 impl<D: Domain> Eq for Box<dyn Task<D>> {}
 
+/// Task implementors can use this macro to implement the `box_clone`, `box_hash` and `box_eq` functions.
 #[macro_export]
 macro_rules! impl_task_boxed_methods {
     ($e: ty) => {

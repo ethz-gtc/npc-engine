@@ -70,7 +70,8 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
     fn keep_agent(&self, _tick: u64, _state: &D::GlobalState, _agent: AgentId) -> bool { true }
 }
 
-/// The state of tasks undergoing execution
+/// The state of tasks undergoing execution.
+///
 /// This can be used directly to build your own executor,
 /// or indirectly through SimpleExecutor or ThreadedExecutor.
 pub struct ExecutionQueue<D>

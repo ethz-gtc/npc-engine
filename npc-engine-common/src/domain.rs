@@ -6,9 +6,10 @@ use rand_chacha::ChaCha8Rng;
 
 use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef, Edges};
 
+/// The "current" value an agent has in a given state.
 pub type AgentValue = NotNan<f32>;
 
-/// A domain on which the MCTS planner can plan
+/// A domain on which the MCTS planner can plan.
 pub trait Domain: Sized + 'static {
     /// The state the MCTS plans on.
     type State: std::fmt::Debug + Sized;
@@ -66,9 +67,11 @@ pub trait Domain: Sized + 'static {
 }
 
 
-/// Estimator of state-value function: takes state of explored node and returns the estimated expected (discounted) values
-/// Return None if the passed node has no unexpanded edge.
+/// An estimator of state-value function.
 pub trait StateValueEstimator<D: Domain>: Send {
+    /// Takes the state of an explored node and returns the estimated expected (discounted) values.
+    ///
+    /// Returns None if the passed node has no unexpanded edge.
     fn estimate(
         &mut self,
         rnd: &mut ChaCha8Rng,

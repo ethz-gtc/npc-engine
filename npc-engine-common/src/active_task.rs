@@ -4,11 +4,15 @@ use std::{fmt, mem};
 use std::hash::{Hash, Hasher};
 use crate::{AgentId, Domain, Task, StateDiffRef, IdleTask};
 
+/// A task associated to an agent and that is being processed by the planner.
 pub struct ActiveTask<D: Domain> {
     pub end: u64,
 	pub agent: AgentId,
     pub task: Box<dyn Task<D>>,
 }
+/// A set of active tasks.
+///
+/// These tasks are sorted by end time and then by agent, due to the implementation of `cmp` by `ActiveTask`.
 pub type ActiveTasks<D> = BTreeSet<ActiveTask<D>>;
 
 impl<D: Domain> ActiveTask<D> {
@@ -46,7 +50,8 @@ impl<D: Domain> ActiveTask<D> {
 	}
 }
 
-pub fn contains_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) -> bool {
+/// Returns whether an active task set contains a given agent.
+pub fn contains_agent<D: Domain>(set: &ActiveTasks<D>, agent: AgentId) -> bool {
 	for task in set {
 		if task.agent == agent {
 			return true;
@@ -55,7 +60,8 @@ pub fn contains_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) 
 	false
 }
 
-pub fn get_task_for_agent<D: Domain>(set: &BTreeSet<ActiveTask<D>>, agent: AgentId) -> Option<&ActiveTask<D>> {
+/// Returns the task associated to a given agent from an active task set.
+pub fn get_task_for_agent<D: Domain>(set: &ActiveTasks<D>, agent: AgentId) -> Option<&ActiveTask<D>> {
     for task in set {
 		if task.agent == agent {
 			return Some(task)

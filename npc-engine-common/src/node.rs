@@ -2,12 +2,13 @@ use std::{sync::{Arc, Weak}, collections::{BTreeMap, BTreeSet}, fmt, mem, hash::
 
 use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue, active_task::{ActiveTask, ActiveTasks}, get_task_for_agent};
 
-/// Strong atomic reference counted node
+/// Strong atomic reference counted node.
 pub type Node<D> = Arc<NodeInner<D>>;
 
-/// Weak atomic reference counted node
+/// Weak atomic reference counted node.
 pub type WeakNode<D> = Weak<NodeInner<D>>;
 
+/// The data associated to a node that form its key.
 pub struct NodeInner<D: Domain> {
     pub(crate) diff: D::Diff,
     pub(crate) active_agent: AgentId,

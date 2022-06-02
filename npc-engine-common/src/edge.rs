@@ -4,8 +4,12 @@ use crate::{Domain, AgentId, SeededHashMap, Task, StateDiffRef, Node, WeakNode, 
 
 use rand::distributions::WeightedIndex;
 
+/// The tasks left to expand in a given node.
+///
+/// None if all tasks are expanded.
 pub type UnexpandedTasks<D> = Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>;
 
+/// The outgoing edges from a node, possibly partially-expanded.
 pub struct Edges<D: Domain> {
     pub unexpanded_tasks: UnexpandedTasks<D>,
     pub expanded_tasks: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
@@ -154,8 +158,10 @@ impl<D: Domain> Edges<D> {
     }
 }
 
+/// Strong atomic reference counted edge.
 pub type Edge<D> = Arc<Mutex<EdgeInner<D>>>;
 
+/// The data associated to an edge.
 pub struct EdgeInner<D: Domain> {
     pub parent: WeakNode<D>,
     pub child: WeakNode<D>,
@@ -174,6 +180,7 @@ impl<D: Domain> fmt::Debug for EdgeInner<D> {
     }
 }
 
+/// Creates a new edge between a parent and a child.
 pub fn new_edge<D: Domain>(parent: &Node<D>, child: &Node<D>, agents: &BTreeSet<AgentId>) -> Edge<D> {
     Arc::new(Mutex::new(EdgeInner {
         parent: Node::downgrade(parent),

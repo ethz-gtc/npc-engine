@@ -2,6 +2,7 @@ use std::{fmt, ops::Deref, mem};
 
 use crate::Domain;
 
+/// A joint reference to an initial state and a difference to this state.
 pub struct StateDiffRef<'a, D: Domain> {
     pub initial_state: &'a D::State,
     pub diff: &'a D::Diff,
@@ -32,6 +33,7 @@ where
     }
 }
 
+/// A joint reference to an initial state and a difference to this state, where the difference is mutable.
 pub struct StateDiffRefMut<'a, D: Domain> {
     pub initial_state: &'a D::State,
     pub diff: &'a mut D::Diff,
