@@ -30,7 +30,7 @@ File [`capture.rs`](npc-engine-common/examples/capture.rs)
 A simulation of a competitive battle for capturing locations between two agents.
 
 Agents can secure locations, collect ammunition and medical kits, and shoot each others.
-This domain demonstrates actions of various durations, a world agent that respawns collectibles,disappearance of agents (upon death), and the use of the simple executor utility.
+This domain demonstrates actions of various durations, a world agent that respawns collectibles, disappearance of agents (upon death), and the use of the simple executor utility.
 
 ### Learn
 
@@ -44,6 +44,7 @@ The simulation is repeated over multiple epochs, each time using the MCTS-based 
 This simulations shows that on the course of some hundreads of epochs, the performance of the agent — the amount of wood collected during a certain duration — improves by more than 50 %.
 
 With Python 3, `scipy` and `matplotlib` installed, the performance over epochs, averaged over 20 runs, can be seen with the following command:
+
 ```
 npc-engine-common/examples/plot-learn.py
 ```
@@ -52,9 +53,18 @@ The curve should look like that:
 
 ![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
-## Generate PDF graphs
+### Ecosystem
 
-Using the generated `.dot` files, you can create PDF trees with the following command:
+Directory [`ecosystem`](npc-engine-common/examples/ecosystem/)
+
+A 2-D ecosystem simulation in which herbivores and carnivores eat and die.
+
+All agents plan in parallel in a multi-threaded way on their own partial world views.
+
+## Generate PDF of search tree graphs
+
+Some examples (ecosystem, capture, tic-tac-toe) use the the helper functions `plot_tree_in_tmp_with_task_name` and `plot_tree_in_tmp` to generate graphs of the search tree in the [Graphviz's dot format](https://graphviz.org/) in your temporary directory. Using the generated `.dot` files, you can create PDF trees with the following command:
+
 ```
 for file in $(ls *.dot); do dot -Tpdf $file -o `basename -s .dot $file`.pdf; done
 ```

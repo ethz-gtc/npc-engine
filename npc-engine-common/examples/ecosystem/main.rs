@@ -64,11 +64,6 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
 		for _i in 0..HERBIVORE_COUNT {
 			loop {
 				let pos = Coord2D::rand_uniform(MAP_SIZE);
-				/*let pos = if _i == 0 {
-					Coord2D::new(1, 1)
-				} else {
-					Coord2D::new(2, 1)
-				};*/
 				if !used_poses.contains(&pos) && *map.at(pos).unwrap() != Tile::Obstacle {	
 					used_poses.insert(pos);
 					agents.insert(
