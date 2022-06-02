@@ -69,6 +69,14 @@ A 2-D ecosystem simulation in which herbivores and carnivores eat and die.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
 
+## Read the documentation
+
+The documentation can be generated and browsed interactively with the following command:
+
+```
+cargo doc --open -p npc-engine-common -p npc-engine-utils
+```
+
 ## Generate PDF of search tree graphs
 
 Some examples (ecosystem, capture, tic-tac-toe) use the the helper functions `plot_tree_in_tmp_with_task_name` and `plot_tree_in_tmp` to generate graphs of the search tree in the [Graphviz's dot format](https://graphviz.org/) in your temporary directory. Using the generated `.dot` files, you can create PDF trees with the following command:
