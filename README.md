@@ -17,6 +17,14 @@ NPC engine provides the following features:
 
 We provide several examples that illustrate the various features of the engine.
 
+To run an example, with [Rust installed](https://www.rust-lang.org/tools/install), type:
+
+```
+cargo run --release --example NAME
+```
+
+where NAME is one of the followings, in lowercase:
+
 ### Tic-tac-toe
 
 File [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
