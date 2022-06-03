@@ -55,12 +55,12 @@ Source: [`capture.rs`](npc-engine-common/examples/capture.rs)
 cargo run --release --example learn
 ```
 
-A 1-D woodcutter simulation where the agent's performance improves over time due to self learning.
+A 1-D woodcutter simulation where the agent's performance improves over time due to self learning. The amount of wood collected is output after each run.
 
-An agent must collect wood in a 1-D world, while using a low number of visits for the MCTS.
-The state value function estimator is not the traditional roll-out simulation, but instead a feed-forward neural network with one hidden layer containing two neurons.
+An agent must collect wood by cutting down trees in a 1-D world, while using a low number of visits for the MCTS. 
+The state value function estimator in this example is not a standard roll-out simulation, but instead a feed-forward neural network with one hidden layer containing two neurons.
 The simulation is repeated over multiple epochs, each time using the MCTS-based state value estimation to train the neural network for the next epoch using back-propagation.
-This simulations shows that on the course of some hundreads of epochs, the performance of the agent — the amount of wood collected during a certain duration — improves by more than 50 %.
+This simulation shows that over the course of several hundreds epochs, the performance of the agent — the amount of wood collected during a certain duration — improves by more than 50 %.
 
 With Python 3, `scipy` and `matplotlib` installed, the performance over epochs, averaged over 20 runs, can be seen with the following command:
 
@@ -68,7 +68,7 @@ With Python 3, `scipy` and `matplotlib` installed, the performance over epochs, 
 npc-engine-common/examples/plot-learn.py
 ```
 
-The curve should look like that:
+The curve should look like this:
 
 ![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
@@ -82,8 +82,11 @@ cargo run --release --example ecosystem
 
 A 2-D ecosystem simulation in which herbivores eat and die.
 
+The world consists of a tilemap where each tile can be empty (dark green), an obstacle (gray), or grass (green).
+A grass tile can 1-3 units of food, visualized with increasing saturation levels.
+
 All agents plan in parallel in a multi-threaded way on their own partial world views.
-They see the map up to a distance of 8 tiles and other agents up to a distance of 4 tiles.
+They see the map up to a distance of 8 tiles and consider other agents up to a distance of 4 tiles.
 
 Source directory: [`ecosystem`](npc-engine-common/examples/ecosystem/)
 
