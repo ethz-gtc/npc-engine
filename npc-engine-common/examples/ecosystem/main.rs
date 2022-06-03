@@ -1,7 +1,6 @@
 use core::time;
 use std::{collections::HashSet, num::NonZeroU64, thread, iter};
 
-use ansi_escapes::{ClearScreen, EraseScreen};
 use behavior::world::WORLD_AGENT_ID;
 use domain::EcosystemDomain;
 use map::{Tile, Map, GridAccess};
@@ -133,6 +132,7 @@ fn main() {
 	while executor.agents_count() > 1 {
 		executor.step();
 		thread::sleep(one_frame);
-		println!("{}{}{}", ClearScreen, EraseScreen, executor.state());
+		clearscreen::clear().unwrap();
+		print!("{}", executor.state());
 	}
 }
