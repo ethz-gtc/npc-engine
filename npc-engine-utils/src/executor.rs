@@ -74,7 +74,7 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
 ///
 /// This can be used directly to build your own executor,
 /// or indirectly through SimpleExecutor or ThreadedExecutor.
-pub struct ExecutionQueue<D>
+struct ExecutionQueue<D>
     where
         D: Domain
 {
@@ -168,7 +168,7 @@ impl<D> ExecutionQueue<D>
 }
 
 
-/// A single-threaded generic executor
+/// A single-threaded generic executor.
 pub struct SimpleExecutor<'a, D, S>
     where
         D: ExecutableDomain,
@@ -190,7 +190,7 @@ impl<'a, D, S> SimpleExecutor<'a, D, S>
         D::State: Clone,
         S: ExecutorState<D> + ExecutorStateLocal<D>
 {
-    /// Creates a new executor, initializes state and task queue from the S trait
+    /// Creates a new executor, initializes state and task queue from the S trait.
     pub fn new(mcts_config: MCTSConfiguration, executor_state: &'a mut S) -> Self {
         let state = executor_state.create_initial_state();
         let task_queue = executor_state.init_task_queue(&state);
@@ -203,7 +203,7 @@ impl<'a, D, S> SimpleExecutor<'a, D, S>
         }
     }
 
-    /// Executes one task, returns whether there are still tasks in the queue
+    /// Executes one task, returns whether there are still tasks in the queue.
     pub fn step(&mut self) -> bool {
         if self.queue.is_empty() {
             return false;
@@ -272,13 +272,17 @@ pub fn run_simple_executor<D, S>(mcts_config: &MCTSConfiguration, executor_state
 
 /// Domains who want to use the ThreadedExecutor must impement this.
 pub trait DomainWithPlanningTask: Domain {
-    /// A fallback task, in case, during planning, of the world evolved in a different direction than what the MCTS tree explored
+    /// A fallback task, in case, during planning, the world evolved in a different direction than what the MCTS tree explored.
     fn fallback_task(_agent: AgentId) -> Box<dyn Task<Self>> {
         Box::new(IdleTask)
     }
 }
 
-/// A multi-threaded generic executor
+/// A multi-threaded generic executor.
+///
+/// It maintains a `D::GlobalState` out of which a `D::State` is extracted for planning.
+/// This allows to simulate a large world with many agents, each of them planning on a small
+/// subset of that world.
 pub struct ThreadedExecutor<'a, D, S>
 where
     D: DomainWithPlanningTask + GlobalDomain,
@@ -311,7 +315,7 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
         D::Diff: Send + Sync,
         S: ExecutorState<D> + ExecutorStateGlobal<D>
 {
-    /// Creates a new executor, initializes state and task queue from the S trait
+    /// Creates a new executor, initializes state and task queue from the S trait.
     pub fn new(mcts_config: MCTSConfiguration, executor_state: &'a mut S) -> Self {
         let state = executor_state.create_initial_state();
         let task_queue = executor_state.init_task_queue(&state);
@@ -398,7 +402,7 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
     }
 
     /// Blocks on all planning threads which should have finished in the current tick and adds the
-    /// resulting best tasks to the `active_tasks`
+    /// resulting best tasks to the `active_tasks`.
     fn block_on_planning(&mut self, tick: u64) {
         // Iterate over all planning tasks that should have finished by now
         let active_tasks = self.queue.task_queue.clone();
@@ -441,7 +445,7 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
         }
     }
 
-    /// Executes all task which are due at the current game tick and starts new planning threads for those agents
+    /// Executes all task which are due at the current game tick and starts new planning threads for those agents.
     fn execute_finished_tasks(&mut self, tick: u64) {
         let active_tasks = self.queue.task_queue.clone();
         for active_task in active_tasks.iter().filter(|task| task.end <= tick) {
@@ -508,7 +512,7 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
         }
     }
 
-    /// Executes one task, returns whether there are still tasks in the queue
+    /// Executes one task, returns whether there are still tasks in the queue.
     pub fn step(&mut self) -> bool {
         if self.queue.is_empty() {
             return false;
@@ -522,7 +526,7 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
         true
     }
 
-    /// Make all planning threads stop and wait for them to finish
+    /// Makes all planning threads stop and wait for them to finish.
     pub fn stop(&mut self) {
         // Set tick to maximum value
         self.tick.store(u64::MAX, Ordering::Relaxed);
@@ -532,12 +536,12 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
         });
     }
 
-    /// Get the global state, read-only
+    /// Gets the global state, read-only.
     pub fn state(&self) -> &D::GlobalState {
         &self.state
     }
 
-    /// Get the number of active agents in the queue
+    /// Gets the number of active agents in the execution queue.
     pub fn agents_count(&self) -> usize {
         self.queue.size()
     }
