@@ -30,7 +30,8 @@ On Windows 10 and newer, you can install the recently released [Windows Terminal
 cargo run --release --example tic-tac-toe
 ```
 
-A traditional tic-tac-toe turn-based game to play interactively against the computer. To make a move, type `X Y` where `X` and `Y` are the coordinates (0, 1, or 2) of your move.
+A traditional tic-tac-toe turn-based game to play interactively against the computer.
+To make a move, type `X Y` where `X` and `Y` are the coordinates (0, 1, or 2) of your move.
 
 Source: [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
 
@@ -43,8 +44,17 @@ cargo run --release --example capture
 A simulation of a competitive battle between two agents in which each tries to capture locations.
 
 Agents can secure locations, collect ammunition and medical kits, and shoot each others.
-This domain demonstrates actions of various durations, a world agent that respawns collectibles, disappearance of agents (upon death), and the use of the simple executor utility.
+They plan in turn.
+The simulation outputs the state of the world and the agents each time a task finishes:
 
+* For the world, it shows the availability of med kit (❤️), ammunition (•) and the state of capture locations (⚡).
+  For a capture location, "__" means that it belongs to no one, "CX" (X = 0 or 1) means that an agent is capturing it, and "HX" (X = 0 or 1) means that an agent is holding that location.
+  A held location brings victory points over time.
+* For the agents, donated "AX" with X being the agent id, the followings are shown: their location (e.g. 0) or locations (e.g. 0-1, in case of movement), their health points (❤️), the amount of ammunition they carry (•), and their number of victory points (⚡).
+* The task about to be completed is shown, and if its execution fails because its completion pre-conditions have changed since planning, that is also shown.
+* Then planning is run for that agent, and the chosen task is shown and queued for execution.
+
+This domain demonstrates actions of various durations, a world agent that respawns collectibles, disappearance of agents (upon death), and the use of the simple executor utility.
 
 
 Source: [`capture.rs`](npc-engine-common/examples/capture.rs)
@@ -85,9 +95,16 @@ A 2-D ecosystem simulation in which herbivores eat and die.
 The world consists of a tilemap where each tile can be empty (dark green), an obstacle (gray), or grass (green).
 A grass tile can provide 1-3 units of food, visualized with increasing saturation levels.
 By eating, a herbivore reduces the amount of food of the tile it's standing on by 1.
+Herbivores are born with 3 units of food, and can store up to 5 units of food.
+Every 10 frames, all agents consume one unit of food.
+If they do not have food any more, they die.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
-They see the map up to a distance of 8 tiles and consider other agents up to a distance of 4 tiles.
+The planning lasts 3 frames, and other actions are instantaneous.
+Agents see the map up to a distance of 8 tiles and consider other agents up to a distance of 4 tiles.
+They aim at 1000 visits per planning, but if not enough computational power is available, planning might end earlier.
+In that case, the plan quality degrades.
+The simulation runs at 25 frames per second.
 
 Source directory: [`ecosystem`](npc-engine-common/examples/ecosystem/)
 
