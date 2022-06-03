@@ -16,6 +16,9 @@ NPC engine provides the following features:
 ## Examples
 
 We provide several examples that illustrate the various features of the engine.
+They work best if your console has a proper unicode font installed.
+On recent Linux and MacOS, it is support out of the box.
+On Windows 10 and newer, you can install the recent [Windows Terminal](https://aka.ms/terminal), and use it with `wt`.
 
 To run an example, with [Rust installed](https://www.rust-lang.org/tools/install), type:
 
@@ -23,7 +26,7 @@ To run an example, with [Rust installed](https://www.rust-lang.org/tools/install
 cargo run --release --example NAME
 ```
 
-where NAME is one of the followings, in lowercase:
+where NAME is one of the followings, in lowercase.
 
 ### Tic-tac-toe
 
