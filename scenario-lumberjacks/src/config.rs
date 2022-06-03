@@ -1,6 +1,7 @@
 use std::{collections::HashMap, num::NonZeroU8};
 use std::fmt;
 
+use npc_engine_common::graphviz::GRAPH_OUTPUT_DEPTH;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -198,7 +199,7 @@ pub struct FeaturesConfig {
     pub waiting: bool,
 }
 
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "kebab-case")]
 pub struct AnalyticsConfig {
     pub metrics: bool,
@@ -207,6 +208,20 @@ pub struct AnalyticsConfig {
     pub serialization: bool,
     pub screenshot: bool,
     pub performance: bool,
+    pub graphs_depth: usize,
+}
+impl Default for AnalyticsConfig {
+    fn default() -> Self {
+        Self {
+            metrics: Default::default(),
+            heatmaps: Default::default(),
+            graphs: Default::default(),
+            serialization: Default::default(),
+            screenshot: Default::default(),
+            performance: Default::default(),
+            graphs_depth: GRAPH_OUTPUT_DEPTH.load(std::sync::atomic::Ordering::Relaxed),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]

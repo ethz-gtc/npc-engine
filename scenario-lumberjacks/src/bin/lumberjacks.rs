@@ -5,6 +5,7 @@ use ggez::graphics::Image;
 use ggez::ContextBuilder;
 use image::{png::PngDecoder, ImageDecoder};
 
+use npc_engine_common::graphviz::GRAPH_OUTPUT_DEPTH;
 use rand::{thread_rng, RngCore};
 use rayon::prelude::*;
 
@@ -126,6 +127,7 @@ fn main() {
 
     serde_json::to_writer_pretty(file, &info).unwrap();
 
+    GRAPH_OUTPUT_DEPTH.store(config().analytics.graphs_depth, std::sync::atomic::Ordering::Relaxed);
     if batch() {
         (0..config().batch.runs).into_par_iter().for_each(|run| {
             let seed = config()
