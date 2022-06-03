@@ -743,7 +743,7 @@ pub mod graphviz {
         ((h.to_degrees() + 180.) / 360., s, v)
     }
 
-    pub struct Edge<D: Domain> {
+    struct Edge<D: Domain> {
         parent: Node<D>,
         child: Node<D>,
         task: Box<dyn Task<D>>,
@@ -771,6 +771,7 @@ pub mod graphviz {
         }
     }
 
+    /// The depth of the graph to plot, in number of nodes.
     pub static GRAPH_OUTPUT_DEPTH: AtomicUsize = AtomicUsize::new(4);
 
     impl<D: Domain> MCTS<D> {

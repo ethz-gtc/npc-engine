@@ -50,17 +50,17 @@ pub trait Domain: Sized + 'static {
         String::new()
     }
 
-    /// Gets the new agents present in a diff but not in a state
+    /// Gets the new agents present in a diff but not in a state.
     fn get_new_agents(_state_diff: StateDiffRef<Self>) -> Vec<AgentId> {
         vec![]
     }
 
-    /// Gets the display actions for idle task
+    /// Gets the display actions for idle task.
     fn display_action_task_idle() -> Self::DisplayAction {
         Default::default()
     }
 
-    /// Gets the display actions for planning task
+    /// Gets the display actions for planning task.
     fn display_action_task_planning() -> Self::DisplayAction {
         Default::default()
     }

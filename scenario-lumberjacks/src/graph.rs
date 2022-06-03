@@ -1,5 +1,7 @@
 use std::fs;
 
+use npc_engine_common::graphviz::plot_mcts_tree;
+
 use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn};
 
 pub fn graph_hook() -> PostMCTSHookFn {
@@ -31,7 +33,7 @@ pub fn graph_hook() -> PostMCTSHookFn {
                 ))
                 .unwrap();
 
-            dot::render(mcts, &mut file).unwrap();
+            plot_mcts_tree(mcts, &mut file).unwrap();
         },
     )
 }

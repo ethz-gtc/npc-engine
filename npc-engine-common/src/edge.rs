@@ -9,7 +9,7 @@ use rand::distributions::WeightedIndex;
 /// None if all tasks are expanded.
 pub type UnexpandedTasks<D> = Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>;
 
-/// The outgoing edges from a node, possibly partially-expanded.
+/// The outgoing edges from a node, possibly partially expanded.
 pub struct Edges<D: Domain> {
     pub unexpanded_tasks: UnexpandedTasks<D>,
     pub expanded_tasks: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
@@ -33,7 +33,7 @@ impl<'a, D: Domain> IntoIterator for &'a Edges<D> {
 }
 
 impl<D: Domain> Edges<D> {
-    /// Create new edges, with optionally a task to continue
+    /// Creates new edges, with optionally a forced task that will be the sole edge.
     pub fn new(node: &Node<D>, initial_state: &D::State, next_task: Option<Box<dyn Task<D>>>) -> Self {
 
         let unexpanded_tasks = match next_task {
@@ -131,6 +131,7 @@ impl<D: Domain> Edges<D> {
             .map(|(sum, count)| sum / count as f32)
     }
 
+    /// Returns how many edges there are, the sum of the expanded and not-yet expanded counts.
     pub fn branching_factor(&self) -> usize {
         self.expanded_tasks.len() +
         self.unexpanded_tasks.as_ref().map_or(0,
@@ -138,6 +139,7 @@ impl<D: Domain> Edges<D> {
         )
     }
 
+    /// The memory footprint of this struct.
     pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
         let mut size = 0;
 
@@ -161,7 +163,7 @@ impl<D: Domain> Edges<D> {
 /// Strong atomic reference counted edge.
 pub type Edge<D> = Arc<Mutex<EdgeInner<D>>>;
 
-/// The data associated to an edge.
+/// The data associated with an edge.
 pub struct EdgeInner<D: Domain> {
     pub parent: WeakNode<D>,
     pub child: WeakNode<D>,
@@ -210,6 +212,7 @@ impl<D: Domain> EdgeInner<D> {
         }
     }
 
+    /// The memory footprint of this struct.
     pub fn size(&self) -> usize {
         let mut size = 0;
 

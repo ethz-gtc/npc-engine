@@ -16,6 +16,7 @@ pub struct ActiveTask<D: Domain> {
 pub type ActiveTasks<D> = BTreeSet<ActiveTask<D>>;
 
 impl<D: Domain> ActiveTask<D> {
+    /// Creates a new active task, computes the end from task and the state_diff.
 	pub fn new(agent: AgentId, task: Box<dyn Task<D>>, tick: u64, state_diff: StateDiffRef<D>) -> Self {
 		let end = tick + task.duration(tick, state_diff, agent);
 		ActiveTask {
@@ -24,6 +25,7 @@ impl<D: Domain> ActiveTask<D> {
 			task,
 		}
 	}
+    /// Creates a new active task with a specified end.
     pub fn new_with_end(end: u64, agent: AgentId, task: Box<dyn Task<D>>) -> Self {
         ActiveTask {
 			end,
@@ -31,17 +33,18 @@ impl<D: Domain> ActiveTask<D> {
 			task,
 		}
     }
-    /// Create a new idle task for agent at a given tick, make sure that it will
+    /// Creates a new idle task for agent at a given tick, make sure that it will
     /// execute in the future considering that we are currently processing active_agent.
     pub fn new_idle(tick: u64, agent: AgentId, active_agent: AgentId) -> Self {
         ActiveTask {
             // Make sure the idle tasks of added agents will not be
-            // executed before the active agent
+            // executed before the active agent.
             end: if agent < active_agent { tick + 1 } else { tick },
             agent,
             task: Box::new(IdleTask)
         }
     }
+    /// The memory footprint of this struct.
 	pub fn size(&self, task_size: fn(&dyn Task<D>) -> usize) -> usize {
 		let mut size = 0;
 		size += mem::size_of::<Self>();
