@@ -17,9 +17,9 @@ fn highlight_agent(agent_id: AgentId) ->  String {
     highlight_style().paint(&tick_text).to_string()
 }
 
-/// A domain for which we can run a generic executor
+/// A domain for which we can run a generic executor.
 pub trait ExecutableDomain: Domain {
-    /// Applies a diff to a mutable state
+    /// Applies a diff to a mutable state.
     fn apply_diff(diff: Self::Diff, state: &mut Self::State);
 }
 // automatic implementation for domains where diff is an option of state
@@ -38,35 +38,35 @@ impl<
 /// User-defined properties for the executor, consisting of a set of
 /// helper functions.
 pub trait ExecutorState<D: Domain> {
-    /// Creates the state value estimator (by default uses rollout-based simulation)
+    /// Creates the state value estimator (by default uses rollout-based simulation).
     fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<D> + Send> {
         Box::new(DefaultPolicyEstimator {})
     }
-    /// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents (by default do nothing)
+    /// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents (by default do nothing).
     fn post_action_execute_hook(&mut self, _state: &D::State, _diff: &D::Diff, _active_task: &ActiveTask<D>, _queue: &mut ActiveTasks<D>) {}
-    /// Method called after MCTS has run, to perform tasks such as printing the search tree (by default do nothing)
+    /// Method called after MCTS has run, to perform tasks such as printing the search tree (by default do nothing).
     fn post_mcts_run_hook(&mut self, _mcts: &MCTS<D>, _last_active_task: &ActiveTask<D>) {}
 }
 
 /// User-defined properties for the executor,
-/// where world and planner states are similar
+/// where world and planner states are similar.
 pub trait ExecutorStateLocal<D: Domain> {
-    /// Creates the initial world state
+    /// Creates the initial world state.
     fn create_initial_state(&self) -> D::State;
-    /// Fills the initial queue of tasks
+    /// Fills the initial queue of tasks.
     fn init_task_queue(&self, state: &D::State) -> ActiveTasks<D>;
-    /// Returns whether an agent should be kept in a given state (to remove dead agents) (by default returns true)
+    /// Returns whether an agent should be kept in a given state (to remove dead agents) (by default returns true).
     fn keep_agent(&self, _tick: u64, _state: &D::State, _agent: AgentId) -> bool { true }
 }
 
 /// User-defined properties for the executor,
-/// where world and planner states are similar
+/// where world and planner states are similar.
 pub trait ExecutorStateGlobal<D: GlobalDomain> {
-    /// Creates the initial world state
+    /// Creates the initial world state.
     fn create_initial_state(&self) -> D::GlobalState;
-    /// Fills the initial queue of tasks
+    /// Fills the initial queue of tasks.
     fn init_task_queue(&self, state: &D::GlobalState) -> ActiveTasks<D>;
-    /// Returns whether an agent should be kept in a given state (to remove dead agents) (by default returns true)
+    /// Returns whether an agent should be kept in a given state (to remove dead agents) (by default returns true).
     fn keep_agent(&self, _tick: u64, _state: &D::GlobalState, _agent: AgentId) -> bool { true }
 }
 
@@ -251,7 +251,7 @@ impl<'a, D, S> SimpleExecutor<'a, D, S>
     }
 }
 
-/// Creates and runs a single-threaded executor, initializes state and task queue from the S trait
+/// Creates and runs a single-threaded executor, initializes state and task queue from the S trait.
 pub fn run_simple_executor<D, S>(mcts_config: &MCTSConfiguration, executor_state: &mut S)
     where
         D: ExecutableDomain,

@@ -82,9 +82,10 @@ File [`learn.rs`](npc-engine-common/examples/learn.rs)
 cargo run --release --example ecosystem
 ```
 
-A 2-D ecosystem simulation in which herbivores and carnivores eat and die.
+A 2-D ecosystem simulation in which herbivores eat and die.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
+They see the map up to a distance of 8 tiles and other agents up to a distance of 4 tiles.
 
 Directory [`ecosystem`](npc-engine-common/examples/ecosystem/)
 

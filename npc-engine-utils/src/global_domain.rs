@@ -1,7 +1,7 @@
 use npc_engine_common::{Domain, AgentId};
 
 
-/// A domain that provides a global state, out of which a local state for the planning can be derived
+/// A domain that provides a global state, out of which a local state for the planning can be derived.
 pub trait GlobalDomain: Domain {
 	/// Global state: all data that can change in the course of the simulation.
     type GlobalState: std::fmt::Debug + Sized + 'static;
@@ -11,6 +11,4 @@ pub trait GlobalDomain: Domain {
 
     /// Applies a diff from a local state to the global state.
     fn apply(global_state: &mut Self::GlobalState, local_state: &Self::State, diff: &Self::Diff);
-
-    // TODO: add a way to tell agents are not live
 }
