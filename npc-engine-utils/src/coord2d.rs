@@ -12,32 +12,39 @@ impl Coord2D {
 	pub const fn new(x: i32, y: i32) -> Self {
 		Coord2D { x, y }
 	}
+    /// Returns the absolute value, component by component.
     pub const fn abs(&self) -> Self {
         Self::new(self.x.abs(), self.y.abs())
     }
-    pub fn abs_diff(&self, that: &Coord2D) -> Self {
-        (*self - *that).abs()
+    /// Returns the absolute value of the difference to other, component by component.
+    pub fn abs_diff(&self, other: &Coord2D) -> Self {
+        (*self - *other).abs()
     }
-    pub fn shortest_dim_dist(&self, that: &Coord2D) -> i32 {
-        let diff = self.abs_diff(that);
+    /// Returns the value of the smallest dimension of the absolute value of the difference to other.
+    pub fn shortest_dim_dist(&self, other: &Coord2D) -> i32 {
+        let diff = self.abs_diff(other);
         diff.x.min(diff.y)
     }
-    pub fn largest_dim_dist(&self, that: &Coord2D) -> i32 {
-        let diff = self.abs_diff(that);
+    /// Returns the value of the largest dimension of the absolute value of the difference to other.
+    pub fn largest_dim_dist(&self, other: &Coord2D) -> i32 {
+        let diff = self.abs_diff(other);
         diff.x.max(diff.y)
     }
-    pub fn max_per_comp(&self, that: Coord2D) -> Self {
+    /// Returns the maximum value of self and other, component by component.
+    pub fn max_per_comp(&self, other: Coord2D) -> Self {
         Self::new(
-            self.x.max(that.x),
-            self.y.max(that.y),
+            self.x.max(other.x),
+            self.y.max(other.y),
         )
     }
-    pub fn min_per_comp(&self, that: Coord2D) -> Self {
+    /// Returns the minimum value of self and other, component by component.
+    pub fn min_per_comp(&self, other: Coord2D) -> Self {
         Self::new(
-            self.x.min(that.x),
-            self.y.min(that.y),
+            self.x.min(other.x),
+            self.y.min(other.y),
         )
     }
+    /// Generates a random value between 0 and range.
     pub fn rand_uniform(range: Coord2D) -> Self {
         let mut rng = rand::thread_rng();
         let x = rng.gen_range(0..range.x);

@@ -3,7 +3,7 @@ use serde::Serialize;
 
 use crate::Coord2D;
 
-/// An helper trait that tells whether up and down are positive or negative.
+/// A helper trait that tells whether up and down are positive or negative.
 pub trait YUpDown {
     /// Returns 1 or -1 depending on the up direction.
 	fn up() -> i32;
@@ -46,11 +46,12 @@ impl fmt::Display for Direction {
     }
 }
 
-/// An helper struct to apply direction to coordinates.
+/// A helper struct to apply direction to coordinates.
 pub struct DirectionConverter<YDir: YUpDown> {
 	_phantom: PhantomData<YDir>
 }
 impl<YDir: YUpDown> DirectionConverter<YDir> {
+    /// Moves `coord` by `direction`.
     pub fn apply(direction: Direction, coord: Coord2D) -> Coord2D {
         let Coord2D { x, y } = coord;
         let (x, y) = match direction {
@@ -62,6 +63,7 @@ impl<YDir: YUpDown> DirectionConverter<YDir> {
         Coord2D::new(x, y)
     }
 
+    /// Gets the direction between `start` and `end`, panics if they are not adjacent.
     pub fn from(start: Coord2D, end: Coord2D) -> Direction {
 		let dx = end.x - start.x;
 		let dy = end.y - start.y;
