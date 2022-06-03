@@ -85,7 +85,7 @@ impl GameState {
             visits: config().mcts.visits,
             depth: config().mcts.depth,
             exploration: config().mcts.exploration,
-            discount_hl: 2f32.powf(-1.0 / config().mcts.discount),
+            discount_hl: -1.0 / config().mcts.discount.log2(),
             seed: Some(seed),
             ..Default::default()
         };
