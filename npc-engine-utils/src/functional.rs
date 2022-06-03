@@ -1,15 +1,19 @@
-pub fn keep_first<'a, A, B>(tuple: &'a (A, B)) -> &'a A {
+/// Returns a reference to the first element of a tuple reference.
+pub fn keep_first<A, B>(tuple: &(A, B)) -> &A {
 	&tuple.0
 }
 
-pub fn keep_second<'a, A, B>(tuple: &'a (A, B)) -> &'a B {
+/// Returns a reference to the second element of a tuple reference.
+pub fn keep_second<A, B>(tuple: &(A, B)) -> &B {
 	&tuple.1
 }
 
-pub fn keep_first_mut<'a, A, B>(tuple: &'a mut (A, B)) -> &'a mut A {
+/// Returns a mutable reference to the first element of a mutable tuple reference.
+pub fn keep_first_mut<A, B>(tuple: &mut (A, B)) -> &mut A {
 	&mut tuple.0
 }
 
-pub fn keep_second_mut<'a, A, B>(tuple: &'a mut (A, B)) -> &'a mut B {
+/// Returns a mutable reference to the second element of a mutable tuple reference.
+pub fn keep_second_mut<A, B>(tuple: &mut (A, B)) -> &mut B {
 	&mut tuple.1
 }

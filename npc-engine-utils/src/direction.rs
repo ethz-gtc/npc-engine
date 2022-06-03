@@ -3,21 +3,29 @@ use serde::Serialize;
 
 use crate::Coord2D;
 
+/// An helper trait that tells whether up and down are positive or negative.
 pub trait YUpDown {
+    /// Returns 1 or -1 depending on the up direction.
 	fn up() -> i32;
+    /// Returns 1 or -1 depending on the down direction.
 	fn down() -> i32;
 }
+
+/// Up is positive.
 pub struct YUp;
 impl YUpDown for YUp {
 	fn up() -> i32 { 1 }
 	fn down() -> i32 { -1 }
 }
+
+/// Down is positive.
 pub struct YDown;
 impl YUpDown for YDown {
 	fn up() -> i32 { -1 }
 	fn down() -> i32 { 1 }
 }
 
+/// A direction type.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Direction {
@@ -38,6 +46,7 @@ impl fmt::Display for Direction {
     }
 }
 
+/// An helper struct to apply direction to coordinates.
 pub struct DirectionConverter<YDir: YUpDown> {
 	_phantom: PhantomData<YDir>
 }
@@ -72,11 +81,14 @@ impl<YDir: YUpDown> DirectionConverter<YDir> {
     }
 }
 
+/// All directions.
 pub const DIRECTIONS: [Direction; 4] = [
     Direction::Up,
     Direction::Right,
     Direction::Down,
     Direction::Left,
 ];
+/// Apply direction to coordinates with up being positive.
 pub type DirectionConverterYUp = DirectionConverter<YUp>;
+/// Apply direction to coordinates with up being negative.
 pub type DirectionConverterYDown = DirectionConverter<YDown>;

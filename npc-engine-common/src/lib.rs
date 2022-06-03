@@ -1,3 +1,5 @@
+//! This is the core of the NPC engine, containing the MCTS algorithm implementation and related abstractions.
+
 mod task;
 mod active_task;
 mod domain;

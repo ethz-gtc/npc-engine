@@ -1,6 +1,7 @@
 use std::fs;
 use npc_engine_common::{Domain, MCTS, ActiveTask, graphviz, debug_name_to_filename_safe};
 
+/// Plots the MCTS tree using graphviz's dot format.
 pub fn plot_tree_in_tmp<D: Domain>(mcts: &MCTS::<D>, base_dir_name: &str, file_name: &str) -> std::io::Result<()> {
 	let temp_dir = std::env::temp_dir().display().to_string();
 	let path = format!("{temp_dir}/{base_dir_name}/");
@@ -15,6 +16,7 @@ pub fn plot_tree_in_tmp<D: Domain>(mcts: &MCTS::<D>, base_dir_name: &str, file_n
 		graphviz::plot_mcts_tree(mcts, &mut file)
 }
 
+/// Plots the MCTS tree using graphviz's dot format, with a filename derived from an active task.
 pub fn plot_tree_in_tmp_with_task_name<D: Domain>(mcts: &MCTS::<D>, base_dir_name: &str, last_active_task: &ActiveTask<D>) -> std::io::Result<()> {
 	let time_text = format!("T{}", mcts.start_tick);
 	let agent_id_text = format!("A{}", mcts.agent().0);

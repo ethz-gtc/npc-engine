@@ -5,37 +5,41 @@ use rand::Rng;
 const RELU_LEAK: f32 = 0.01;
 
 #[derive(Debug, Clone)]
-/// A simple leaky ReLU neuron
+/// A simple leaky ReLU neuron with I inputs.
 pub struct Neuron<const I: usize> {
 	pub weights: [f32; I],
 	pub bias: f32,
 }
 impl<const I: usize> Neuron<I> {
+	/// Creates a new neuron with weights and bias to 0.
 	pub fn zero() -> Self {
 		Self {
 			weights: [0.; I],
 			bias: 0.
 		}
 	}
+	/// Creates a new neuron with random weights within [-1, 1] and bias to 0.
 	pub fn random_with_0_bias() -> Self {
 		let mut rng = rand::thread_rng();
 		Self {
-			weights: [0.; I].map(|_| rng.gen_range(-1.0..1.0)),
+			weights: [0.; I].map(|_| rng.gen_range(-1.0..=1.0)),
 			bias: 0.0
 		}
 	}
+	/// Creates a new neuron with random weights and bias within [-1, 1].
 	pub fn random() -> Self {
 		let mut rng = rand::thread_rng();
 		Self {
-			weights: [0.; I].map(|_| rng.gen_range(-1.0..1.0)),
-			bias: rng.gen_range(-1.0..1.0)
+			weights: [0.; I].map(|_| rng.gen_range(-1.0..=1.0)),
+			bias: rng.gen_range(-1.0..=1.0)
 		}
 	}
+	/// Creates a new neuron with random weights and bias within [-range, range].
 	pub fn random_with_range(range: f32) -> Self {
 		let mut rng = rand::thread_rng();
 		Self {
-			weights: [0.; I].map(|_| rng.gen_range(-range..range)),
-			bias: rng.gen_range(-range..range)
+			weights: [0.; I].map(|_| rng.gen_range(-range..=range)),
+			bias: rng.gen_range(-range..=range)
 		}
 	}
 	fn leaky_relu(x: f32) -> f32 {
@@ -55,6 +59,7 @@ impl<const I: usize> Neuron<I> {
 	fn weighted_sum(&self, x: &[f32; I]) -> f32 {
 		zip(x, &self.weights).map(|(x, w)| x * w).sum::<f32>() + self.bias
 	}
+	/// Computes the neuron's output for x.
 	pub fn output(&self, x: &[f32; I]) -> f32 {
 		Self::leaky_relu(self.weighted_sum(x))
 	}
@@ -89,6 +94,7 @@ impl<const I: usize> Neuron<I> {
 		}
 		self.bias += d_bias;
 	}
+	/// Trains the neuron from data using back-propagation with epsilon learning rate (per data entry).
 	pub fn train<'a>(&mut self, data: impl Iterator<Item=&'a ([f32; I], f32)>, epsilon: f32) {
 		assert!(epsilon < 0.5);
 		let e = 2. * epsilon;
@@ -101,6 +107,7 @@ impl<const I: usize> Neuron<I> {
 	}
 }
 
+/// A simple neural network with I inputs and one hidden layer of H neurons.
 #[derive(Debug, Clone)]
 pub struct NetworkWithHiddenLayer<const I: usize, const H: usize> {
 	pub hidden_layer: [Neuron<I>; H],
@@ -117,9 +124,11 @@ impl<const I: usize, const H: usize> NetworkWithHiddenLayer<I, H> {
 			.try_into()
 			.unwrap()
 	}
+	/// Computes the network's output for x.
 	pub fn output(&self, x: &[f32; I]) -> f32 {
 		self.output_layer.output(&self.x_mid(x))
 	}
+	/// Trains the network from data using back-propagation with epsilon learning rate (per data entry).
 	pub fn train<'a>(&mut self, data: impl Iterator<Item=&'a ([f32; I], f32)>, epsilon: f32) {
 		assert!(epsilon < 0.5);
 		let e = 2. * epsilon;

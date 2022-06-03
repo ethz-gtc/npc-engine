@@ -2,6 +2,7 @@ use std::ops::{Add, AddAssign, Sub, SubAssign, Mul, MulAssign, Div, DivAssign, N
 
 use rand::Rng;
 
+/// A 2-D integer coordinate type.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub struct Coord2D {
 	pub x: i32,

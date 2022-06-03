@@ -69,8 +69,25 @@ A 2-D ecosystem simulation in which herbivores and carnivores eat and die.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
 
+
+### Lumberjack
+
+Directory [`scenario-lumberjacks`](scenario-lumberjacks/)
+
+The research code used in the paper *Leveraging efficient planning and lightweight agent definition: a novel path towards emergent narrative* by Raymond et al, 2020.
+
+To see a basic run of this scenario, use the following command:
+
+```
+cargo run --release --bin lumberjacks scenario-lumberjacks/experiments/base.json
+```
+
+You can step the simulation by pressing "space".
+The red agent will collect all wood at the right because it reasons about the possible actions of the yellow agent and thus collects the trees in the optimal order.
+
 ## Read the documentation
 
+The NPC engine is composed of two packages: `npc-engine-common` and `npc-engine-utils`.
 The documentation can be generated and browsed interactively with the following command:
 
 ```
