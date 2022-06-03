@@ -129,10 +129,10 @@ fn main() {
 		&mut executor_state
 	);
 	let one_frame = time::Duration::from_millis(40);
+	clearscreen::clear().unwrap();
 	while executor.agents_count() > 1 {
 		executor.step();
 		thread::sleep(one_frame);
-		clearscreen::clear().unwrap();
-		print!("{}", executor.state());
+		print!("\x1B[H{}", executor.state());
 	}
 }
