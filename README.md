@@ -7,26 +7,22 @@ NPC engine provides the following features:
 * domain-agnostic MCTS planner,
 * varying-duration tasks, making it a scheduler in addition to a planner,
 * heterogeneous agents (e.g. a global bookkeeping agent along regular agents), allowing for clean domain designs,
-* support for dynamically appearing and disappearing agents,
-* choice of behaviour when tasks become invalid: abort sub-tree (as in board games), re-plan (as in simulations),
-* custom state value function besides built-in rollout,
-* multiple debugging features including tracing and search trees as graph outputs using graphviz's dot format,
+* support for dynamically appearing and disappearing agents (even within a single planning tree),
+* choice of behavior when tasks become invalid: prune that subtree (as in board games), or re-plan (as in simulations),
+* custom state value function in addition to standard rollout,
+* multiple debugging features including tracing and plotting search trees as graphs using graphviz's dot format,
 * batteries included with several [examples](npc-engine-common/examples/), helper library and the [code of our research paper](scenario-lumberjacks/) (see below).
 
 ## Examples
 
 We provide several examples that illustrate the various features of the engine.
-They work best if your console has a proper unicode font installed.
-On recent Linux and MacOS, it is support out of the box.
-On Windows 10 and newer, you can install the recent [Windows Terminal](https://aka.ms/terminal), and use it with `wt`.
 
-To run an example, with [Rust installed](https://www.rust-lang.org/tools/install), type:
+To run the examples, you need to have [Rust installed](https://www.rust-lang.org/tools/install).
 
-```
-cargo run --release --example NAME
-```
+Make sure your console uses a font that supports unicode emojis, as we use emojis for visualization.
+On recent Linux and MacOS machines, they are supported out of the box.
+On Windows 10 and newer, you can install the recently released [Windows Terminal](https://aka.ms/terminal), and use it with `wt`.)
 
-where NAME is one of the followings, in lowercase.
 
 ### Tic-tac-toe
 
@@ -34,9 +30,9 @@ where NAME is one of the followings, in lowercase.
 cargo run --release --example tic-tac-toe
 ```
 
-A traditional tic-tac-toe turn-based game to play interactively against the computer.
+A traditional tic-tac-toe turn-based game to play interactively against the computer. To make a move, type `X Y` where `X` and `Y` are the coordinates (0, 1, or 2) of your move.
 
-File [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
+Source: [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
 
 ### Capture
 
@@ -44,12 +40,14 @@ File [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
 cargo run --release --example capture
 ```
 
-A simulation of a competitive battle for capturing locations between two agents.
+A simulation of a competitive battle between two agents in which each tries to capture locations.
 
 Agents can secure locations, collect ammunition and medical kits, and shoot each others.
 This domain demonstrates actions of various durations, a world agent that respawns collectibles, disappearance of agents (upon death), and the use of the simple executor utility.
 
-File [`capture.rs`](npc-engine-common/examples/capture.rs)
+
+
+Source: [`capture.rs`](npc-engine-common/examples/capture.rs)
 
 ### Learn
 
@@ -74,7 +72,7 @@ The curve should look like that:
 
 ![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
-File [`learn.rs`](npc-engine-common/examples/learn.rs)
+Source: [`learn.rs`](npc-engine-common/examples/learn.rs)
 
 ### Ecosystem
 
@@ -87,7 +85,7 @@ A 2-D ecosystem simulation in which herbivores eat and die.
 All agents plan in parallel in a multi-threaded way on their own partial world views.
 They see the map up to a distance of 8 tiles and other agents up to a distance of 4 tiles.
 
-Directory [`ecosystem`](npc-engine-common/examples/ecosystem/)
+Source directory: [`ecosystem`](npc-engine-common/examples/ecosystem/)
 
 
 ### Lumberjack
