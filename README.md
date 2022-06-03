@@ -83,7 +83,8 @@ cargo run --release --example ecosystem
 A 2-D ecosystem simulation in which herbivores eat and die.
 
 The world consists of a tilemap where each tile can be empty (dark green), an obstacle (gray), or grass (green).
-A grass tile can 1-3 units of food, visualized with increasing saturation levels.
+A grass tile can provide 1-3 units of food, visualized with increasing saturation levels.
+By eating a herbivore reduces the amount of food on a tile by 1.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
 They see the map up to a distance of 8 tiles and consider other agents up to a distance of 4 tiles.
