@@ -27,22 +27,32 @@ where NAME is one of the followings, in lowercase:
 
 ### Tic-tac-toe
 
-File [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
+```
+cargo run --release --example tic-tac-toe
+```
 
 A traditional tic-tac-toe turn-based game to play interactively against the computer.
 
+File [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
+
 ### Capture
 
-File [`capture.rs`](npc-engine-common/examples/capture.rs)
+```
+cargo run --release --example capture
+```
 
 A simulation of a competitive battle for capturing locations between two agents.
 
 Agents can secure locations, collect ammunition and medical kits, and shoot each others.
 This domain demonstrates actions of various durations, a world agent that respawns collectibles, disappearance of agents (upon death), and the use of the simple executor utility.
 
+File [`capture.rs`](npc-engine-common/examples/capture.rs)
+
 ### Learn
 
-File [`learn.rs`](npc-engine-common/examples/learn.rs)
+```
+cargo run --release --example learn
+```
 
 A 1-D woodcutter simulation where the agent's performance improves over time due to self learning.
 
@@ -61,13 +71,19 @@ The curve should look like that:
 
 ![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
+File [`learn.rs`](npc-engine-common/examples/learn.rs)
+
 ### Ecosystem
 
-Directory [`ecosystem`](npc-engine-common/examples/ecosystem/)
+```
+cargo run --release --example ecosystem
+```
 
 A 2-D ecosystem simulation in which herbivores and carnivores eat and die.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
+
+Directory [`ecosystem`](npc-engine-common/examples/ecosystem/)
 
 
 ### Lumberjack
