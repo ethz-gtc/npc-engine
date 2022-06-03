@@ -1,0 +1,6 @@
+{
+	"type": "specialization",
+	"x_axis_label": "teamwork",
+	"color": "forestgreen",
+	"y_ticks": [0, 3, 6, 9, 12, 15]
+}

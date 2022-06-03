@@ -1,0 +1,102 @@
+{
+	"$schema": "../experiment.schema.json",
+	"base": "./base.json",
+	"trials": {
+		"off-1": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-1.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": false
+			}
+		},
+		"off-3": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-3.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": false
+			}
+		},
+		"off-5": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-5.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": false
+			}
+		},
+		"off-7": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-7.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": false
+			}
+		},
+		"on-1": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-1.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": true
+			}
+		},
+		"on-3": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-3.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": true
+			}
+		},
+		"on-5": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-5.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": true
+			}
+		},
+		"on-7": {
+            "map": {
+                "generator": {
+                    "file": {
+                        "path": "./map-7.png"
+                    }
+                }
+            },
+			"agents": {
+				"objectives": true
+			}
+		}
+	}
+}

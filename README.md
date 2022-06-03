@@ -74,7 +74,9 @@ All agents plan in parallel in a multi-threaded way on their own partial world v
 
 Directory [`scenario-lumberjacks`](scenario-lumberjacks/)
 
-The research code used in the paper *Leveraging efficient planning and lightweight agent definition: a novel path towards emergent narrative* by Raymond et al, 2020.
+The research code used in the paper [*Leveraging efficient planning and lightweight agent definition: a novel path towards emergent narrative* by Raymond et al, 2020](https://www.research-collection.ethz.ch/handle/20.500.11850/439084).
+This domain features two lumberjacks whose value function is the total collected wood logs.
+There is no explicit communication between these two agents, but because they plan for each others, a theory of mind emerges.
 
 To see a basic run of this scenario, use the following command:
 
@@ -83,9 +85,58 @@ cargo run --release --bin lumberjacks scenario-lumberjacks/experiments/base.json
 ```
 
 You can step the simulation by pressing "space".
-The red agent will collect all wood at the right because it reasons about the possible actions of the yellow agent and thus collects the trees in the optimal order.
+There are two agents, red and yellow, which execute their actions turn by turn.
+In this basic scenario, the red agent will collect all wood at the right because it reasons about the possible actions of the yellow agent and thus collects the trees in the optimal order.
 
-## Read the documentation
+The scenario can be run non-interactively by setting a configuration parameter with the `-s` flag:
+```
+cargo run --release --bin lumberjacks -- -s display.interactive=false scenario-lumberjacks/experiments/base.json
+```
+
+Here are some additional interesting experiments from the paper:
+
+#### Basic competition
+
+The red agent collects the wood in an order that prevents the yellow agent from collecting any, leaving all for itself.
+
+```
+cargo run --release --bin lumberjacks scenario-lumberjacks/experiments/competition-basic/base.json
+```
+
+#### Advanced competition
+
+The red agent typically invests the first wood it collects to build a barrier to block the yellow agent from collecting any more wood, leaving more for itself.
+This shows the ability to reason about others and accept a short-term loss for a bigger, longer-term profit.
+
+```
+cargo run --release --bin lumberjacks scenario-lumberjacks/experiments/barrier/base.json
+```
+
+#### Cooperation
+
+Now all adjacent agents to a tree being cut also receive one wood.
+Because of that, and implicitly through planning, the two agents synchronize together to cut the same tree.
+
+```
+cargo run --release --bin lumberjacks scenario-lumberjacks/experiments/teamwork-basic/base.json
+```
+
+#### Sustainability
+
+A well is available for the agent to water a tree and let it regrow to full size.
+The agent does not cut the tree fully, but goes to fetch the water from the well when it is almost dead.
+
+```
+cargo run --release --bin lumberjacks scenario-lumberjacks/experiments/optimization/base.json
+```
+
+If we also allow the agent to plant a new tree (using one wood), the agent cuts the tree and replants one closer to the well:
+
+```
+cargo run --release --bin lumberjacks -- -s features.planting=true scenario-lumberjacks/experiments/optimization/base.json
+```
+
+## Documentation
 
 The NPC engine is composed of two packages: `npc-engine-common` and `npc-engine-utils`.
 The documentation can be generated and browsed interactively with the following command:
@@ -93,6 +144,11 @@ The documentation can be generated and browsed interactively with the following 
 ```
 cargo doc --open -p npc-engine-common -p npc-engine-utils
 ```
+
+### A note on performance
+
+Rust is heavily dependent on compiler optimizations.
+Make sure that you include the `--release` flag to your cargo call for efficient execution.
 
 ## Generate PDF of search tree graphs
 

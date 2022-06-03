@@ -1,0 +1,36 @@
+{
+	"$schema": "../experiment.schema.json",
+	"base": "./base.json",
+	"trials": {
+		"visit-1": {
+			"mcts": {
+				"visits": 1
+			}
+		},
+		"visit-5": {
+			"mcts": {
+				"visits": 5
+			}
+		},
+		"visit-25": {
+			"mcts": {
+				"visits": 25
+			}
+		},
+		"visit-125": {
+			"mcts": {
+				"visits": 125
+			}
+		},
+		"visit-625": {
+			"mcts": {
+				"visits": 625
+			}
+		},
+		"visit-3125": {
+			"mcts": {
+				"visits": 3125
+			}
+		}
+	}
+}

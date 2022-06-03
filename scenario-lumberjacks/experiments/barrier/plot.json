@@ -1,0 +1,7 @@
+{
+	"type": "inventory",
+	"x_axis_label": "visit count",
+	"x_axis_label_type": "int",
+    "condition2_label": "plan others",
+    "y_ticks": [0, 3, 6, 9, 12]
+}

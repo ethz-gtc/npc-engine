@@ -1,0 +1,7 @@
+{
+	"type": "inventory",
+	"x_axis_label": "plan for others",
+	"y_ticks": [0,1,2,3],
+	"color": "forestgreen",
+	"height": 0.8
+}

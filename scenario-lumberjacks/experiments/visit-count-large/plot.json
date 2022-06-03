@@ -1,0 +1,9 @@
+{
+	"type": "inventory",
+	"x_axis_label": "visit count",
+	"color": "forestgreen",
+	"num_trial": true,
+	"rotated_label": true,
+	"y_ticks": [0, 3, 6, 9],
+	"condition2_label": "tasks"
+}

@@ -1,0 +1,8 @@
+{
+	"type": "inventory",
+	"x_axis_label": "visit count",
+	"color": "forestgreen",
+	"x_axis_label_type": "int",
+	"rotated_label": true,
+	"y_ticks": [0, 3, 6, 9]
+}

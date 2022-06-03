@@ -1,0 +1,8 @@
+{
+	"type": "inventory",
+	"x_axis_label": "distance",
+	"color": "forestgreen",
+	"x_axis_label_type": "int",
+	"y_ticks": [0, 3, 6, 9, 12, 15],
+	"condition2_label": "tasks"
+}

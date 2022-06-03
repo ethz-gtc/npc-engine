@@ -1,0 +1,48 @@
+{
+	"$schema": "../schema.json",
+	"turns": 10,
+	"batch": {
+		"runs": 100
+	},
+	"map": {
+		"generator": {
+			"file": {
+				"path": "./map.png"
+			}
+		},
+		"tree-height": 3
+	},
+	"features": {
+		"barriers": false,
+		"teamwork": true
+	},
+	"agents": {
+		"horizon-radius": 5,
+		"objectives": false,
+		"plan-others": true,
+		"snapshot-radius": 10
+	},
+	"mcts": {
+		"depth": 45,
+		"exploration": 1.4142135623730951,
+		"retention": 1.0,
+		"discount": 0.95,
+		"visits": 1000
+	},
+	"display": {
+		"background": [
+			0.0,
+			0.44,
+			0.36
+		],
+		"padding": [2, 2],
+		"inventory": true
+	},
+	"analytics": {
+		"graphs": false,
+		"heatmaps": false,
+		"metrics": false,
+		"screenshot": false,
+		"serialization": false
+	}
+}

@@ -1,0 +1,36 @@
+{
+    "$schema": "../experiment.schema.json",
+    "base": "./base.json",
+    "trials": {
+        "depth-1": {
+            "mcts": {
+                "depth": 1,
+                "visits": 100
+            }
+        },
+        "depth-2": {
+            "mcts": {
+                "depth": 2,
+                "visits": 200
+            }
+        },
+        "depth-3": {
+            "mcts": {
+                "depth": 3,
+                "visits": 400
+            }
+        },
+        "depth-4": {
+            "mcts": {
+                "depth": 4,
+                "visits": 800
+            }
+        },
+        "depth-5": {
+            "mcts": {
+                "depth": 5,
+                "visits": 1600
+            }
+        }
+    }
+}

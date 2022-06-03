@@ -1,0 +1,150 @@
+{
+	"$schema": "../experiment.schema.json",
+	"base": "./base.json",
+	"trials": {
+        "off-0.1": {
+            "mcts": {
+                "depth": 1,
+                "discount": 0.1
+            },
+            "features": {
+                "planting": false
+            }
+        },
+        "off-0.3": {
+            "mcts": {
+                "depth": 2,
+                "discount": 0.3
+            },
+            "features": {
+				"planting": false
+			}
+        },
+        "off-0.6": {
+            "mcts": {
+                "depth": 5,
+                "disount": 0.6
+            },
+            "features": {
+				"planting": false
+			}
+        },
+        "off-0.8": {
+            "mcts": {
+                "depth": 11,
+                "discount": 0.8
+            },
+            "features": {
+				"planting": false
+			}
+        },
+        "off-0.9": {
+            "mcts": {
+                "depth": 22,
+                "discount": 0.9
+            },
+            "features": {
+				"planting": false
+			}
+        },
+        "off-0.95": {
+            "mcts": {
+                "depth": 45,
+                "discount": 0.95
+            },
+            "features": {
+				"planting": false
+			}
+        },
+        "off-0.98": {
+            "mcts": {
+                "depth": 113,
+                "discount": 0.98
+            },
+            "features": {
+				"planting": false
+			}
+        },
+        "off-1": {
+            "mcts": {
+                "depth": 150,
+                "discount": 1
+            },
+            "features": {
+				"planting": false
+			}
+        },
+        "on-0.1": {
+            "mcts": {
+                "depth": 1,
+                "discount": 0.1
+            },
+            "features": {
+                "planting": true
+            }
+        },
+        "on-0.3": {
+            "mcts": {
+                "depth": 2,
+                "discount": 0.3
+            },
+            "features": {
+				"planting": true
+			}
+        },
+        "on-0.6": {
+            "mcts": {
+                "depth": 5,
+                "disount": 0.6
+            },
+            "features": {
+				"planting": true
+			}
+        },
+        "on-0.8": {
+            "mcts": {
+                "depth": 11,
+                "discount": 0.8
+            },
+            "features": {
+				"planting": true
+			}
+        },
+        "on-0.9": {
+            "mcts": {
+                "depth": 22,
+                "discount": 0.9
+            },
+            "features": {
+				"planting": true
+			}
+        },
+        "on-0.95": {
+            "mcts": {
+                "depth": 45,
+                "discount": 0.95
+            },
+            "features": {
+				"planting": true
+			}
+        },
+        "on-0.98": {
+            "mcts": {
+                "depth": 113,
+                "discount": 0.98
+            },
+            "features": {
+				"planting": true
+			}
+        },
+        "on-1": {
+            "mcts": {
+                "depth": 150,
+                "discount": 1
+            },
+            "features": {
+				"planting": true
+			}
+        }
+	}
+}

@@ -1,0 +1,16 @@
+{
+    "$schema": "../experiment.schema.json",
+    "base": "./base.json",
+    "trials": {
+        "on": {
+            "agents": {
+                "plan-others": true
+            }
+        },
+        "off": {
+            "agents": {
+                "plan-others": false
+            }
+        }
+    }
+}

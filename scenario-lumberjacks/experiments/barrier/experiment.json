@@ -1,0 +1,58 @@
+{
+	"$schema": "../experiment.schema.json#",
+	"base": "./base.json",
+	"trials": {
+		"on-125": {
+			"mcts": {
+				"visits": 125
+			}
+		},
+		"on-250": {
+			"mcts": {
+				"visits": 250
+			}
+		},
+		"on-500": {
+			"mcts": {
+				"visits": 500
+			}
+		},
+		"on-1000": {
+			"mcts": {
+				"visits": 1000
+			}
+		},
+		"off-125": {
+			"agents": {
+				"plan-others": false
+			},
+			"mcts": {
+				"visits": 125
+			}
+		},
+		"off-250": {
+			"agents": {
+				"plan-others": false
+			},
+			"mcts": {
+				"visits": 250
+			}
+		},
+		"off-500": {
+			"agents": {
+				"plan-others": false
+			},
+			"mcts": {
+				"visits": 500
+			}
+		},
+		"off-1000": {
+			"agents": {
+				"plan-others": false
+			},
+			"mcts": {
+				"visits": 1000
+			}
+		}
+	}
+}

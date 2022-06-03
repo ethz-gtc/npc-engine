@@ -1,0 +1,8 @@
+{
+	"type": "inventory",
+    "x_axis_label": "discount factor",
+    "x_axis_label_type": "float",
+    "condition2_label": "planting",
+    "y_ticks": [0, 3, 6, 9, 12, 15],
+    "width": 2
+}

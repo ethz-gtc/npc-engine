@@ -1,0 +1,7 @@
+{
+	"$schema": "../experiment.schema.json",
+	"base": "./base.json",
+	"trials": {
+		"experiment": {}
+	}
+}
