@@ -6,3 +6,4 @@ David Enderlin) appear in the git log. Their contributions are listed below:
 * Aydin Faraji <afaraji@student.ethz.ch>: testing and bug fixing
 * Henry Raymond <henry.raymond@inf.ethz.ch>: documentation, supervision
 * Stéphane Magnenat <stephane.magnenat@inf.ethz.ch>: lead, supervision, refactoring, examples
+* Violaine Fayolle <violaine.fayolle@inf.ethz.ch>: lumberjack sprites
