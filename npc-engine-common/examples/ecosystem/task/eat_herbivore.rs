@@ -33,7 +33,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
                 prey_state.alive = false;
                 let agent_state = state_diff.get_agent_mut(agent).unwrap();
                 agent_state.position = passage_pos;
-                agent_state.food = 5;
+                agent_state.food = 7;
                 return None;
             }
         }
@@ -43,7 +43,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
         prey_state.1.alive = false;
         let agent_state = state_diff.get_agent_mut(agent).unwrap();
         agent_state.position = target_pos;
-        agent_state.food = 5;
+        agent_state.food = 7;
         None
     }
 

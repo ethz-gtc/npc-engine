@@ -103,13 +103,17 @@ fn derive_local_state_radius(global_state: &GlobalState, agent: AgentId, map_rad
 	let center_position = agent_state.position;
 	// extract tiles
 	let (origin, map) = global_state.map.extract_region(center_position, map_radius);
-	// extract agents, limiting the number to MAX_AGENTS_ATTENTION closest agents
+	// extract alive agents, limiting the number to MAX_AGENTS_ATTENTION closest agents
 	let mut agents = global_state.get_agents_in_region(center_position, agent_radius)
-		.map(|(agent, agent_state)| {
+		.filter_map(|(agent, agent_state)| {
 			let mut agent_state = agent_state.clone();
-			let dist = agent_state.position.manhattan_dist(center_position);
-			agent_state.position -= origin;
-			(dist, (*agent, agent_state))
+			if agent_state.alive {
+				let dist = agent_state.position.manhattan_dist(center_position);
+				agent_state.position -= origin;
+				Some((dist, (*agent, agent_state)))
+			} else {
+				None
+			}
 		})
 		.collect::<Vec<_>>();
 	agents.sort_by(|a, b| a.0.cmp(&b.0));
