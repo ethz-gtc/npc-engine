@@ -1,5 +1,7 @@
 # NPC engine
 
+© 2020-2022 ETH Zurich, Sven Knobloch, David Enderlin, Aydin Faraji, Henry Raymond, Stéphane Magnenat; D-INF; Game Technology Center.
+
 A customizable Monte Carlo Tree Search (MCTS) planner with advanced featured tailored to multi-agent simulations and emergent narratives, by the [ETH Game Technology Center](https://gtc.inf.ethz.ch/research/emergent-narrative.html).
 
 NPC engine provides the following features:
@@ -210,3 +212,23 @@ If you use this software in an academic context, please cite our paper:
 	year={2020},
 }
 ```
+
+## Thanks and Alternatives
+
+We would like to thank Patrick Eppensteiner, Nora Tommila, and Heinrich Grattenthaler for their contributions to this research project.
+
+Some possible alternatives to this work, also in Rust, are the [mcts](https://crates.io/crates/mcts), [arbor](https://crates.io/crates/arbor) and [board-game](https://crates.io/crates/board-game) frameworks.
+
+## License
+
+NPC Engine is free and open source! All code in this repository is dual-licensed under either:
+
+* MIT License ([LICENSE-MIT](docs/LICENSE-MIT) or [http://opensource.org/licenses/MIT](http://opensource.org/licenses/MIT))
+* Apache License, Version 2.0 ([LICENSE-APACHE](docs/LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
+
+at your option.
+This means you can select the license you prefer!
+This dual-licensing approach is the de-facto standard in the Rust ecosystem.
+
+Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
+additional terms or conditions.
