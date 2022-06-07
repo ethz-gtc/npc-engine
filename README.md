@@ -1,6 +1,6 @@
 # NPC engine
 
-© 2020-2022 ETH Zurich, Sven Knobloch, David Enderlin, Aydin Faraji, Henry Raymond, Stéphane Magnenat; D-INF; Game Technology Center. See [AUTHORS.txt](AUTHORS.txt) for more details.
+© 2020-2022 ETH Zurich and other contributors. See [AUTHORS.txt](AUTHORS.txt) for more details.
 
 A customizable Monte Carlo Tree Search (MCTS) planner with advanced featured tailored to multi-agent simulations and emergent narratives, by the [ETH Game Technology Center](https://gtc.inf.ethz.ch/research/emergent-narrative.html).
 

@@ -44,6 +44,15 @@ This is the default license template.
  To edit this license information: Press Ctrl+Shift+P and press 'Create new License Template...'.
 """
 
+This is the default license template.
+ 
+ File: plot-learn.py
+ Author: steph
+ Copyright (c) 2022 steph
+ 
+ To edit this license information: Press Ctrl+Shift+P and press 'Create new License Template...'.
+"""
+
 #!/usr/bin/env python3
 
 import sys
