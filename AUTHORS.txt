@@ -1,0 +1,8 @@
+Note: due to manual merge, not all authors (especially Sven Knobloch and
+David Enderlin) appear in the git log. Their contributions are listed below:
+
+* Sven Knobloch: core MCTS implementation
+* David Enderlin: multi-threaded planning and execution
+* Aydin Faraji: some bug corrections
+* Henry Raymond: documentation, supervision
+* Stéphane Magnenat: lead, supervision, refactoring, examples
