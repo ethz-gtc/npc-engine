@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 use std::{fmt, collections::BTreeSet, hash::Hash};
 
 use npc_engine_common::{Domain, Behavior, StateDiffRef, AgentId, Task, StateDiffRefMut, MCTSConfiguration, MCTS, impl_task_boxed_methods, AgentValue, TaskDuration};

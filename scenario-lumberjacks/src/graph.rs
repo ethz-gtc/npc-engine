@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 use std::fs;
 
 use npc_engine_common::graphviz::plot_mcts_tree;

@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 use std::{sync::{Arc, Weak}, collections::{BTreeMap, BTreeSet}, fmt, mem, hash::{Hash, Hasher}};
 
 use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue, active_task::{ActiveTask, ActiveTasks}, get_task_for_agent};

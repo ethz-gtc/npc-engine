@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 use std::{hash::Hash, sync::{atomic::{AtomicU64, Ordering}, Arc}, collections::HashMap, thread::{JoinHandle, self}};
 use ansi_term::Style;
 use npc_engine_common::{Domain, AgentId, Task, ActiveTask, ActiveTasks, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask, StateValueEstimator, DefaultPolicyEstimator, PlanningTask};

@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 //! This is the core of the NPC engine, containing the MCTS algorithm implementation and related abstractions.
 
 mod task;

@@ -22,5 +22,8 @@
 		"seedable",
 		"Snapshotable",
 		"Srgb"
-	]
+	],
+	"license-header-manager.excludeFolders": [
+        "target"
+    ]
 }

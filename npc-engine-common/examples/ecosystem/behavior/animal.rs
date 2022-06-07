@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 use npc_engine_common::{Behavior, StateDiffRef, AgentId, Task, IdleTask};
 use npc_engine_utils::DIRECTIONS;
 

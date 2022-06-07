@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 //! This is the utility module of the NPC engine, containing re-usable support code.
 //!
 //! It contains the following features:

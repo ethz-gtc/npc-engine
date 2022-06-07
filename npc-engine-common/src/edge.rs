@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 use std::{ops::Range, mem, sync::{Arc, Mutex}, fmt, collections::BTreeSet};
 
 use crate::{Domain, AgentId, SeededHashMap, Task, StateDiffRef, Node, WeakNode, AgentValue};

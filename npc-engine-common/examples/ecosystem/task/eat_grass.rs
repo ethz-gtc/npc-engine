@@ -1,3 +1,8 @@
+/* 
+ *  SPDX-License-Identifier: Apache-2.0 OR MIT
+ *  © 2020-2022 ETH Zurich, see AUTHORS.txt for details
+ */
+
 use npc_engine_common::{Task, impl_task_boxed_methods, StateDiffRef, AgentId, TaskDuration, StateDiffRefMut};
 
 use crate::{domain::{EcosystemDomain, DisplayAction}, state::{Access, AccessMut}, map::Tile};
