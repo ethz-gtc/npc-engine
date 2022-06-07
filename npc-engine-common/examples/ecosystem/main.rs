@@ -4,7 +4,7 @@
  */
 
 use core::time;
-use std::{collections::HashSet, num::NonZeroU64, thread, iter};
+use std::{collections::{HashSet, HashMap}, num::NonZeroU64, thread, iter};
 
 use behavior::world::WORLD_AGENT_ID;
 use domain::EcosystemDomain;
@@ -24,18 +24,20 @@ mod task;
 mod behavior;
 
 const MAP_SIZE: Coord2D = Coord2D::new(40, 20);
-// const MAP_SIZE: Coord2D = Coord2D::new(4, 4);
+// const MAP_SIZE: Coord2D = Coord2D::new(3, 2);
 const OBSTACLE_RANDOM_COUNT: usize = 20;
 const OBSTACLE_HOTSPOT_COUNT: usize = 6;
 const PLANT_RANDOM_COUNT: usize = 40;
 const PLANT_HOTSPOT_COUNT: usize = 9;
-const HERBIVORE_COUNT: usize = 10;
+const HERBIVORE_COUNT: usize = 20;
+const CARNIVORE_COUNT: usize = 4;
 
 struct EcosystemExecutorState;
 impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
     fn create_initial_state(&self) -> GlobalState {
 		let mut map = Map::new(MAP_SIZE, Tile::Grass(0));
-		let mut random_and_hotspots =
+		// helper for terrain
+		let mut add_random_and_hotspots =
 			|random_count, hotspot_count, tile_factory: &dyn Fn() -> Tile| {
 				for _ in 0..random_count {
 					let pos = Coord2D::rand_uniform(MAP_SIZE);
@@ -55,36 +57,66 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
 				}
 			};
 		// obstacles
-		random_and_hotspots(OBSTACLE_RANDOM_COUNT, OBSTACLE_HOTSPOT_COUNT, &|| Tile::Obstacle);
+		add_random_and_hotspots(OBSTACLE_RANDOM_COUNT, OBSTACLE_HOTSPOT_COUNT, &|| Tile::Obstacle);
 		// plants
-		random_and_hotspots(PLANT_RANDOM_COUNT, PLANT_HOTSPOT_COUNT, &|| {
+		add_random_and_hotspots(PLANT_RANDOM_COUNT, PLANT_HOTSPOT_COUNT, &|| {
 			let mut rng = rand::thread_rng();
 			Tile::Grass(rng.gen_range(0..=3))
 		});
-		// herbivores
-		let mut used_poses = HashSet::new();
+		// helper for animals
 		let mut agents = Agents::new();
+		let mut used_poses = HashSet::new();
 		let mut agent_id = 0;
-		for _i in 0..HERBIVORE_COUNT {
-			loop {
-				let pos = Coord2D::rand_uniform(MAP_SIZE);
-				if !used_poses.contains(&pos) && *map.at(pos).unwrap() != Tile::Obstacle {	
-					used_poses.insert(pos);
-					agents.insert(
-						AgentId(agent_id),
-						AgentState {
-							ty: AgentType::Herbivore,
-							birth_date: 0,
-							position: pos,
-							food: 3,
-							alive: true
+		let mut add_animals =
+			|ty, count| {
+				for _i in 0..count {
+					loop {
+						let pos = Coord2D::rand_uniform(MAP_SIZE);
+						if !used_poses.contains(&pos) && *map.at(pos).unwrap() != Tile::Obstacle {	
+							used_poses.insert(pos);
+							agents.insert(
+								AgentId(agent_id),
+								AgentState {
+									ty,
+									birth_date: 0,
+									position: pos,
+									food: 5,
+									alive: true
+								}
+							);
+							agent_id += 1;
+							break;
 						}
-					);
-					agent_id += 1;
-					break;
+					}
 				}
-			}
-		}
+			};
+		// animals
+		add_animals(AgentType::Herbivore, HERBIVORE_COUNT);
+		add_animals(AgentType::Carnivore, CARNIVORE_COUNT);
+		//*map.at_mut(Coord2D::new(0, 1)).unwrap() = Tile::Obstacle;
+		//*map.at_mut(Coord2D::new(0, 0)).unwrap() = Tile::Grass(3);
+		// let agents = HashMap::from([
+		// 	(
+		// 		AgentId(0),
+		// 		AgentState {
+		// 			ty: AgentType::Herbivore,
+		// 			birth_date: 0,
+		// 			position: Coord2D::new(0, 0),
+		// 			food: 3,
+		// 			alive: true
+		// 		}
+		// 	),
+		// 	(
+		// 		AgentId(1),
+		// 		AgentState {
+		// 			ty: AgentType::Carnivore,
+		// 			birth_date: 0,
+		// 			position: Coord2D::new(2, 0),
+		// 			food: 5,
+		// 			alive: true
+		// 		}
+		// 	)
+		// ]);
 		GlobalState {
 			map,
 			agents

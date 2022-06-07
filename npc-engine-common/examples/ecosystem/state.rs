@@ -176,6 +176,14 @@ pub trait Access {
 			.or_else(|| self.get_agent_at(position + Coord2D::new(0, n as i32)))
 			.or_else(|| self.get_agent_at(position + Coord2D::new(0, -(n as i32))))
     }
+	fn is_tile_passable(&self, position: Coord2D) -> bool {
+		self.get_tile(position)
+			.map(|tile| tile.is_passable())
+			.unwrap_or(false)
+	}
+	fn is_position_free(&self, position: Coord2D) -> bool {
+		self.is_tile_passable(position) && self.get_agent_at(position).is_none()
+	}
 }
 
 impl Access for StateDiffRef<'_, EcosystemDomain> {
@@ -221,12 +229,18 @@ impl Access for StateDiffRef<'_, EcosystemDomain> {
     }
 }
 
-pub trait AccessMut {
+pub trait AccessMut: std::ops::Deref
+	where Self::Target: Access
+{
     fn get_agent_mut(&mut self, agent: AgentId) -> Option<&mut AgentState>;
     fn set_tile(&mut self, position: Coord2D, tile: Tile);
     fn get_agent_pos_mut(&mut self, agent: AgentId) -> Option<&mut Coord2D> {
 		self.get_agent_mut(agent)
 			.map(|state| &mut state.position)
+	}
+	fn get_agent_at_mut(&mut self, position: Coord2D) -> Option<(AgentId, &mut AgentState)> {
+		let agent = self.get_agent_at(position)?.0;
+		self.get_agent_mut(agent).map(|agent_state| (agent, agent_state))
 	}
 }
 
@@ -314,6 +328,12 @@ mod tests {
 		assert_eq!(state_diff.get_agent_at(Coord2D::new(1, 0)).unwrap().0, AgentId(1));
 		assert_eq!(state_diff.get_first_adjacent_agent(Coord2D::new(1, 2), 1), None);
 		assert_eq!(state_diff.get_first_adjacent_agent(Coord2D::new(1, 2), 2).unwrap().0, AgentId(3));
+		assert!(!state_diff.is_position_free(Coord2D::new(-1, 0)));
+		assert!(!state_diff.is_position_free(Coord2D::new(0, 0)));
+		assert!(!state_diff.is_position_free(Coord2D::new(1, 0)));
+		assert!(state_diff.is_position_free(Coord2D::new(2, 0)));
+		assert!(state_diff.is_position_free(Coord2D::new(3, 1)));
+		assert!(!state_diff.is_position_free(Coord2D::new(3, 2)));
 		// diff with some changes
 		let diff = Diff {
 			map: MapDiff::new(BTreeMap::from([
@@ -340,6 +360,8 @@ mod tests {
 		assert_eq!(state_diff.get_agent_at(Coord2D::new(3, 1)).unwrap().0, AgentId(3));
 		assert_eq!(state_diff.get_agent_at(Coord2D::new(3, 2)), None);
 		assert_eq!(state_diff.get_first_adjacent_agent(Coord2D::new(1, 2), 2).unwrap().0, AgentId(1));
+		assert!(state_diff.is_position_free(Coord2D::new(3, 2)));
+		assert!(!state_diff.is_position_free(Coord2D::new(3, 1)));
 		// mutable access
 		let mut diff = Diff::default();
 		let mut state_diff_mut = StateDiffRefMut::new(&state, &mut diff);

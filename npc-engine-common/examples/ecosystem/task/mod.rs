@@ -6,3 +6,5 @@
 pub mod r#move;
 pub mod eat_grass;
 pub mod world;
+pub mod jump;
+pub mod eat_herbivore;

@@ -159,7 +159,7 @@ pub type DirConv = DirectionConverterYDown;
 mod tests {
     use npc_engine_utils::Coord2D;
 
-    use crate::{*, map::{Tile, GridAccess}};
+    use crate::map::{Tile, GridAccess};
     use super::Map;
 	use std::str::FromStr;
 

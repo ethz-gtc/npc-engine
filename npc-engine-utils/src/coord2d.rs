@@ -56,6 +56,11 @@ impl Coord2D {
         let y = rng.gen_range(0..range.y);
         Self::new(x, y)
     }
+    /// Manhattan distance between self and other.
+    pub fn manhattan_dist(&self, other: Coord2D) -> i32 {
+        let diff = self.abs_diff(&other);
+        diff.x + diff.y
+    }
 }
 
 impl std::fmt::Display for Coord2D {
@@ -164,5 +169,14 @@ mod tests {
     fn dim_dist() {
         assert_eq!(Coord2D::new(3, 2).shortest_dim_dist(&Coord2D::new(0, 1)), 1);
         assert_eq!(Coord2D::new(3, 2).largest_dim_dist(&Coord2D::new(0, 1)), 3);
+    }
+
+    #[test]
+    fn manhattan_dist() {
+        assert_eq!(Coord2D::new(0, 0).manhattan_dist(Coord2D::new(0, 2)), 2);
+        assert_eq!(Coord2D::new(0, 0).manhattan_dist(Coord2D::new(2, 0)), 2);
+        assert_eq!(Coord2D::new(0, 0).manhattan_dist(Coord2D::new(0, -2)), 2);
+        assert_eq!(Coord2D::new(0, 0).manhattan_dist(Coord2D::new(-2, 0)), 2);
+        assert_eq!(Coord2D::new(3, 2).manhattan_dist(Coord2D::new(0, 1)), 4);
     }
 }

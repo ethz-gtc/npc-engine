@@ -3,15 +3,13 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::collections::{BTreeSet, HashMap, BTreeMap};
+use std::collections::{BTreeSet, BTreeMap, HashMap};
 
 use npc_engine_common::{Domain, Behavior, AgentValue, AgentId, StateDiffRef};
 use npc_engine_utils::{Direction, GlobalDomain, DomainWithPlanningTask, Coord2D};
 use num_traits::Zero;
 
-use crate::{state::{GlobalState, LocalState, Diff, Access}, behavior::{herbivore::Herbivore, world::{WorldBehavior, WORLD_AGENT_ID}}, map::{GridAccess, Map}};
-
-type PreyDistance = u8;
+use crate::{state::{GlobalState, LocalState, Diff, Access, AgentType}, behavior::{herbivore::Herbivore, world::{WorldBehavior, WORLD_AGENT_ID}, carnivore::Carnivore}, map::{GridAccess, Map}};
 
 #[derive(Debug)]
 pub enum DisplayAction {
@@ -20,7 +18,7 @@ pub enum DisplayAction {
 	Move(Direction),
 	Jump(Direction),
 	EatGrass,
-	EatPrey(PreyDistance),
+	EatHerbivore(Direction),
 	WorldStep
 }
 impl Default for DisplayAction {
@@ -37,7 +35,7 @@ impl Domain for EcosystemDomain {
 	type DisplayAction = DisplayAction;
 
 	fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
-		&[&Herbivore, &WorldBehavior]
+		&[&Herbivore, &Carnivore, &WorldBehavior]
 	}
 
 	fn get_current_value(tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue {
@@ -94,34 +92,35 @@ impl Domain for EcosystemDomain {
 	}
 }
 
-const AGENTS_RADIUS: i32 = 4;
+const AGENTS_RADIUS_HERBIVORE: i32 = 3;
+const AGENTS_RADIUS_CARNIVORE: i32 = 6;
 const MAP_RADIUS: i32 = 8;
+const MAX_AGENTS_ATTENTION: usize = 3;
 
 fn derive_local_state_radius(global_state: &GlobalState, agent: AgentId, map_radius: i32, agent_radius: i32) -> LocalState {
-	if agent == WORLD_AGENT_ID {
-		// collect all agents
-		LocalState {
-			origin: Coord2D::default(),
-			map: Map::empty(),
-			agents: global_state.agents.clone()
-		}
-	} else {
-		let agent_state = global_state.agents.get(&agent).unwrap();
-		// extract tiles
-		let (origin, map) = global_state.map.extract_region(agent_state.position, map_radius);
-		// extract agents
-		let agents = global_state.get_agents_in_region(agent_state.position, agent_radius)
-			.map(|(agent, agent_state)| {
-				let mut agent_state = agent_state.clone();
-				agent_state.position -= origin;
-				(*agent, agent_state)
-			})
-			.collect();
-		LocalState {
-			origin,
-			map,
-			agents,
-		}
+	assert!(agent != WORLD_AGENT_ID);
+	let agent_state = global_state.agents.get(&agent).unwrap();
+	let center_position = agent_state.position;
+	// extract tiles
+	let (origin, map) = global_state.map.extract_region(center_position, map_radius);
+	// extract agents, limiting the number to MAX_AGENTS_ATTENTION closest agents
+	let mut agents = global_state.get_agents_in_region(center_position, agent_radius)
+		.map(|(agent, agent_state)| {
+			let mut agent_state = agent_state.clone();
+			let dist = agent_state.position.manhattan_dist(center_position);
+			agent_state.position -= origin;
+			(dist, (*agent, agent_state))
+		})
+		.collect::<Vec<_>>();
+	agents.sort_by(|a, b| a.0.cmp(&b.0));
+	let agents = agents.into_iter()
+		.take(MAX_AGENTS_ATTENTION)
+		.map(|(_, agent_and_state)| agent_and_state)
+		.collect::<HashMap<_, _>>();
+	LocalState {
+		origin,
+		map,
+		agents,
 	}
 }
 
@@ -129,7 +128,21 @@ impl GlobalDomain for EcosystemDomain {
 	type GlobalState = GlobalState;
 
 	fn derive_local_state(global_state: &Self::GlobalState, agent: AgentId) -> Self::State {
-		derive_local_state_radius(global_state, agent, MAP_RADIUS, AGENTS_RADIUS)
+		global_state.agents.get(&agent).map_or(
+			// world agent, collect all agents
+			LocalState {
+				origin: Coord2D::default(),
+				map: Map::empty(),
+				agents: global_state.agents.clone()
+			},
+			|agent_state| {
+				let agent_radius = match agent_state.ty {
+					AgentType::Herbivore => AGENTS_RADIUS_HERBIVORE,
+					AgentType::Carnivore => AGENTS_RADIUS_CARNIVORE,
+				};
+				derive_local_state_radius(global_state, agent, MAP_RADIUS, agent_radius)
+			}
+		)
     }
 
 	fn apply(global_state: &mut Self::GlobalState, local_state: &Self::State, diff: &Self::Diff) {
