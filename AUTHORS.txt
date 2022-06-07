@@ -3,6 +3,6 @@ David Enderlin) appear in the git log. Their contributions are listed below:
 
 * Sven Knobloch <knsven@student.ethz.ch>: core MCTS implementation
 * David Enderlin <daviden@student.ethz.ch>: multi-threaded planning and execution
-* Aydin Faraji <afaraji@student.ethz.ch>: some bug corrections
+* Aydin Faraji <afaraji@student.ethz.ch>: testing and bug fixing
 * Henry Raymond <henry.raymond@inf.ethz.ch>: documentation, supervision
 * Stéphane Magnenat <stephane.magnenat@inf.ethz.ch>: lead, supervision, refactoring, examples
