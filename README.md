@@ -23,7 +23,7 @@ To run the examples, you need to have [Rust installed](https://www.rust-lang.org
 
 Make sure your console uses a font that supports unicode emojis, as we use emojis for visualization.
 On recent Linux and MacOS machines, they are supported out of the box.
-On Windows 10 and newer, you can install the recently released [Windows Terminal](https://aka.ms/terminal), and use it with `wt`.)
+On Windows 10 and newer, you can install the recently-released [Windows Terminal](https://aka.ms/terminal), and use it with `wt`.
 
 
 ### Tic-tac-toe
@@ -227,8 +227,8 @@ NPC Engine is free and open source! All code in this repository is dual-licensed
 * Apache License, Version 2.0 ([LICENSE-APACHE](docs/LICENSE-APACHE) or [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0))
 
 at your option.
-This means you can select the license you prefer!
-This dual-licensing approach is the de-facto standard in the Rust ecosystem.
+
+## Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
