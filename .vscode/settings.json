@@ -2,6 +2,25 @@
 	"cSpell.words": [
 		"medkit",
 		"nonmax",
-		"RELU"
+		"RELU",
+		"backpropagate",
+		"backpropagation",
+		"btreemap",
+		"btreemaps",
+		"chacha",
+		"Colour",
+		"dedup",
+		"graphviz",
+		"hasher",
+		"hotspot",
+		"hotspots",
+		"mcts",
+		"powi",
+		"respawn",
+		"rollout",
+		"rollouts",
+		"seedable",
+		"Snapshotable",
+		"Srgb"
 	]
 }
