@@ -4,6 +4,12 @@ version = "0.1.0"
 authors = ["Sven Knobloch <knsven@student.ethz.ch>", "Stéphane Magnenat <stephane.magnenat@inf.ethz.ch>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
+description = "The lumberjack experiment from the ETH-GTC AIIDE 2020 INT paper"
+repository = "https://github.com/ethz-gtc/npc-engine"
+homepage = "https://github.com/ethz-gtc/npc-engine"
+readme = "README.md"
+keywords = ["Monte Carlo Tree Search", "Artificial Intelligence", "multi-agent simulation", "game theory", "emergent storytelling"]
+categories = ["algorithms", "science", "simulation", "game-development"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -23,8 +29,8 @@ partitions = "~0.2"
 rayon = "^1.3"
 num-traits = "*"
 
-npc-engine-common = { path = "../npc-engine-common", features = [ "graphviz" ] }
-npc-engine-utils = { path = "../npc-engine-utils" }
+npc-engine-common = { version = "0.1", path = "../npc-engine-common", features = [ "graphviz" ] }
+npc-engine-utils = { version = "0.1", path = "../npc-engine-utils" }
 
 [lib]
 path = "./src/lib.rs"
