@@ -11,7 +11,7 @@ use npc_engine_common::{
 };
 
 use crate::{
-    board::{winner, Cell, CellArray2D, CellCoord, C_RANGE},
+    board::{Board, Cell, CellArray2D, CellCoord, C_RANGE},
     domain::{DisplayAction, TicTacToe},
     player::Player,
 };
@@ -57,7 +57,7 @@ impl Task<TicTacToe> for Move {
 
     fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> bool {
         let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
-        winner(state).is_none() && state.get(self.x, self.y) == Cell::Empty
+        state.winner().is_none() && state.get(self.x, self.y) == Cell::Empty
     }
 
     impl_task_boxed_methods!(TicTacToe);
@@ -82,8 +82,8 @@ impl Behavior<TicTacToe> for MoveBehavior {
         tasks: &mut Vec<Box<dyn Task<TicTacToe>>>,
     ) {
         // if the game is already ended, no move are valid
-        let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
-        if winner(state).is_some() {
+        let board = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
+        if board.winner().is_some() {
             return;
         }
         for x in C_RANGE {

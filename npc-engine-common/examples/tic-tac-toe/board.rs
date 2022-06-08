@@ -33,12 +33,14 @@ pub const C_RANGE: [CellCoord; 3] = [C0, C1, C2];
 // TODO: once const Option::unwrap() is stabilized, switch to that
 pub type CoordPair = (CellCoord, CellCoord);
 
+pub type State = u32;
+
 pub trait CellArray2D {
     fn get(&self, x: CellCoord, y: CellCoord) -> Cell;
     fn set(&mut self, x: CellCoord, y: CellCoord, cell: Cell);
     fn description(&self) -> String;
 }
-pub type State = u32;
+
 impl CellArray2D for State {
     fn get(&self, x: CellCoord, y: CellCoord) -> Cell {
         let shift = y.get() * 6 + x.get() * 2;
@@ -49,6 +51,7 @@ impl CellArray2D for State {
             _ => panic!("Invalid cell state"),
         }
     }
+
     fn set(&mut self, x: CellCoord, y: CellCoord, cell: Cell) {
         let pattern = match cell {
             Cell::Empty => 0,
@@ -59,6 +62,7 @@ impl CellArray2D for State {
         *self &= !(0b11 << shift);
         *self |= pattern << shift;
     }
+
     fn description(&self) -> String {
         let mut s = String::new();
         for y in C_RANGE {
@@ -76,19 +80,40 @@ impl CellArray2D for State {
     }
 }
 
-pub type Diff = Option<State>; // if Some, use this diff, otherwise use initial state
+pub trait Board {
+    fn is_line_all_of(&self, player: Player, line: &[CoordPair]) -> bool;
+    fn is_full(&self) -> bool;
+    fn winner(&self) -> Option<Player>;
+}
 
-pub fn is_line_all_of(state: State, player: Player, line: &[CoordPair]) -> bool {
-    for (x, y) in line {
-        if CellArray2D::get(&state, *x, *y) != Cell::Player(player) {
-            return false;
+impl Board for State {
+    fn is_line_all_of(&self, player: Player, line: &[CoordPair]) -> bool {
+        for (x, y) in line {
+            if CellArray2D::get(self, *x, *y) != Cell::Player(player) {
+                return false;
+            }
         }
+        true
     }
-    true
+
+    fn is_full(&self) -> bool {
+        for x in C_RANGE {
+            for y in C_RANGE {
+                if self.get(x, y) == Cell::Empty {
+                    return false;
+                }
+            }
+        }
+        true
+    }
+
+    fn winner(&self) -> Option<Player> {
+        cached_winner(*self)
+    }
 }
 
 #[cached(size = 19683)] // there are 3^9 possible states
-pub fn winner(state: State) -> Option<Player> {
+fn cached_winner(state: State) -> Option<Player> {
     const LINES: [[CoordPair; 3]; 8] = [
         // diagonals
         [(C0, C0), (C1, C1), (C2, C2)],
@@ -104,7 +129,7 @@ pub fn winner(state: State) -> Option<Player> {
     ];
     for line in &LINES {
         for player in [Player::O, Player::X] {
-            if is_line_all_of(state, player, line) {
+            if state.is_line_all_of(player, line) {
                 return Some(player);
             }
         }
@@ -112,16 +137,7 @@ pub fn winner(state: State) -> Option<Player> {
     None
 }
 
-pub fn board_full(state: State) -> bool {
-    for x in C_RANGE {
-        for y in C_RANGE {
-            if state.get(x, y) == Cell::Empty {
-                return false;
-            }
-        }
-    }
-    true
-}
+pub type Diff = Option<State>; // if Some, use this diff, otherwise use initial state
 
 #[cfg(test)]
 mod tests {
@@ -150,7 +166,7 @@ mod tests {
 
     #[test]
     fn winner() {
-        use crate::winner;
+        let winner = |state: State| state.winner();
         assert_eq!(winner(0), None);
         assert_eq!(winner(0b000000_000000_010101), Some(Player::O));
         assert_eq!(winner(0b000000_010101_000000), Some(Player::O));

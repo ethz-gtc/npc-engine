@@ -8,7 +8,7 @@ use npc_engine_utils::plot_tree_in_tmp;
 use regex::Regex;
 
 use crate::{
-    board::{board_full, winner, Cell, CellArray2D, CellCoord},
+    board::{Board, Cell, CellArray2D, CellCoord},
     domain::TicTacToe,
     player::Player,
     r#move::Move,
@@ -31,14 +31,14 @@ fn main() {
     };
     graphviz::GRAPH_OUTPUT_DEPTH.store(6, std::sync::atomic::Ordering::Relaxed);
     env_logger::init();
-    let mut state = 0;
+    let mut board = 0;
     let re = Regex::new(r"^([0-2])\s([0-2])$").unwrap();
     let game_finished = |state: u32| {
-        if board_full(state) {
+        if state.is_full() {
             println!("Draw!");
             return true;
         }
-        if let Some(winner) = winner(state) {
+        if let Some(winner) = state.winner() {
             match winner {
                 Player::O => println!("You won!"),
                 Player::X => println!("Computer won!"),
@@ -51,7 +51,7 @@ fn main() {
     println!("Welcome to tic-tac-toe. You are player 'O', I'm player 'X'.");
     let mut turn = 0;
     loop {
-        println!("{}", state.description());
+        println!("{}", board.description());
 
         // Get input
         println!("Please enter a coordinate with 'X Y' where X,Y are 0,1,2, or 'q' to quit.");
@@ -75,35 +75,35 @@ fn main() {
                 }
             }
         };
-        if state.get(x, y) != Cell::Empty {
+        if board.get(x, y) != Cell::Empty {
             println!("The cell {x} {y} is already occupied!");
             continue;
         }
 
         // Set cell
-        state.set(x, y, Cell::Player(Player::O));
+        board.set(x, y, Cell::Player(Player::O));
 
         // Did we win?
-        if game_finished(state) {
-            println!("{}", state.description());
+        if game_finished(board) {
+            println!("{}", board.description());
             break;
         }
 
         // Run planner
         println!("Computer is thinking...");
-        let mut mcts = MCTS::<TicTacToe>::new(state, AgentId(1), CONFIG);
+        let mut mcts = MCTS::<TicTacToe>::new(board, AgentId(1), CONFIG);
         let task = mcts.run().unwrap();
         let task = task.downcast_ref::<Move>().unwrap();
         println!("Computer played {} {}", task.x, task.y);
-        state.set(task.x, task.y, Cell::Player(Player::X));
+        board.set(task.x, task.y, Cell::Player(Player::X));
         if let Err(e) = plot_tree_in_tmp(&mcts, "tic-tac-toe_graphs", &format!("turn{turn:02}")) {
             println!("Cannot write search tree: {e}");
         }
         turn += 1;
 
         // Did computer win?
-        if game_finished(state) {
-            println!("{}", state.description());
+        if game_finished(board) {
+            println!("{}", board.description());
             break;
         }
     }
@@ -115,7 +115,6 @@ mod tests {
 
     #[test]
     fn ai_vs_ai_must_be_a_draw() {
-        use crate::winner;
         const CONFIG: MCTSConfiguration = MCTSConfiguration {
             allow_invalid_tasks: false,
             visits: 5000,
@@ -126,15 +125,15 @@ mod tests {
             seed: None,
         };
         for _ in 0..10 {
-            let mut state = 0;
+            let mut board = 0;
             loop {
                 for agent in [AgentId(0), AgentId(1)] {
-                    let mut mcts = MCTS::<TicTacToe>::new(state, agent, CONFIG);
+                    let mut mcts = MCTS::<TicTacToe>::new(board, agent, CONFIG);
                     let task = mcts.run().unwrap();
                     let task = task.downcast_ref::<Move>().unwrap();
-                    state.set(task.x, task.y, Cell::Player(Player::from_agent(agent)));
-                    assert_eq!(winner(state), None);
-                    if board_full(state) {
+                    board.set(task.x, task.y, Cell::Player(Player::from_agent(agent)));
+                    assert_eq!(board.winner(), None);
+                    if board.is_full() {
                         return;
                     }
                 }

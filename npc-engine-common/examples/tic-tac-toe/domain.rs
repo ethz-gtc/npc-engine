@@ -8,7 +8,7 @@ use std::{collections::BTreeSet, fmt};
 use npc_engine_common::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
 
 use crate::{
-    board::{winner, CellArray2D, Diff, State},
+    board::{Board, CellArray2D, Diff, State},
     r#move::{Move, MoveBehavior},
 };
 
@@ -44,7 +44,7 @@ impl Domain for TicTacToe {
 
     fn get_current_value(_tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue {
         let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
-        match winner(state) {
+        match state.winner() {
             None => VALUE_UNDECIDED,
             Some(player) => {
                 if player.to_agent() == agent {
