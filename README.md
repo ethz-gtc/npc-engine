@@ -92,18 +92,23 @@ Source: [`learn.rs`](npc-engine-common/examples/learn.rs)
 cargo run --release --example ecosystem
 ```
 
-A 2-D ecosystem simulation in which herbivores eat and die.
+A 2-D ecosystem simulation in which herbivores and carnivores eat and die.
 
 The world consists of a tilemap where each tile can be empty (dark green), an obstacle (gray), or grass (green).
 A grass tile can provide 1-3 units of food, visualized with increasing saturation levels.
 By eating, a herbivore reduces the amount of food of the tile it's standing on by 1.
-Herbivores are born with 3 units of food, and can store up to 5 units of food.
+Herbivores are born with 5 units of food, and can store up to 5 units of food.
+Carnivores can eat herbivores on an adjacent tile or one tile away.
+They can also jump to one tile away, including over other agents, but not over obstacles, at a cost of 1 additional unit of food.
+Carnivores are born with 5 units of food, and can store up to 7 units of food.
+When agents eat, their stored food are resplenished to their maximum amount.
 Every 10 frames, all agents consume one unit of food.
 If they do not have food any more, they die.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
 The planning lasts 3 frames, and other actions are instantaneous.
-Agents see the map up to a distance of 8 tiles and consider other agents up to a distance of 4 tiles.
+Agents see the map up to a distance of 8 tiles and consider other agents up to a distance of 3, respectively 6 tiles for herbivores, respectively carnivores.
+When planning, agents only consider the 3 closest other agents, if there are more than 3.
 They aim at 1000 visits per planning, but if not enough computational power is available, planning might end earlier.
 In that case, the plan quality degrades.
 The simulation runs at 25 frames per second.
