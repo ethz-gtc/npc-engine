@@ -10,7 +10,7 @@ use ggez::graphics::Image;
 use ggez::ContextBuilder;
 use image::{png::PngDecoder, ImageDecoder};
 
-use npc_engine_common::graphviz::GRAPH_OUTPUT_DEPTH;
+use npc_engine_common::graphviz::set_graph_output_depth;
 use rand::{thread_rng, RngCore};
 use rayon::prelude::*;
 
@@ -132,10 +132,7 @@ fn main() {
 
     serde_json::to_writer_pretty(file, &info).unwrap();
 
-    GRAPH_OUTPUT_DEPTH.store(
-        config().analytics.graphs_depth,
-        std::sync::atomic::Ordering::Relaxed,
-    );
+    set_graph_output_depth(config().analytics.graphs_depth);
     if batch() {
         (0..config().batch.runs).into_par_iter().for_each(|run| {
             let seed = config()

@@ -21,6 +21,11 @@ pub struct Move {
     pub x: CellCoord,
     pub y: CellCoord,
 }
+impl std::fmt::Display for Move {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} {}", self.x, self.y)
+    }
+}
 
 impl Task<TicTacToe> for Move {
     fn duration(

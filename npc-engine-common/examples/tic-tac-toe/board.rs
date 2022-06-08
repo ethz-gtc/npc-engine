@@ -12,6 +12,7 @@ pub enum Cell {
     Empty,
     Player(Player),
 }
+
 impl Cell {
     fn char(&self) -> char {
         match *self {

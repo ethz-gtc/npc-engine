@@ -33,6 +33,7 @@ struct EcosystemExecutorState;
 impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
     fn create_initial_state(&self) -> GlobalState {
         let mut map = Map::new(MAP_SIZE, Tile::Grass(0));
+
         // helper for terrain
         let mut add_random_and_hotspots =
             |random_count, hotspot_count, tile_factory: &dyn Fn() -> Tile| {
@@ -53,15 +54,18 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
                     }
                 }
             };
+
         // obstacles
         add_random_and_hotspots(OBSTACLE_RANDOM_COUNT, OBSTACLE_HOTSPOT_COUNT, &|| {
             Tile::Obstacle
         });
+
         // plants
         add_random_and_hotspots(PLANT_RANDOM_COUNT, PLANT_HOTSPOT_COUNT, &|| {
             let mut rng = rand::thread_rng();
             Tile::Grass(rng.gen_range(0..=3))
         });
+
         // helper for animals
         let mut agents = Agents::new();
         let mut used_poses = HashSet::new();
@@ -88,6 +92,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
                 }
             }
         };
+
         // animals
         add_animals(AgentType::Herbivore, HERBIVORE_COUNT);
         add_animals(AgentType::Carnivore, CARNIVORE_COUNT);

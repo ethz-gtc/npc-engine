@@ -843,7 +843,16 @@ pub mod graphviz {
     }
 
     /// The depth of the graph to plot, in number of nodes.
-    pub static GRAPH_OUTPUT_DEPTH: AtomicUsize = AtomicUsize::new(4);
+    static GRAPH_OUTPUT_DEPTH: AtomicUsize = AtomicUsize::new(4);
+
+    /// Sets the depth of the graph to plot, in number of nodes.
+    pub fn set_graph_output_depth(depth: usize) {
+        graphviz::GRAPH_OUTPUT_DEPTH.store(depth, std::sync::atomic::Ordering::Relaxed);
+    }
+    /// Gets the depth of the graph to plot, in number of nodes.
+    pub fn get_graph_output_depth() -> usize {
+        GRAPH_OUTPUT_DEPTH.load(std::sync::atomic::Ordering::Relaxed)
+    }
 
     impl<D: Domain> MCTS<D> {
         fn add_relevant_nodes(

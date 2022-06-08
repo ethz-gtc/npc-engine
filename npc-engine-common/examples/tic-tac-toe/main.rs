@@ -19,7 +19,52 @@ mod domain;
 mod r#move;
 mod player;
 
-fn main() {
+fn game_finished(state: u32) -> bool {
+    if state.is_full() {
+        println!("Draw!");
+        return true;
+    }
+    if let Some(winner) = state.winner() {
+        match winner {
+            Player::O => println!("You won!"),
+            Player::X => println!("Computer won!"),
+        };
+        true
+    } else {
+        false
+    }
+}
+
+enum Input {
+    Coordinate((CellCoord, CellCoord)),
+    Quit,
+    Error,
+}
+
+fn get_input() -> Input {
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .expect("Failed to read line");
+    match input.trim() {
+        "q" => Input::Quit,
+        s => {
+            let input_re = Regex::new(r"^([0-2])\s([0-2])$").unwrap();
+            let cap = input_re.captures(s);
+            let cap = cap.filter(|cap| cap.len() >= 3);
+            if let Some(cap) = cap {
+                let x = CellCoord::new(cap[1].parse().unwrap()).unwrap();
+                let y = CellCoord::new(cap[2].parse().unwrap()).unwrap();
+                Input::Coordinate((x, y))
+            } else {
+                println!("Input error, try again!");
+                Input::Error
+            }
+        }
+    }
+}
+
+fn run_mcts_and_return_move(board: u32, turn: u32) -> Move {
     const CONFIG: MCTSConfiguration = MCTSConfiguration {
         allow_invalid_tasks: false,
         visits: 1000,
@@ -29,51 +74,32 @@ fn main() {
         seed: None,
         planning_task_duration: None,
     };
-    graphviz::GRAPH_OUTPUT_DEPTH.store(6, std::sync::atomic::Ordering::Relaxed);
+    let mut mcts = MCTS::<TicTacToe>::new(board, AgentId(1), CONFIG);
+    if let Err(e) = plot_tree_in_tmp(&mcts, "tic-tac-toe_graphs", &format!("turn{turn:02}")) {
+        println!("Cannot write search tree: {e}");
+    }
+    let task = mcts.run().unwrap();
+    task.downcast_ref::<Move>().unwrap().clone()
+}
+
+fn main() {
+    graphviz::set_graph_output_depth(6);
     env_logger::init();
-    let mut board = 0;
-    let re = Regex::new(r"^([0-2])\s([0-2])$").unwrap();
-    let game_finished = |state: u32| {
-        if state.is_full() {
-            println!("Draw!");
-            return true;
-        }
-        if let Some(winner) = state.winner() {
-            match winner {
-                Player::O => println!("You won!"),
-                Player::X => println!("Computer won!"),
-            };
-            true
-        } else {
-            false
-        }
-    };
+
     println!("Welcome to tic-tac-toe. You are player 'O', I'm player 'X'.");
+
+    let mut board = 0;
     let mut turn = 0;
     loop {
+        // Print the current board
         println!("{}", board.description());
 
         // Get input
         println!("Please enter a coordinate with 'X Y' where X,Y are 0,1,2, or 'q' to quit.");
-        let mut input = String::new();
-        std::io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read line");
-        // println!("Input string: '{}'", input.trim());
-        let (x, y) = match input.trim() {
-            "q" => break,
-            s => {
-                let cap = re.captures(s);
-                let cap = cap.filter(|cap| cap.len() >= 3);
-                if let Some(cap) = cap {
-                    let x = CellCoord::new(cap[1].parse().unwrap()).unwrap();
-                    let y = CellCoord::new(cap[2].parse().unwrap()).unwrap();
-                    (x, y)
-                } else {
-                    println!("Input error, try again!");
-                    continue;
-                }
-            }
+        let (x, y) = match get_input() {
+            Input::Coordinate(pair) => pair,
+            Input::Quit => break,
+            Input::Error => continue,
         };
         if board.get(x, y) != Cell::Empty {
             println!("The cell {x} {y} is already occupied!");
@@ -91,14 +117,9 @@ fn main() {
 
         // Run planner
         println!("Computer is thinking...");
-        let mut mcts = MCTS::<TicTacToe>::new(board, AgentId(1), CONFIG);
-        let task = mcts.run().unwrap();
-        let task = task.downcast_ref::<Move>().unwrap();
-        println!("Computer played {} {}", task.x, task.y);
-        board.set(task.x, task.y, Cell::Player(Player::X));
-        if let Err(e) = plot_tree_in_tmp(&mcts, "tic-tac-toe_graphs", &format!("turn{turn:02}")) {
-            println!("Cannot write search tree: {e}");
-        }
+        let ai_move = run_mcts_and_return_move(board, turn);
+        println!("Computer played {ai_move}");
+        board.set(ai_move.x, ai_move.y, Cell::Player(Player::X));
         turn += 1;
 
         // Did computer win?

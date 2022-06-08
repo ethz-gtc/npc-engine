@@ -101,7 +101,7 @@ fn main() {
         seed: None,
         planning_task_duration: None,
     };
-    graphviz::GRAPH_OUTPUT_DEPTH.store(7, std::sync::atomic::Ordering::Relaxed);
+    graphviz::set_graph_output_depth(7);
     use std::io::Write;
     env_logger::builder()
         .format(|buf, record| writeln!(buf, "{}", record.args()))

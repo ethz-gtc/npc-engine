@@ -345,7 +345,7 @@ fn main() {
         seed: None,
         planning_task_duration: None,
     };
-    graphviz::GRAPH_OUTPUT_DEPTH.store(4, std::sync::atomic::Ordering::Relaxed);
+    graphviz::set_graph_output_depth(4);
     /*use std::io::Write;
     env_logger::builder()
         .format(|buf, record|

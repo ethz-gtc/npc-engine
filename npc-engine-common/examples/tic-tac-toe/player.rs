@@ -12,6 +12,7 @@ pub enum Player {
     O,
     X,
 }
+
 impl Player {
     pub fn from_agent(agent: AgentId) -> Self {
         match agent {
@@ -20,6 +21,7 @@ impl Player {
             AgentId(id) => panic!("Invalid AgentId {id}"),
         }
     }
+
     pub fn to_agent(self) -> AgentId {
         match self {
             Player::O => AgentId(0),
@@ -27,6 +29,7 @@ impl Player {
         }
     }
 }
+
 impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {

@@ -6,7 +6,7 @@
 use std::fmt;
 use std::{collections::HashMap, num::NonZeroU8};
 
-use npc_engine_common::graphviz::GRAPH_OUTPUT_DEPTH;
+use npc_engine_common::graphviz::get_graph_output_depth;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -219,7 +219,7 @@ impl Default for AnalyticsConfig {
             serialization: Default::default(),
             screenshot: Default::default(),
             performance: Default::default(),
-            graphs_depth: GRAPH_OUTPUT_DEPTH.load(std::sync::atomic::Ordering::Relaxed),
+            graphs_depth: get_graph_output_depth(),
         }
     }
 }
