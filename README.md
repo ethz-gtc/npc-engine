@@ -84,7 +84,7 @@ The curve should look like this:
 
 ![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
-Source: [`learn.rs`](npc-engine-common/examples/learn.rs)
+Source directory: [`learn`](npc-engine-common/examples/learn/)
 
 ### Ecosystem
 
