@@ -92,6 +92,7 @@ impl ExecutorState<CaptureDomain> for CaptureGameExecutorState {
 }
 
 fn main() {
+    // These parameters control the MCTS algorithm.
     const CONFIG: MCTSConfiguration = MCTSConfiguration {
         allow_invalid_tasks: true,
         visits: 5000,
@@ -101,12 +102,20 @@ fn main() {
         seed: None,
         planning_task_duration: None,
     };
+
+    // Set the depth of graph output to 7.
     graphviz::set_graph_output_depth(7);
+
+    // Configure the long to just write its content and enable the info level.
     use std::io::Write;
     env_logger::builder()
         .format(|buf, record| writeln!(buf, "{}", record.args()))
         .filter(None, log::LevelFilter::Info)
         .init();
+
+    // State of the execution.
     let mut executor_state = CaptureGameExecutorState;
+
+    // Run the execution.
     run_simple_executor::<CaptureDomain, CaptureGameExecutorState>(&CONFIG, &mut executor_state);
 }
