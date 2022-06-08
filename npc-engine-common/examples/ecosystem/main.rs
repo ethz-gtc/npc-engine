@@ -6,7 +6,7 @@
 use core::time;
 #[allow(unused_imports)]
 use std::collections::HashMap;
-use std::{collections::HashSet, iter, num::NonZeroU64, thread};
+use std::{collections::HashSet, iter, num::NonZeroU64, thread, time::Duration};
 
 use behavior::world::WORLD_AGENT_ID;
 use constants::*;
@@ -158,7 +158,7 @@ impl ExecutorState<EcosystemDomain> for EcosystemExecutorState {
 }
 
 fn main() {
-    env_logger::init();
+    // These parameters control the MCTS algorithm.
     let mcts_config = MCTSConfiguration {
         allow_invalid_tasks: false,
         visits: 1000,
@@ -168,13 +168,22 @@ fn main() {
         seed: None,
         planning_task_duration: Some(NonZeroU64::new(3).unwrap()),
     };
+
+    // Enable logging if specified in the RUST_LOG environment variable.
+    env_logger::init();
+
+    // State of the execution.
     let mut executor_state = EcosystemExecutorState;
     let mut executor = ThreadedExecutor::new(mcts_config, &mut executor_state);
-    let one_frame = time::Duration::from_millis(40);
+
+    // First clear the screen.
     clearscreen::clear().unwrap();
+
+    // Run sa long as there is at least one agent alive.
+    const ONE_FRAME: Duration = time::Duration::from_millis(40);
     while executor.agents_count() > 1 {
         executor.step();
-        thread::sleep(one_frame);
         print!("\x1B[H{}", executor.state());
+        thread::sleep(ONE_FRAME);
     }
 }

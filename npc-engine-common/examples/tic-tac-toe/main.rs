@@ -82,7 +82,7 @@ fn game_finished(state: State) -> bool {
 }
 
 fn main() {
-    // These parameters control the MCTS algorithm
+    // These parameters control the MCTS algorithm.
     const CONFIG: MCTSConfiguration = MCTSConfiguration {
         allow_invalid_tasks: false,
         visits: 1000,
@@ -93,7 +93,7 @@ fn main() {
         planning_task_duration: None,
     };
 
-    // Set the depth of graph output to 6 and enables logging if specified
+    // Set the depth of graph output to 6 and enable logging if specified
     // in the RUST_LOG environment variable.
     graphviz::set_graph_output_depth(6);
     env_logger::init();
@@ -103,10 +103,10 @@ fn main() {
     let mut board = 0;
     let mut turn = 0;
     loop {
-        // Print the current board
+        // Print the current board.
         println!("{}", board.description());
 
-        // Get input
+        // Get input.
         println!("Please enter a coordinate with 'X Y' where X,Y are 0,1,2, or 'q' to quit.");
         let (x, y) = match get_input() {
             Input::Coordinate(pair) => pair,
@@ -118,7 +118,7 @@ fn main() {
             continue;
         }
 
-        // Set cell
+        // Set cell.
         board.set(x, y, Cell::Player(Player::O));
 
         // Did we win?
@@ -127,7 +127,7 @@ fn main() {
             break;
         }
 
-        // Run planner
+        // Run planner.
         println!("Computer is thinking...");
         const AI_AGENT: AgentId = AgentId(1);
         let ai_move = run_mcts_and_return_move(board, AI_AGENT, CONFIG, Some(turn));
