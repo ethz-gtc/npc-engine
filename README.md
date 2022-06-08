@@ -92,7 +92,7 @@ Source: [`learn.rs`](npc-engine-common/examples/learn.rs)
 cargo run --release --example ecosystem
 ```
 
-A 2-D ecosystem simulation in which herbivores and carnivores eat and die.
+A 2-D ecosystem simulation in which herbivores (🐄) and carnivores (🐅) eat and die.
 
 The world consists of a tilemap where each tile can be empty (dark green), an obstacle (gray), or grass (green).
 A grass tile can provide 1-3 units of food, visualized with increasing saturation levels.
