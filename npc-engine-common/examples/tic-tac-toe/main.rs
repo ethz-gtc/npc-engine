@@ -3,6 +3,7 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
+use board::State;
 use npc_engine_common::{graphviz, AgentId, MCTSConfiguration, MCTS};
 use npc_engine_utils::plot_tree_in_tmp;
 use regex::Regex;
@@ -18,22 +19,6 @@ mod board;
 mod domain;
 mod r#move;
 mod player;
-
-fn game_finished(state: u32) -> bool {
-    if state.is_full() {
-        println!("Draw!");
-        return true;
-    }
-    if let Some(winner) = state.winner() {
-        match winner {
-            Player::O => println!("You won!"),
-            Player::X => println!("Computer won!"),
-        };
-        true
-    } else {
-        false
-    }
-}
 
 enum Input {
     Coordinate((CellCoord, CellCoord)),
@@ -64,7 +49,40 @@ fn get_input() -> Input {
     }
 }
 
-fn run_mcts_and_return_move(board: u32, turn: u32) -> Move {
+fn run_mcts_and_return_move(
+    board: u32,
+    agent: AgentId,
+    config: MCTSConfiguration,
+    turn_to_plot: Option<u32>,
+) -> Move {
+    let mut mcts = MCTS::<TicTacToe>::new(board, agent, config);
+    if let Some(turn) = turn_to_plot {
+        if let Err(e) = plot_tree_in_tmp(&mcts, "tic-tac-toe_graphs", &format!("turn{turn:02}")) {
+            println!("Cannot write search tree: {e}");
+        }
+    }
+    let task = mcts.run().unwrap();
+    task.downcast_ref::<Move>().unwrap().clone()
+}
+
+fn game_finished(state: State) -> bool {
+    if state.is_full() {
+        println!("Draw!");
+        return true;
+    }
+    if let Some(winner) = state.winner() {
+        match winner {
+            Player::O => println!("You won!"),
+            Player::X => println!("Computer won!"),
+        };
+        true
+    } else {
+        false
+    }
+}
+
+fn main() {
+    // These parameters control the MCTS algorithm
     const CONFIG: MCTSConfiguration = MCTSConfiguration {
         allow_invalid_tasks: false,
         visits: 1000,
@@ -74,15 +92,9 @@ fn run_mcts_and_return_move(board: u32, turn: u32) -> Move {
         seed: None,
         planning_task_duration: None,
     };
-    let mut mcts = MCTS::<TicTacToe>::new(board, AgentId(1), CONFIG);
-    if let Err(e) = plot_tree_in_tmp(&mcts, "tic-tac-toe_graphs", &format!("turn{turn:02}")) {
-        println!("Cannot write search tree: {e}");
-    }
-    let task = mcts.run().unwrap();
-    task.downcast_ref::<Move>().unwrap().clone()
-}
 
-fn main() {
+    // Set the depth of graph output to 6 and enables logging if specified
+    // in the RUST_LOG environment variable.
     graphviz::set_graph_output_depth(6);
     env_logger::init();
 
@@ -117,7 +129,8 @@ fn main() {
 
         // Run planner
         println!("Computer is thinking...");
-        let ai_move = run_mcts_and_return_move(board, turn);
+        const AI_AGENT: AgentId = AgentId(1);
+        let ai_move = run_mcts_and_return_move(board, AI_AGENT, CONFIG, Some(turn));
         println!("Computer played {ai_move}");
         board.set(ai_move.x, ai_move.y, Cell::Player(Player::X));
         turn += 1;
@@ -149,9 +162,7 @@ mod tests {
             let mut board = 0;
             loop {
                 for agent in [AgentId(0), AgentId(1)] {
-                    let mut mcts = MCTS::<TicTacToe>::new(board, agent, CONFIG);
-                    let task = mcts.run().unwrap();
-                    let task = task.downcast_ref::<Move>().unwrap();
+                    let task = run_mcts_and_return_move(board, agent, CONFIG, None);
                     board.set(task.x, task.y, Cell::Player(Player::from_agent(agent)));
                     assert_eq!(board.winner(), None);
                     if board.is_full() {
