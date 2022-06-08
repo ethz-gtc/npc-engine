@@ -63,6 +63,9 @@ fn format_map_and_agents(f: &mut std::fmt::Formatter<'_>, map: &Map, agents: &Ag
 				match best {
 					Some((AgentType::Herbivore, true)) => "🐄",
 					Some((AgentType::Carnivore, true)) => "🐅",
+					#[cfg(target_os = "macos")]
+					Some((AgentType::Herbivore, false)) => "☠️ ",
+					#[cfg(not(target_os = "macos"))]
 					Some((AgentType::Herbivore, false)) => "☠️",
 					Some((AgentType::Carnivore, false)) => "💀",
 					None => "  ",

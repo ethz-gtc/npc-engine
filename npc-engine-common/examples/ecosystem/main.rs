@@ -4,7 +4,9 @@
  */
 
 use core::time;
-use std::{collections::{HashSet, HashMap}, num::NonZeroU64, thread, iter};
+#[allow(unused_imports)]
+use std::collections::HashMap;
+use std::{collections::HashSet, num::NonZeroU64, thread, iter};
 
 use behavior::world::WORLD_AGENT_ID;
 use constants::*;
