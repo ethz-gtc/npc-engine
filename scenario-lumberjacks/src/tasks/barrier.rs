@@ -1,14 +1,17 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_common::{
+    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
+    TaskDuration,
+};
 use npc_engine_utils::{Direction, DIRECTIONS};
 
-use crate::{config, Action, Lumberjacks, WorldState, WorldStateMut, Tile, apply_direction};
+use crate::{apply_direction, config, Action, Lumberjacks, Tile, WorldState, WorldStateMut};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Barrier {
@@ -20,7 +23,12 @@ impl Task<Lumberjacks> for Barrier {
         config().action_weights.barrier
     }
 
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+    fn duration(
+        &self,
+        _tick: u64,
+        _state_diff: StateDiffRef<Lumberjacks>,
+        _agent: AgentId,
+    ) -> TaskDuration {
         0
     }
 
@@ -47,7 +55,7 @@ impl Task<Lumberjacks> for Barrier {
         Action::Barrier(self.direction)
     }
 
-    fn is_valid(&self, _tick: u64,state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((x, y)) = state_diff.find_agent(agent) {
             let (x, y) = apply_direction(self.direction, x, y);
             let empty = matches!(state_diff.get_tile(x, y), Some(Tile::Empty));

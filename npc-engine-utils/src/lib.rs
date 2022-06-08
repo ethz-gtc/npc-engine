@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -13,20 +13,20 @@
 //! - Some helper functions to plot trees.
 //! - Some helper functions to simplify functional programming.
 
-mod functional;
 mod coord2d;
 mod direction;
-mod global_domain;
-mod option_state_diff;
-mod graphs;
 mod executor;
+mod functional;
+mod global_domain;
+mod graphs;
 mod neuron;
+mod option_state_diff;
 
-pub use functional::*;
 pub use coord2d::*;
 pub use direction::*;
-pub use global_domain::*;
-pub use option_state_diff::*;
-pub use graphs::*;
 pub use executor::*;
+pub use functional::*;
+pub use global_domain::*;
+pub use graphs::*;
 pub use neuron::*;
+pub use option_state_diff::*;

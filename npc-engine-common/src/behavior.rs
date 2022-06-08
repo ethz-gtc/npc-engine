@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -14,13 +14,26 @@ pub trait Behavior<D: Domain>: 'static {
 
     /// Collects valid tasks for the given agent in the given world state.
     #[allow(unused)]
-    fn add_own_tasks(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {}
+    fn add_own_tasks(
+        &self,
+        tick: u64,
+        state: StateDiffRef<D>,
+        agent: AgentId,
+        tasks: &mut Vec<Box<dyn Task<D>>>,
+    ) {
+    }
 
     /// Returns if the behavior is valid for the given agent in the given world state.
     fn is_valid(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId) -> bool;
 
     /// Helper method to recursively collect all valid tasks for the given agent in the given world state.
-    fn add_tasks(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId, tasks: &mut Vec<Box<dyn Task<D>>>) {
+    fn add_tasks(
+        &self,
+        tick: u64,
+        state: StateDiffRef<D>,
+        agent: AgentId,
+        tasks: &mut Vec<Box<dyn Task<D>>>,
+    ) {
         self.add_own_tasks(tick, state, agent, tasks);
         self.get_dependent_behaviors()
             .iter()

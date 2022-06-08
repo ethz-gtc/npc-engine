@@ -1,15 +1,18 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{num::NonZeroU8};
 use std::hash::Hash;
+use std::num::NonZeroU8;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_common::{
+    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
+    TaskDuration,
+};
 use npc_engine_utils::{Direction, DIRECTIONS};
 
-use crate::{config, Action, Lumberjacks, Tile, WorldStateMut, WorldState, apply_direction};
+use crate::{apply_direction, config, Action, Lumberjacks, Tile, WorldState, WorldStateMut};
 
 // SAFETY: this is safe as 1 is non-zero. This is actually a work-around the fact
 // that Option::unwrap() is currently not const, but we need a constant in the match arm below.
@@ -26,7 +29,12 @@ impl Task<Lumberjacks> for Chop {
         config().action_weights.chop
     }
 
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+    fn duration(
+        &self,
+        _tick: u64,
+        _state_diff: StateDiffRef<Lumberjacks>,
+        _agent: AgentId,
+    ) -> TaskDuration {
         0
     }
 

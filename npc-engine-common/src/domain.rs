@@ -1,15 +1,15 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::collections::{BTreeSet, BTreeMap};
+use std::collections::{BTreeMap, BTreeSet};
 use std::hash::Hash;
 
 use ordered_float::NotNan;
 use rand_chacha::ChaCha8Rng;
 
-use crate::{AgentId, Behavior, Task, Node, MCTSConfiguration, StateDiffRef, Edges};
+use crate::{AgentId, Behavior, Edges, MCTSConfiguration, Node, StateDiffRef, Task};
 
 /// The "current" value an agent has in a given state.
 pub type AgentValue = NotNan<f32>;
@@ -31,13 +31,19 @@ pub trait Domain: Sized + 'static {
     fn get_current_value(tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue;
 
     /// Updates the list of agents which are in the horizon of the given agent in the given tick and world state.
-    fn update_visible_agents(start_tick: u64, tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>);
+    fn update_visible_agents(
+        start_tick: u64,
+        tick: u64,
+        state_diff: StateDiffRef<Self>,
+        agent: AgentId,
+        agents: &mut BTreeSet<AgentId>,
+    );
 
     /// Gets all possible valid tasks for a given agent in a given tick and world state.
     fn get_tasks(
         tick: u64,
         state_diff: StateDiffRef<'_, Self>,
-        agent: AgentId
+        agent: AgentId,
     ) -> Vec<Box<dyn Task<Self>>> {
         let mut actions = Vec::new();
         Self::list_behaviors()
@@ -70,7 +76,6 @@ pub trait Domain: Sized + 'static {
         Default::default()
     }
 }
-
 
 /// An estimator of state-value function.
 pub trait StateValueEstimator<D: Domain>: Send {

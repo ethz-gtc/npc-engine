@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -20,6 +20,7 @@ mod graph;
 mod heatmap;
 mod hooks;
 mod inventory;
+mod lumberjacks_domain;
 mod metrics;
 mod screenshot;
 mod serialization;
@@ -27,7 +28,6 @@ mod tasks;
 mod tilemap;
 mod util;
 mod world;
-mod lumberjacks_domain;
 
 pub use behaviors::*;
 pub use config::*;
@@ -36,6 +36,7 @@ pub use graph::*;
 pub use heatmap::*;
 pub use hooks::*;
 pub use inventory::*;
+pub use lumberjacks_domain::*;
 pub use metrics::*;
 pub use screenshot::*;
 pub use serialization::*;
@@ -43,7 +44,6 @@ pub use tasks::*;
 pub use tilemap::*;
 pub use util::*;
 pub use world::*;
-pub use lumberjacks_domain::*;
 
 static INIT: Once = Once::new();
 static mut CONFIG: MaybeUninit<Config> = MaybeUninit::uninit();
@@ -243,4 +243,3 @@ pub fn batch() -> bool {
         mem::transmute(BATCH)
     }
 }
-

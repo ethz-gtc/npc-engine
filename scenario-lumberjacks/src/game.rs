@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -262,16 +262,12 @@ impl GameState {
         let agent = self.agents[self.current_agent];
         let initial_state = Lumberjacks::derive_local_state(world, agent);
         // FIXME: re-introduce objectives as tasks
-        let mut mcts = MCTS::new(
-            initial_state,
-            agent,
-            self.config.clone()
-        );
+        let mut mcts = MCTS::new(initial_state, agent, self.config.clone());
 
         println!("planning start, turn {} {:?}", turn, agent);
         let objective = mcts.run().unwrap();
         println!("planning end");
-      
+
         self.post_mcts_hooks.iter_mut().for_each(|f| {
             f(PostMCTSHookArgs {
                 run,
@@ -286,12 +282,14 @@ impl GameState {
         });
 
         let mut diff = WorldDiff::default();
-        let new_objective = objective.execute(0, StateDiffRefMut::new(&mcts.initial_state, &mut diff), agent);
+        let new_objective = objective.execute(
+            0,
+            StateDiffRefMut::new(&mcts.initial_state, &mut diff),
+            agent,
+        );
         Lumberjacks::apply(world, &mcts.initial_state, &diff);
         world.actions.insert(agent, objective.display_action());
-        new_objective.map(|objective|
-            self.objectives.insert(agent, objective)
-        );
+        new_objective.map(|objective| self.objectives.insert(agent, objective));
 
         self.post_world_hooks.iter_mut().for_each(|f| {
             f(PostWorldHookArgs {

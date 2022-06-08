@@ -1,11 +1,20 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{sync::{Arc, Weak}, collections::{BTreeMap, BTreeSet}, fmt, mem, hash::{Hash, Hasher}};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt,
+    hash::{Hash, Hasher},
+    mem,
+    sync::{Arc, Weak},
+};
 
-use crate::{Domain, AgentId, Task, StateDiffRef, AgentValue, active_task::{ActiveTask, ActiveTasks}, get_task_for_agent};
+use crate::{
+    active_task::{ActiveTask, ActiveTasks},
+    get_task_for_agent, AgentId, AgentValue, Domain, StateDiffRef, Task,
+};
 
 /// Strong atomic reference counted node.
 pub type Node<D> = Arc<NodeInner<D>>;
@@ -47,42 +56,22 @@ impl<D: Domain> NodeInner<D> {
     ) -> Self {
         let state_diff = StateDiffRef::new(initial_state, &diff);
         // Get list of agents we consider in planning
-        let mut agents = tasks
-            .iter()
-            .map(|task| task.agent)
-            .collect();
-        D::update_visible_agents(
-            start_tick,
-            tick,
-            state_diff,
-            active_agent,
-            &mut agents
-        );
+        let mut agents = tasks.iter().map(|task| task.agent).collect();
+        D::update_visible_agents(start_tick, tick, state_diff, active_agent, &mut agents);
 
         // Assign idle tasks to agents without a task
         let (tasks, current_values): (ActiveTasks<D>, _) = agents
             .into_iter()
-            .map(|agent|
-                get_task_for_agent(&tasks, agent)
-                    .map_or_else(
-                        || ActiveTask::new_idle(tick, agent, active_agent),
-                        |task| task.clone()
-                    )
-            )
+            .map(|agent| {
+                get_task_for_agent(&tasks, agent).map_or_else(
+                    || ActiveTask::new_idle(tick, agent, active_agent),
+                    |task| task.clone(),
+                )
+            })
             // Set child current values
             .map(|task| {
                 let agent = task.agent;
-                (
-                    task,
-                    (
-                        agent,
-                        D::get_current_value(
-                            tick,
-                            state_diff,
-                            agent
-                        )
-                    )
-                )
+                (task, (agent, D::get_current_value(tick, state_diff, agent)))
             })
             .unzip();
 
@@ -91,7 +80,7 @@ impl<D: Domain> NodeInner<D> {
             diff,
             tick,
             tasks,
-            current_values
+            current_values,
         }
     }
 
@@ -107,10 +96,7 @@ impl<D: Domain> NodeInner<D> {
 
     /// Return all agents that are in considered by this node
     pub fn agents(&self) -> BTreeSet<AgentId> {
-        self.tasks
-            .iter()
-            .map(|task| task.agent)
-            .collect()
+        self.tasks.iter().map(|task| task.agent).collect()
     }
 
     /// Return diff of current node.
@@ -120,24 +106,21 @@ impl<D: Domain> NodeInner<D> {
 
     /// Return the current value from an agent, panic if not present in the node
     pub fn current_value(&self, agent: AgentId) -> AgentValue {
-        self.current_values.get(&agent).copied().unwrap_or_else(|| AgentValue::new(0.0).unwrap())
+        self.current_values
+            .get(&agent)
+            .copied()
+            .unwrap_or_else(|| AgentValue::new(0.0).unwrap())
     }
 
     /// Return the current value from an agent, compute if not present in the node
     pub fn current_value_or_compute(&self, agent: AgentId, initial_state: &D::State) -> AgentValue {
-        self.current_values
-            .get(&agent)
-            .copied()
-            .unwrap_or_else(||
-                D::get_current_value(
-                    self.tick,
-                    StateDiffRef::new(
-                        initial_state,
-                        &self.diff,
-                    ),
-                    agent,
-                )
+        self.current_values.get(&agent).copied().unwrap_or_else(|| {
+            D::get_current_value(
+                self.tick,
+                StateDiffRef::new(initial_state, &self.diff),
+                agent,
             )
+        })
     }
 
     /// Return all current values
@@ -171,7 +154,10 @@ impl<D: Domain> Hash for NodeInner<D> {
 
 impl<D: Domain> PartialEq for NodeInner<D> {
     fn eq(&self, other: &Self) -> bool {
-        self.active_agent.eq(&other.active_agent) && self.diff.eq(&other.diff) && self.tasks.eq(&other.tasks) && self.tick.eq(&other.tick)
+        self.active_agent.eq(&other.active_agent)
+            && self.diff.eq(&other.diff)
+            && self.tasks.eq(&other.tasks)
+            && self.tick.eq(&other.tick)
     }
 }
 

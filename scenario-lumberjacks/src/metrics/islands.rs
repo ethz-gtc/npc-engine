@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -39,15 +39,11 @@ pub fn islands_metric_hook() -> PreWorldHookFn {
                     ];
 
                     let index = index_fn(x, y);
-                    neighbors
-                        .iter()
-                        .cloned()
-                        .flatten()
-                        .for_each(|(x, y)| {
-                            if !world.map.tiles[y][x].is_impassable() {
-                                islands.union(index, index_fn(x, y));
-                            }
-                        });
+                    neighbors.iter().cloned().flatten().for_each(|(x, y)| {
+                        if !world.map.tiles[y][x].is_impassable() {
+                            islands.union(index, index_fn(x, y));
+                        }
+                    });
                 } else {
                     impassables += 1;
                 }

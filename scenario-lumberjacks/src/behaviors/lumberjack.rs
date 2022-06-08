@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -11,7 +11,8 @@ use npc_engine_common::{AgentId, Behavior, StateDiffRef, Task};
 use npc_engine_utils::DIRECTIONS;
 
 use crate::{
-    config, Barrier, Chop, Lumberjacks, Map2D, Move, Plant, Refill, WorldState, Wait, Water, apply_direction, from_direction,
+    apply_direction, config, from_direction, Barrier, Chop, Lumberjacks, Map2D, Move, Plant,
+    Refill, Wait, Water, WorldState,
 };
 
 pub struct Lumberjack;

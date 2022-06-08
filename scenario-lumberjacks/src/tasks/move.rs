@@ -1,14 +1,17 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_common::{
+    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
+    TaskDuration,
+};
 use npc_engine_utils::Direction;
 
-use crate::{config, Action, Lumberjacks, Tile, WorldStateMut, WorldState, apply_direction};
+use crate::{apply_direction, config, Action, Lumberjacks, Tile, WorldState, WorldStateMut};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Move {
@@ -22,7 +25,12 @@ impl Task<Lumberjacks> for Move {
         config().action_weights.r#move
     }
 
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+    fn duration(
+        &self,
+        _tick: u64,
+        _state_diff: StateDiffRef<Lumberjacks>,
+        _agent: AgentId,
+    ) -> TaskDuration {
         0
     }
 
@@ -43,12 +51,14 @@ impl Task<Lumberjacks> for Move {
             let mut path = self.path.iter().skip(1).copied();
 
             if path.next().is_some() {
-                panic!("Objectives are currently disabled in Lumberjack, so path do not make sense"); // objectives are disabled
-                /*Some(Box::new(Move {
-                    path,
-                    x: self.x,
-                    y: self.y,
-                }))*/
+                panic!(
+                    "Objectives are currently disabled in Lumberjack, so path do not make sense"
+                ); // objectives are disabled
+                   /*Some(Box::new(Move {
+                       path,
+                       x: self.x,
+                       y: self.y,
+                   }))*/
             } else {
                 Some(Box::new(IdleTask))
             }
@@ -61,7 +71,7 @@ impl Task<Lumberjacks> for Move {
         Action::Walk(*self.path.first().unwrap())
     }
 
-    fn is_valid(&self, _tick: u64,state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
         if let Some((mut x, mut y)) = state_diff.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
                 let tmp = apply_direction(*direction, x, y);

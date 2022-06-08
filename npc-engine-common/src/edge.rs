@@ -1,11 +1,16 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{ops::Range, mem, sync::{Arc, Mutex}, fmt, collections::BTreeSet};
+use std::{
+    collections::BTreeSet,
+    fmt, mem,
+    ops::Range,
+    sync::{Arc, Mutex},
+};
 
-use crate::{Domain, AgentId, SeededHashMap, Task, StateDiffRef, Node, WeakNode, AgentValue};
+use crate::{AgentId, AgentValue, Domain, Node, SeededHashMap, StateDiffRef, Task, WeakNode};
 
 use rand::distributions::WeightedIndex;
 
@@ -39,10 +44,19 @@ impl<'a, D: Domain> IntoIterator for &'a Edges<D> {
 
 impl<D: Domain> Edges<D> {
     /// Creates new edges, with optionally a forced task that will be the sole edge.
-    pub fn new(node: &Node<D>, initial_state: &D::State, next_task: Option<Box<dyn Task<D>>>) -> Self {
-
+    pub fn new(
+        node: &Node<D>,
+        initial_state: &D::State,
+        next_task: Option<Box<dyn Task<D>>>,
+    ) -> Self {
         let unexpanded_tasks = match next_task {
-            Some(task) if task.is_valid(node.tick, StateDiffRef::new(initial_state, &node.diff), node.active_agent) => {
+            Some(task)
+                if task.is_valid(
+                    node.tick,
+                    StateDiffRef::new(initial_state, &node.diff),
+                    node.active_agent,
+                ) =>
+            {
                 let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
 
                 // Set existing child weights, only option
@@ -53,14 +67,14 @@ impl<D: Domain> Edges<D> {
                 let tasks = D::get_tasks(
                     node.tick,
                     StateDiffRef::new(initial_state, &node.diff),
-                    node.active_agent
+                    node.active_agent,
                 );
                 if tasks.is_empty() {
                     // no task, return empty edges
                     return Edges {
                         unexpanded_tasks: None,
-                        expanded_tasks: Default::default()
-                    }
+                        expanded_tasks: Default::default(),
+                    };
                 }
 
                 // Safety-check that all tasks are valid
@@ -70,11 +84,12 @@ impl<D: Domain> Edges<D> {
                 }
 
                 // Get the weight for each task
-                let weights =
-                    WeightedIndex::new(tasks.iter().map(|task| {
-                        task.weight(node.tick, state_diff, node.active_agent)
-                    }))
-                    .unwrap();
+                let weights = WeightedIndex::new(
+                    tasks
+                        .iter()
+                        .map(|task| task.weight(node.tick, state_diff, node.active_agent)),
+                )
+                .unwrap();
 
                 Some((weights, tasks))
             }
@@ -138,10 +153,11 @@ impl<D: Domain> Edges<D> {
 
     /// Returns how many edges there are, the sum of the expanded and not-yet expanded counts.
     pub fn branching_factor(&self) -> usize {
-        self.expanded_tasks.len() +
-        self.unexpanded_tasks.as_ref().map_or(0,
-            |(_, tasks)| tasks.len()
-        )
+        self.expanded_tasks.len()
+            + self
+                .unexpanded_tasks
+                .as_ref()
+                .map_or(0, |(_, tasks)| tasks.len())
     }
 
     /// The memory footprint of this struct.
@@ -188,7 +204,11 @@ impl<D: Domain> fmt::Debug for EdgeInner<D> {
 }
 
 /// Creates a new edge between a parent and a child.
-pub fn new_edge<D: Domain>(parent: &Node<D>, child: &Node<D>, agents: &BTreeSet<AgentId>) -> Edge<D> {
+pub fn new_edge<D: Domain>(
+    parent: &Node<D>,
+    child: &Node<D>,
+    agents: &BTreeSet<AgentId>,
+) -> Edge<D> {
     Arc::new(Mutex::new(EdgeInner {
         parent: Node::downgrade(parent),
         child: Node::downgrade(child),
@@ -209,8 +229,10 @@ impl<D: Domain> EdgeInner<D> {
         // If parent is not present, this node is being reused and the parent leaves the horizon. Score doesn't matter
         if let Some(q_value) = self.q_values.get(&parent_agent) {
             // Normalize the exploitation factor so it doesn't overshadow the exploration
-            let exploitation_value = (q_value - *range.start) / (*(range.end - range.start)).max(f32::EPSILON);
-            let exploration_value = ((parent_child_visits as f32).ln() / (self.visits as f32).max(f32::EPSILON)).sqrt();
+            let exploitation_value =
+                (q_value - *range.start) / (*(range.end - range.start)).max(f32::EPSILON);
+            let exploration_value =
+                ((parent_child_visits as f32).ln() / (self.visits as f32).max(f32::EPSILON)).sqrt();
             exploitation_value + exploration * exploration_value
         } else {
             0.

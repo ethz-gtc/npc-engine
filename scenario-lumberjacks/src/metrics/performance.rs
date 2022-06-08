@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -7,9 +7,7 @@ use std::collections::HashMap;
 use std::mem;
 use std::time::Duration;
 
-use crate::{
-    Barrier, Chop, Move, Plant, PostMCTSHookArgs, PostMCTSHookFn, Refill, Wait, Water,
-};
+use crate::{Barrier, Chop, Move, Plant, PostMCTSHookArgs, PostMCTSHookFn, Refill, Wait, Water};
 use npc_engine_common::AgentId;
 use npc_engine_utils::Direction;
 

@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -13,7 +13,10 @@ use npc_engine_common::{AgentId, StateDiffRef, StateDiffRefMut};
 use npc_engine_utils::DIRECTIONS;
 use serde::Serialize;
 
-use crate::{Action, AgentInventory, Inventory, InventoryDiff, InventorySnapshot, Lumberjacks, SPRITE_SIZE, Tile, TileMap, TileMapDiff, TileMapSnapshot, config, apply_direction};
+use crate::{
+    apply_direction, config, Action, AgentInventory, Inventory, InventoryDiff, InventorySnapshot,
+    Lumberjacks, Tile, TileMap, TileMapDiff, TileMapSnapshot, SPRITE_SIZE,
+};
 
 #[derive(Debug, Serialize, Clone)]
 #[serde(rename_all = "kebab-case")]
@@ -187,47 +190,47 @@ impl WorldState for StateDiffRef<'_, Lumberjacks> {
     fn get_inventory(&self, agent: AgentId) -> usize {
         let initial_state = self.initial_state;
         let diff = self.diff;
-        (initial_state
-            .inventory.0
-            .get(&agent)
-            .unwrap()
-            .wood
-        + diff
-            .inventory.0
-            .get(&agent)
-            .map(|inv| inv.wood)
-            .unwrap_or(0)
-        ) as usize
+        (initial_state.inventory.0.get(&agent).unwrap().wood
+            + diff
+                .inventory
+                .0
+                .get(&agent)
+                .map(|inv| inv.wood)
+                .unwrap_or(0)) as usize
     }
 
     fn get_total_inventory(&self) -> usize {
         let initial_state = self.initial_state;
         let diff = self.diff;
         initial_state
-            .inventory.0.values()
+            .inventory
+            .0
+            .values()
             .map(|inv| inv.wood as usize)
             .sum::<usize>()
-        + diff
-            .inventory.0.values()
-            .map(|inv| inv.wood as usize)
-            .sum::<usize>()
+            + diff
+                .inventory
+                .0
+                .values()
+                .map(|inv| inv.wood as usize)
+                .sum::<usize>()
     }
 
     fn get_water(&self, agent: AgentId) -> bool {
         let initial_state = self.initial_state;
         let diff = self.diff;
-        diff
-            .inventory
+        diff.inventory
             .0
             .get(&agent)
             .map(|inv| inv.water)
-            .unwrap_or_else(||
+            .unwrap_or_else(|| {
                 initial_state
-                    .inventory.0
+                    .inventory
+                    .0
                     .get(&agent)
                     .map(|inv| inv.water)
                     .unwrap_or_default()
-            )
+            })
     }
 
     fn find_nearby_agents(&self, x: isize, y: isize, radius: usize) -> Vec<AgentId> {
@@ -290,7 +293,8 @@ impl WorldStateMut for StateDiffRefMut<'_, Lumberjacks> {
             && y < (config().agents.snapshot_radius * 2 + 1) as isize
         {
             Some(
-                self.diff.map
+                self.diff
+                    .map
                     .tiles
                     .entry((x, y))
                     .or_insert_with(|| snapshot.map.tiles[y as usize][x as usize]),
@@ -305,15 +309,20 @@ impl WorldStateMut for StateDiffRefMut<'_, Lumberjacks> {
         // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
         // but for the water it is an override (= diff.water), so we need to fetch the
         // water from the snapshot when we create a new inventory diff
-        self.diff.inventory.0.entry(agent).or_insert_with(
-            || AgentInventory {
+        self.diff
+            .inventory
+            .0
+            .entry(agent)
+            .or_insert_with(|| AgentInventory {
                 wood: 0,
-                water: snapshot.inventory.0
+                water: snapshot
+                    .inventory
+                    .0
                     .get(&agent)
                     .map(|inv| inv.water)
-                    .unwrap_or_default()
-            }
-        ).wood += 1;
+                    .unwrap_or_default(),
+            })
+            .wood += 1;
     }
 
     fn decrement_inventory(&mut self, agent: AgentId) {
@@ -321,15 +330,20 @@ impl WorldStateMut for StateDiffRefMut<'_, Lumberjacks> {
         // this is cumbersome because the diff has a real diff for the tree (+= diff.tree)
         // but for the water it is an override (= diff.water), so we need to fetch the
         // water from the snapshot when we create a new inventory diff
-        self.diff.inventory.0.entry(agent).or_insert_with(
-            || AgentInventory {
+        self.diff
+            .inventory
+            .0
+            .entry(agent)
+            .or_insert_with(|| AgentInventory {
                 wood: 0,
-                water: snapshot.inventory.0
+                water: snapshot
+                    .inventory
+                    .0
                     .get(&agent)
                     .map(|inv| inv.water)
-                    .unwrap_or_default()
-            }
-        ).wood -= 1;
+                    .unwrap_or_default(),
+            })
+            .wood -= 1;
     }
 
     fn set_water(&mut self, agent: AgentId, value: bool) {

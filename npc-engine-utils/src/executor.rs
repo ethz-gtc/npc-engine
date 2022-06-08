@@ -1,23 +1,34 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{hash::Hash, sync::{atomic::{AtomicU64, Ordering}, Arc}, collections::HashMap, thread::{JoinHandle, self}};
 use ansi_term::Style;
-use npc_engine_common::{Domain, AgentId, Task, ActiveTask, ActiveTasks, StateDiffRef, StateDiffRefMut, MCTS, MCTSConfiguration, IdleTask, StateValueEstimator, DefaultPolicyEstimator, PlanningTask};
+use npc_engine_common::{
+    ActiveTask, ActiveTasks, AgentId, DefaultPolicyEstimator, Domain, IdleTask, MCTSConfiguration,
+    PlanningTask, StateDiffRef, StateDiffRefMut, StateValueEstimator, Task, MCTS,
+};
+use std::{
+    collections::HashMap,
+    hash::Hash,
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc,
+    },
+    thread::{self, JoinHandle},
+};
 
 use crate::GlobalDomain;
 
 fn highlight_style() -> Style {
     ansi_term::Style::new().bold().fg(ansi_term::Colour::Green)
 }
-fn highlight_tick(tick: u64) ->  String {
+fn highlight_tick(tick: u64) -> String {
     let tick_text = format!("T{}", tick);
     highlight_style().paint(&tick_text).to_string()
 }
 
-fn highlight_agent(agent_id: AgentId) ->  String {
+fn highlight_agent(agent_id: AgentId) -> String {
     let tick_text = format!("{}", agent_id);
     highlight_style().paint(&tick_text).to_string()
 }
@@ -29,10 +40,11 @@ pub trait ExecutableDomain: Domain {
 }
 // automatic implementation for domains where diff is an option of state
 impl<
-    S: std::fmt::Debug + Sized + Clone + Hash + Eq,
-    DA: std::fmt::Debug + Default,
-    D: Domain<State = S, Diff = Option<S>, DisplayAction = DA>,
-> ExecutableDomain for D {
+        S: std::fmt::Debug + Sized + Clone + Hash + Eq,
+        DA: std::fmt::Debug + Default,
+        D: Domain<State = S, Diff = Option<S>, DisplayAction = DA>,
+    > ExecutableDomain for D
+{
     fn apply_diff(diff: Self::Diff, state: &mut Self::State) {
         if let Some(diff) = diff {
             *state = diff;
@@ -48,7 +60,14 @@ pub trait ExecutorState<D: Domain> {
         Box::new(DefaultPolicyEstimator {})
     }
     /// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents (by default do nothing).
-    fn post_action_execute_hook(&mut self, _state: &D::State, _diff: &D::Diff, _active_task: &ActiveTask<D>, _queue: &mut ActiveTasks<D>) {}
+    fn post_action_execute_hook(
+        &mut self,
+        _state: &D::State,
+        _diff: &D::Diff,
+        _active_task: &ActiveTask<D>,
+        _queue: &mut ActiveTasks<D>,
+    ) {
+    }
     /// Method called after MCTS has run, to perform tasks such as printing the search tree (by default do nothing).
     fn post_mcts_run_hook(&mut self, _mcts: &MCTS<D>, _last_active_task: &ActiveTask<D>) {}
 }
@@ -61,7 +80,9 @@ pub trait ExecutorStateLocal<D: Domain> {
     /// Fills the initial queue of tasks.
     fn init_task_queue(&self, state: &D::State) -> ActiveTasks<D>;
     /// Returns whether an agent should be kept in a given state (to remove dead agents) (by default returns true).
-    fn keep_agent(&self, _tick: u64, _state: &D::State, _agent: AgentId) -> bool { true }
+    fn keep_agent(&self, _tick: u64, _state: &D::State, _agent: AgentId) -> bool {
+        true
+    }
 }
 
 /// User-defined properties for the executor,
@@ -72,7 +93,9 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
     /// Fills the initial queue of tasks.
     fn init_task_queue(&self, state: &D::GlobalState) -> ActiveTasks<D>;
     /// Returns whether an agent should be kept in a given state (to remove dead agents) (by default returns true).
-    fn keep_agent(&self, _tick: u64, _state: &D::GlobalState, _agent: AgentId) -> bool { true }
+    fn keep_agent(&self, _tick: u64, _state: &D::GlobalState, _agent: AgentId) -> bool {
+        true
+    }
 }
 
 /// The state of tasks undergoing execution.
@@ -80,23 +103,22 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
 /// This can be used directly to build your own executor,
 /// or indirectly through SimpleExecutor or ThreadedExecutor.
 struct ExecutionQueue<D>
-    where
-        D: Domain
+where
+    D: Domain,
 {
     /// The current queue of tasks
     task_queue: ActiveTasks<D>,
     /// The tasks of the new agents, non-empty between execute_task and queue_new_agents
-    new_agents_tasks: Vec<ActiveTask<D>>
-    // TODO: we could get ride of these by passing an optional callback to execute_task
+    new_agents_tasks: Vec<ActiveTask<D>>, // TODO: we could get ride of these by passing an optional callback to execute_task
 }
 impl<D> ExecutionQueue<D>
-    where
-        D: Domain
+where
+    D: Domain,
 {
     pub fn new(task_queue: ActiveTasks<D>) -> Self {
         Self {
             task_queue,
-            new_agents_tasks: Vec::new()
+            new_agents_tasks: Vec::new(),
         }
     }
 
@@ -115,13 +137,18 @@ impl<D> ExecutionQueue<D>
         active_task
     }
 
-    pub fn execute_task<S>(&mut self, active_task: &ActiveTask<D>, state: &D::State, executor_state: &mut S) -> (D::Diff, Option<Box<dyn Task<D>>>) 
-        where
-            S: ExecutorState<D>
+    pub fn execute_task<S>(
+        &mut self,
+        active_task: &ActiveTask<D>,
+        state: &D::State,
+        executor_state: &mut S,
+    ) -> (D::Diff, Option<Box<dyn Task<D>>>)
+    where
+        S: ExecutorState<D>,
     {
         let active_agent = active_task.agent;
         let tick = active_task.end;
-    
+
         // Show state if in debug mode
         let mut diff = D::Diff::default();
         let state_diff = StateDiffRef::<D>::new(state, &diff);
@@ -130,9 +157,15 @@ impl<D> ExecutionQueue<D>
             let tick_text = format!("T{}", tick);
             let task_name = format!("{:?}", active_task.task);
             let agent_id_text = format!("A{}", active_agent.0);
-            log::info!("\n{}, State:\n{}\n{} task to be executed: {}", highlight_style.paint(&tick_text), D::get_state_description(state_diff), highlight_style.paint(&agent_id_text), highlight_style.paint(&task_name));
+            log::info!(
+                "\n{}, State:\n{}\n{} task to be executed: {}",
+                highlight_style.paint(&tick_text),
+                D::get_state_description(state_diff),
+                highlight_style.paint(&agent_id_text),
+                highlight_style.paint(&task_name)
+            );
         }
-    
+
         // Execute task
         let is_task_valid = active_task.task.is_valid(tick, state_diff, active_agent);
         if is_task_valid {
@@ -141,13 +174,14 @@ impl<D> ExecutionQueue<D>
             let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
             self.new_agents_tasks = D::get_new_agents(StateDiffRef::new(state, &diff))
                 .into_iter()
-                .map(|new_agent| ActiveTask::new_idle(
-                    tick,
-                    new_agent,
-                    active_agent
-                ))
+                .map(|new_agent| ActiveTask::new_idle(tick, new_agent, active_agent))
                 .collect();
-            executor_state.post_action_execute_hook(state, &diff, active_task, &mut self.task_queue);
+            executor_state.post_action_execute_hook(
+                state,
+                &diff,
+                active_task,
+                &mut self.task_queue,
+            );
             (diff, new_task)
         } else {
             log::info!("Invalid task!");
@@ -159,12 +193,23 @@ impl<D> ExecutionQueue<D>
         self.task_queue.extend(self.new_agents_tasks.drain(..));
     }
 
-    pub fn queue_task(&mut self, tick: u64, active_agent: AgentId, new_task: Box<dyn Task<D>>, state: &D::State) -> ActiveTask<D> {
+    pub fn queue_task(
+        &mut self,
+        tick: u64,
+        active_agent: AgentId,
+        new_task: Box<dyn Task<D>>,
+        state: &D::State,
+    ) -> ActiveTask<D> {
         let diff = D::Diff::default();
         let state_diff = StateDiffRef::new(state, &diff);
         if log::log_enabled!(log::Level::Info) {
             let new_active_task = ActiveTask::new(active_agent, new_task.clone(), tick, state_diff);
-            log::info!("Queuing new task for {} until {}: {:?}", highlight_agent(active_agent), highlight_tick(new_active_task.end), new_task);
+            log::info!(
+                "Queuing new task for {} until {}: {:?}",
+                highlight_agent(active_agent),
+                highlight_tick(new_active_task.end),
+                new_task
+            );
         }
         let new_active_task = ActiveTask::new(active_agent, new_task, tick, state_diff);
         self.task_queue.insert(new_active_task.clone());
@@ -172,13 +217,12 @@ impl<D> ExecutionQueue<D>
     }
 }
 
-
 /// A single-threaded generic executor.
 pub struct SimpleExecutor<'a, D, S>
-    where
-        D: ExecutableDomain,
-        D::State: Clone,
-        S: ExecutorState<D> + ExecutorStateLocal<D>
+where
+    D: ExecutableDomain,
+    D::State: Clone,
+    S: ExecutorState<D> + ExecutorStateLocal<D>,
 {
     /// The attached MCTS configuration
     mcts_config: MCTSConfiguration,
@@ -187,13 +231,13 @@ pub struct SimpleExecutor<'a, D, S>
     /// The current state of the world
     state: D::State,
     /// The current queue of tasks
-    queue: ExecutionQueue<D>
+    queue: ExecutionQueue<D>,
 }
 impl<'a, D, S> SimpleExecutor<'a, D, S>
-    where
-        D: ExecutableDomain,
-        D::State: Clone,
-        S: ExecutorState<D> + ExecutorStateLocal<D>
+where
+    D: ExecutableDomain,
+    D::State: Clone,
+    S: ExecutorState<D> + ExecutorStateLocal<D>,
 {
     /// Creates a new executor, initializes state and task queue from the S trait.
     pub fn new(mcts_config: MCTSConfiguration, executor_state: &'a mut S) -> Self {
@@ -204,7 +248,7 @@ impl<'a, D, S> SimpleExecutor<'a, D, S>
             mcts_config,
             state,
             queue,
-            executor_state
+            executor_state,
         }
     }
 
@@ -220,12 +264,17 @@ impl<'a, D, S> SimpleExecutor<'a, D, S>
         let tick = active_task.end;
 
         // Should we continue considering that agent?
-        if !self.executor_state.keep_agent(tick, &self.state, active_agent) {
+        if !self
+            .executor_state
+            .keep_agent(tick, &self.state, active_agent)
+        {
             return true;
         }
 
         // Execute the task and queue the new agents
-        let (diff, new_task) = self.queue.execute_task(&active_task, &self.state, self.executor_state);
+        let (diff, new_task) =
+            self.queue
+                .execute_task(&active_task, &self.state, self.executor_state);
         D::apply_diff(diff, &mut self.state);
         self.queue.queue_new_agents();
 
@@ -239,35 +288,33 @@ impl<'a, D, S> SimpleExecutor<'a, D, S>
         });
 
         // Add new task to queue
-        self.queue.queue_task(tick, active_agent, new_task, &self.state);
+        self.queue
+            .queue_task(tick, active_agent, new_task, &self.state);
 
         true
     }
 
-    fn new_mcts(&self, tick: u64, active_agent: AgentId) -> MCTS::<D> {
+    fn new_mcts(&self, tick: u64, active_agent: AgentId) -> MCTS<D> {
         MCTS::<D>::new_with_tasks(
             self.state.clone(),
             active_agent,
             tick,
             self.queue.task_queue.clone(),
             self.mcts_config.clone(),
-            self.executor_state.create_state_value_estimator()
+            self.executor_state.create_state_value_estimator(),
         )
     }
 }
 
 /// Creates and runs a single-threaded executor, initializes state and task queue from the S trait.
 pub fn run_simple_executor<D, S>(mcts_config: &MCTSConfiguration, executor_state: &mut S)
-    where
-        D: ExecutableDomain,
-        D::State: Clone,
-        S: ExecutorState<D> + ExecutorStateLocal<D>
+where
+    D: ExecutableDomain,
+    D::State: Clone,
+    S: ExecutorState<D> + ExecutorStateLocal<D>,
 {
     // Initialize the state and the agent queue
-    let mut executor = SimpleExecutor::<D, S>::new(
-        mcts_config.clone(),
-        executor_state
-    );
+    let mut executor = SimpleExecutor::<D, S>::new(mcts_config.clone(), executor_state);
     loop {
         if !executor.step() {
             break;
@@ -293,7 +340,7 @@ where
     D: DomainWithPlanningTask + GlobalDomain,
     D::State: Clone + Send,
     D::Diff: Send + Sync,
-    S: ExecutorState<D> + ExecutorStateGlobal<D>
+    S: ExecutorState<D> + ExecutorStateGlobal<D>,
 {
     /// The attached MCTS configuration
     mcts_config: MCTSConfiguration,
@@ -314,17 +361,18 @@ where
     tick: Arc<AtomicU64>,
 }
 impl<'a, D, S> ThreadedExecutor<'a, D, S>
-    where
-        D: DomainWithPlanningTask + GlobalDomain,
-        D::State: Clone + Send,
-        D::Diff: Send + Sync,
-        S: ExecutorState<D> + ExecutorStateGlobal<D>
+where
+    D: DomainWithPlanningTask + GlobalDomain,
+    D::State: Clone + Send,
+    D::Diff: Send + Sync,
+    S: ExecutorState<D> + ExecutorStateGlobal<D>,
 {
     /// Creates a new executor, initializes state and task queue from the S trait.
     pub fn new(mcts_config: MCTSConfiguration, executor_state: &'a mut S) -> Self {
         let state = executor_state.create_initial_state();
         let task_queue = executor_state.init_task_queue(&state);
-        let task_history = task_queue.iter()
+        let task_history = task_queue
+            .iter()
             .map(|active_task| (active_task.agent, active_task.clone()))
             .collect();
         let queue = ExecutionQueue::new(task_queue);
@@ -341,7 +389,11 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
 
     fn find_best_task(&self, mcts: &MCTS<D>) -> Box<dyn Task<D>> {
         let root_agent = mcts.agent();
-        log::debug!("Finding best task for {} using history {:?}", root_agent, self.task_history);
+        log::debug!(
+            "Finding best task for {} using history {:?}",
+            root_agent,
+            self.task_history
+        );
         let mut current_node = mcts.root.clone();
         let mut edges = mcts.nodes.get(&current_node).unwrap();
         let mut depth = 0;
@@ -395,14 +447,14 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
         best.unwrap().clone()
     }
 
-    fn new_mcts(&self, tick: u64, active_agent: AgentId) -> MCTS::<D> {
+    fn new_mcts(&self, tick: u64, active_agent: AgentId) -> MCTS<D> {
         MCTS::<D>::new_with_tasks(
             D::derive_local_state(&self.state, active_agent),
             active_agent,
             tick,
             self.queue.task_queue.clone(),
             self.mcts_config.clone(),
-            self.executor_state.create_state_value_estimator()
+            self.executor_state.create_state_value_estimator(),
         )
     }
 
@@ -411,9 +463,10 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
     fn block_on_planning(&mut self, tick: u64) {
         // Iterate over all planning tasks that should have finished by now
         let active_tasks = self.queue.task_queue.clone();
-        for active_task in active_tasks.iter().filter(
-            |task| task.end <= tick && task.task.downcast_ref::<PlanningTask>().is_some()
-        ) {
+        for active_task in active_tasks
+            .iter()
+            .filter(|task| task.end <= tick && task.task.downcast_ref::<PlanningTask>().is_some())
+        {
             let active_agent = active_task.agent;
             debug_assert!(active_task.end == tick,
                 "Processing an active planning task at tick {tick} but it should have been processed at tick {}.", active_task.end
@@ -428,7 +481,8 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
 
             // Block on it to retrieve the result
             let mcts = thread.join();
-            assert!(mcts.is_ok(),
+            assert!(
+                mcts.is_ok(),
                 "Could not join planning thread of {active_agent}! Probably it panicked!"
             );
             let mcts = mcts.unwrap();
@@ -436,8 +490,10 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
 
             // Override the planning task in active_tasks with the best_task we got from the planning
             if log::log_enabled!(log::Level::Info) {
-                log::info!("{} - {} finished planning. Looking for best task...",
-                    highlight_tick(tick), highlight_agent(active_agent)
+                log::info!(
+                    "{} - {} finished planning. Looking for best task...",
+                    highlight_tick(tick),
+                    highlight_agent(active_agent)
                 );
             }
             let best_task = self.find_best_task(&mcts);
@@ -445,7 +501,9 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
 
             self.queue.task_queue.remove(active_task);
             let local_state = D::derive_local_state(&self.state, active_agent);
-            let new_active_task = self.queue.queue_task(tick, active_agent, best_task.clone(), &local_state);
+            let new_active_task =
+                self.queue
+                    .queue_task(tick, active_agent, best_task.clone(), &local_state);
             self.task_history.insert(active_agent, new_active_task);
         }
     }
@@ -457,18 +515,25 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
             // Pop task as it is completed
             self.queue.task_queue.remove(active_task);
             let active_agent = active_task.agent;
-            debug_assert!(active_task.end == tick,
-                "Processing an active task at tick {tick} but it ended at tick {}.", active_task.end
+            debug_assert!(
+                active_task.end == tick,
+                "Processing an active task at tick {tick} but it ended at tick {}.",
+                active_task.end
             );
 
             // Should we continue considering that agent?
-            if !self.executor_state.keep_agent(tick, &self.state, active_agent) {
+            if !self
+                .executor_state
+                .keep_agent(tick, &self.state, active_agent)
+            {
                 continue;
             }
 
             // Execute the task, queue the new agents
             let local_state = D::derive_local_state(&self.state, active_agent);
-            let (diff, new_task) = self.queue.execute_task(active_task, &local_state, self.executor_state);
+            let (diff, new_task) =
+                self.queue
+                    .execute_task(active_task, &local_state, self.executor_state);
             D::apply(&mut self.state, &local_state, &diff);
             let local_state = D::derive_local_state(&self.state, active_agent);
             for new_task in &self.queue.new_agents_tasks {
@@ -477,30 +542,43 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
             self.queue.queue_new_agents();
 
             // If no next task, spawn a plan task and an associated thread
-            let new_task = new_task.unwrap_or_else(||
-                Box::new(PlanningTask(self.mcts_config.planning_task_duration.unwrap()))
-            );
+            let new_task = new_task.unwrap_or_else(|| {
+                Box::new(PlanningTask(
+                    self.mcts_config.planning_task_duration.unwrap(),
+                ))
+            });
 
             // Add new task to queue
-            let end_tick = self.queue.queue_task(tick, active_agent, new_task.clone(), &local_state).end;
+            let end_tick = self
+                .queue
+                .queue_task(tick, active_agent, new_task.clone(), &local_state)
+                .end;
 
             // Deploy new planning thread for this agent if needed
             if new_task.downcast_ref::<PlanningTask>().is_some() {
                 let mut mcts = self.new_mcts(tick, active_agent);
                 let tick_atomic = self.tick.clone();
-                let planning_task_duration = self.mcts_config.planning_task_duration
+                let planning_task_duration = self
+                    .mcts_config
+                    .planning_task_duration
                     .expect("Planning task must have non-zero duration for threaded executor");
                 mcts.early_stop_condition = Some(Box::new(move || {
                     tick_atomic.load(Ordering::Relaxed) >= tick + planning_task_duration.get() - 1
                 }));
                 if log::log_enabled!(log::Level::Info) {
-                    log::info!("{} - {} starts planning until {}.",
-                        highlight_tick(tick), active_agent, highlight_tick(end_tick)
+                    log::info!(
+                        "{} - {} starts planning until {}.",
+                        highlight_tick(tick),
+                        active_agent,
+                        highlight_tick(end_tick)
                     );
                     log::trace!("Active Tasks:");
                     for active_task in &self.queue.task_queue {
-                        log::trace!("{}: {} {:?}",
-                            active_task.agent, highlight_tick(active_task.end), active_task.task
+                        log::trace!(
+                            "{}: {} {:?}",
+                            active_task.agent,
+                            highlight_tick(active_task.end),
+                            active_task.task
                         );
                     }
                 }
@@ -511,7 +589,8 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
                         // We update it outside the planning thread such that we don't need to pass the state into the thread
                         mcts.run();
                         mcts
-                    }).unwrap();
+                    })
+                    .unwrap();
                 self.threads.insert(active_task.agent, handle);
             }
         }
@@ -554,19 +633,21 @@ impl<'a, D, S> ThreadedExecutor<'a, D, S>
 
 #[cfg(test)]
 mod tests {
-    use core::time;
-    use std::{collections::BTreeSet, thread, num::NonZeroU64};
     use crate::*;
-    use npc_engine_common::{Domain, Behavior, Task, AgentId, AgentValue, StateDiffRef, ActiveTask, ActiveTasks, IdleTask, MCTSConfiguration};
+    use core::time;
+    use npc_engine_common::{
+        ActiveTask, ActiveTasks, AgentId, AgentValue, Behavior, Domain, IdleTask,
+        MCTSConfiguration, StateDiffRef, Task,
+    };
+    use std::{collections::BTreeSet, num::NonZeroU64, thread};
 
     #[test]
     fn threaded_executor_trivial_domain() {
-
         #[derive(Debug)]
         enum DisplayAction {
             // #[default] // TODO: use derive(Default) on Rust 1.62 onwards
             Idle,
-            Plan
+            Plan,
         }
         impl Default for DisplayAction {
             fn default() -> Self {
@@ -583,12 +664,22 @@ mod tests {
             fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] {
                 &[&TrivialBehavior]
             }
-        
-            fn get_current_value(_tick: u64, _state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue {
+
+            fn get_current_value(
+                _tick: u64,
+                _state_diff: StateDiffRef<Self>,
+                _agent: AgentId,
+            ) -> AgentValue {
                 AgentValue::new(0.).unwrap()
             }
-        
-            fn update_visible_agents(_start_tick: u64, _tick: u64, _state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+
+            fn update_visible_agents(
+                _start_tick: u64,
+                _tick: u64,
+                _state_diff: StateDiffRef<Self>,
+                agent: AgentId,
+                agents: &mut BTreeSet<AgentId>,
+            ) {
                 agents.insert(agent);
             }
 
@@ -598,8 +689,17 @@ mod tests {
         }
         impl GlobalDomain for TrivialDomain {
             type GlobalState = ();
-            fn derive_local_state(_global_state: &Self::GlobalState, _agent: AgentId) -> Self::State {  }
-            fn apply(_global_state: &mut Self::GlobalState, _local_state: &Self::State, _diff: &Self::Diff) { }
+            fn derive_local_state(
+                _global_state: &Self::GlobalState,
+                _agent: AgentId,
+            ) -> Self::State {
+            }
+            fn apply(
+                _global_state: &mut Self::GlobalState,
+                _local_state: &Self::State,
+                _diff: &Self::Diff,
+            ) {
+            }
         }
         impl DomainWithPlanningTask for TrivialDomain {}
 
@@ -615,24 +715,27 @@ mod tests {
             ) {
                 tasks.push(Box::new(IdleTask));
             }
-        
-            fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TrivialDomain>, _agent: AgentId) -> bool {
+
+            fn is_valid(
+                &self,
+                _tick: u64,
+                _state_diff: StateDiffRef<TrivialDomain>,
+                _agent: AgentId,
+            ) -> bool {
                 true
             }
         }
 
         struct TrivialExecutorState;
         impl ExecutorStateGlobal<TrivialDomain> for TrivialExecutorState {
-            fn create_initial_state(&self) {
-            }
+            fn create_initial_state(&self) {}
             fn init_task_queue(&self, _: &()) -> ActiveTasks<TrivialDomain> {
-                vec![
-                    ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask)),
-                ].into_iter().collect()
+                vec![ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask))]
+                    .into_iter()
+                    .collect()
             }
         }
-        impl ExecutorState<TrivialDomain> for TrivialExecutorState {
-        }
+        impl ExecutorState<TrivialDomain> for TrivialExecutorState {}
 
         env_logger::init();
         let mcts_config = MCTSConfiguration {
@@ -645,10 +748,7 @@ mod tests {
             planning_task_duration: Some(NonZeroU64::new(10).unwrap()),
         };
         let mut executor_state = TrivialExecutorState;
-        let mut executor = ThreadedExecutor::new(
-            mcts_config,
-            &mut executor_state
-        );
+        let mut executor = ThreadedExecutor::new(mcts_config, &mut executor_state);
         let one_millis = time::Duration::from_millis(1);
         for _ in 0..5 {
             executor.step();

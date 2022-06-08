@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -132,7 +132,10 @@ fn main() {
 
     serde_json::to_writer_pretty(file, &info).unwrap();
 
-    GRAPH_OUTPUT_DEPTH.store(config().analytics.graphs_depth, std::sync::atomic::Ordering::Relaxed);
+    GRAPH_OUTPUT_DEPTH.store(
+        config().analytics.graphs_depth,
+        std::sync::atomic::Ordering::Relaxed,
+    );
     if batch() {
         (0..config().batch.runs).into_par_iter().for_each(|run| {
             let seed = config()

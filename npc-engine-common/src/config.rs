@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -26,4 +26,3 @@ pub struct MCTSConfiguration {
     /// optionally, a user-given seed
     pub seed: Option<u64>,
 }
-

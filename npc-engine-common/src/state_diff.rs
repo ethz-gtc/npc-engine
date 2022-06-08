@@ -1,9 +1,9 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{fmt, ops::Deref, mem};
+use std::{fmt, mem, ops::Deref};
 
 use crate::Domain;
 
@@ -20,7 +20,10 @@ impl<D: Domain> Clone for StateDiffRef<'_, D> {
 }
 impl<'a, D: Domain> StateDiffRef<'a, D> {
     pub fn new(initial_state: &'a D::State, diff: &'a D::Diff) -> Self {
-        StateDiffRef { initial_state, diff }
+        StateDiffRef {
+            initial_state,
+            diff,
+        }
     }
 }
 
@@ -30,8 +33,7 @@ where
     D::Diff: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f
-            .debug_struct("SnapshotDiffRef")
+        f.debug_struct("SnapshotDiffRef")
             .field("Snapshot", self.initial_state)
             .field("Diff", self.diff)
             .finish()
@@ -45,7 +47,10 @@ pub struct StateDiffRefMut<'a, D: Domain> {
 }
 impl<'a, D: Domain> StateDiffRefMut<'a, D> {
     pub fn new(initial_state: &'a D::State, diff: &'a mut D::Diff) -> Self {
-        StateDiffRefMut { initial_state, diff }
+        StateDiffRefMut {
+            initial_state,
+            diff,
+        }
     }
 }
 

@@ -1,11 +1,14 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, TaskDuration, IdleTask};
+use npc_engine_common::{
+    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
+    TaskDuration,
+};
 
 use crate::{config, Action, Lumberjacks, WorldStateMut};
 
@@ -17,7 +20,12 @@ impl Task<Lumberjacks> for Wait {
         config().action_weights.wait
     }
 
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+    fn duration(
+        &self,
+        _tick: u64,
+        _state_diff: StateDiffRef<Lumberjacks>,
+        _agent: AgentId,
+    ) -> TaskDuration {
         0
     }
 
@@ -36,7 +44,7 @@ impl Task<Lumberjacks> for Wait {
         Action::Wait
     }
 
-    fn is_valid(&self, _: u64,_: StateDiffRef<Lumberjacks>, _: AgentId) -> bool {
+    fn is_valid(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> bool {
         true
     }
 

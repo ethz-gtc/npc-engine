@@ -1,4 +1,4 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
@@ -12,7 +12,7 @@ use image::png::PngEncoder;
 use image::{ColorType, ImageBuffer, Rgba};
 use npc_engine_common::StateDiffRef;
 
-use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, SPRITE_SIZE, WorldState};
+use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn, WorldState, SPRITE_SIZE};
 
 // TODO
 pub fn heatmap_hook() -> PostMCTSHookFn {

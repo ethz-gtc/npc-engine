@@ -1,13 +1,13 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{char, num::NonZeroU8};
 use std::collections::hash_map::DefaultHasher;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::mem;
+use std::{char, num::NonZeroU8};
 use std::{fmt, io};
 
 use ggez::graphics::{draw, Image, WHITE};
@@ -119,11 +119,7 @@ impl TileMap {
     pub fn tree_count(&self) -> usize {
         self.tiles
             .iter()
-            .flat_map(|cols| {
-                cols.iter().filter(|&&tile| {
-                    matches!(tile, Tile::Tree(_))
-                })
-            })
+            .flat_map(|cols| cols.iter().filter(|&&tile| matches!(tile, Tile::Tree(_))))
             .count()
     }
 

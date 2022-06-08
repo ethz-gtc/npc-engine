@@ -1,14 +1,17 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
 use std::hash::Hash;
 
-use npc_engine_common::{AgentId, Task, StateDiffRef, StateDiffRefMut, Domain, impl_task_boxed_methods, IdleTask, TaskDuration};
+use npc_engine_common::{
+    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
+    TaskDuration,
+};
 use npc_engine_utils::DIRECTIONS;
 
-use crate::{config, Action, Lumberjacks, WorldState, WorldStateMut, Tile, apply_direction};
+use crate::{apply_direction, config, Action, Lumberjacks, Tile, WorldState, WorldStateMut};
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct Refill;
@@ -18,7 +21,12 @@ impl Task<Lumberjacks> for Refill {
         config().action_weights.refill
     }
 
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<Lumberjacks>, _agent: AgentId) -> TaskDuration {
+    fn duration(
+        &self,
+        _tick: u64,
+        _state_diff: StateDiffRef<Lumberjacks>,
+        _agent: AgentId,
+    ) -> TaskDuration {
         0
     }
 

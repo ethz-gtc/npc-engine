@@ -1,13 +1,16 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{hash::{Hash, Hasher}, num::NonZeroU64};
+use std::{
+    hash::{Hash, Hasher},
+    num::NonZeroU64,
+};
 
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::{AgentId, Domain, StateDiffRef, StateDiffRefMut, impl_task_boxed_methods};
+use crate::{impl_task_boxed_methods, AgentId, Domain, StateDiffRef, StateDiffRefMut};
 
 /// The duration of a task, in ticks.
 pub type TaskDuration = u64;
@@ -22,7 +25,7 @@ pub fn debug_name_to_filename_safe(debug_name: &str) -> String {
         .replace('}', "")
         .replace(' ', "_")
         .replace(':', "_")
-        .replace(',', "_")  
+        .replace(',', "_")
 }
 
 /// A task that modifies the state.
@@ -39,7 +42,12 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration;
 
     /// Executes one step of the task for the given agent on the given tick and world state.
-    fn execute(&self, tick: u64, state_diff: StateDiffRefMut<D>, agent: AgentId) -> Option<Box<dyn Task<D>>>;
+    fn execute(
+        &self,
+        tick: u64,
+        state_diff: StateDiffRefMut<D>,
+        agent: AgentId,
+    ) -> Option<Box<dyn Task<D>>>;
 
     /// Returns if the task is valid for the given agent in the given tick and world state.
     fn is_valid(&self, tick: u64, state_diff: StateDiffRef<D>, agent: AgentId) -> bool;
@@ -72,7 +80,12 @@ impl<D: Domain> Task<D> for IdleTask {
         1
     }
 
-    fn execute(&self, _tick: u64, _state_diff: StateDiffRefMut<D>, _agent: AgentId) -> Option<Box<dyn Task<D>>> {
+    fn execute(
+        &self,
+        _tick: u64,
+        _state_diff: StateDiffRefMut<D>,
+        _agent: AgentId,
+    ) -> Option<Box<dyn Task<D>>> {
         None
     }
 
@@ -100,7 +113,12 @@ impl<D: Domain> Task<D> for PlanningTask {
         self.0.get()
     }
 
-    fn execute(&self, _tick: u64, _state_diff: StateDiffRefMut<D>, _agent: AgentId) -> Option<Box<dyn Task<D>>> {
+    fn execute(
+        &self,
+        _tick: u64,
+        _state_diff: StateDiffRefMut<D>,
+        _agent: AgentId,
+    ) -> Option<Box<dyn Task<D>>> {
         None
     }
 
@@ -147,14 +165,16 @@ macro_rules! impl_task_boxed_methods {
         fn box_clone(&self) -> Box<dyn Task<$e>> {
             Box::new(self.clone())
         }
-    
+
         fn box_hash(&self, mut state: &mut dyn std::hash::Hasher) {
             use std::hash::Hash;
             self.hash(&mut state)
         }
-    
+
         fn box_eq(&self, other: &Box<dyn Task<$e>>) -> bool {
-            other.downcast_ref::<Self>().map_or(false, |other| self.eq(other))
+            other
+                .downcast_ref::<Self>()
+                .map_or(false, |other| self.eq(other))
         }
     };
 }

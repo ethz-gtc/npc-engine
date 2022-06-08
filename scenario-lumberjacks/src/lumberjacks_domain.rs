@@ -1,14 +1,17 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
 use std::collections::BTreeSet;
 
-use npc_engine_common::{Domain, Behavior, AgentId, StateDiffRef, AgentValue};
+use npc_engine_common::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
 use npc_engine_utils::GlobalDomain;
 
-use crate::{WorldLocalState, WorldDiff, Human, Lumberjack, config, Action, WorldGlobalState, WorldState, TileMapSnapshot, Tile, InventorySnapshot, AgentInventory};
+use crate::{
+    config, Action, AgentInventory, Human, InventorySnapshot, Lumberjack, Tile, TileMapSnapshot,
+    WorldDiff, WorldGlobalState, WorldLocalState, WorldState,
+};
 
 pub struct Lumberjacks;
 
@@ -30,7 +33,13 @@ impl Domain for Lumberjacks {
         AgentValue::new(value).unwrap()
     }
 
-    fn update_visible_agents(_start_tick: u64, _tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {
+    fn update_visible_agents(
+        _start_tick: u64,
+        _tick: u64,
+        state_diff: StateDiffRef<Self>,
+        agent: AgentId,
+        agents: &mut BTreeSet<AgentId>,
+    ) {
         if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.plan_others {
                 agents.extend(

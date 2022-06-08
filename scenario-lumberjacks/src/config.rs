@@ -1,10 +1,10 @@
-/* 
+/*
  *  SPDX-License-Identifier: Apache-2.0 OR MIT
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::{collections::HashMap, num::NonZeroU8};
 use std::fmt;
+use std::{collections::HashMap, num::NonZeroU8};
 
 use npc_engine_common::graphviz::GRAPH_OUTPUT_DEPTH;
 use serde::de::{MapAccess, Visitor};
@@ -83,9 +83,7 @@ impl fmt::Debug for AgentsConfig {
     }
 }
 
-fn behavior_deserializer<'de, D>(
-    deserializer: D,
-) -> Result<Behaviors, D::Error>
+fn behavior_deserializer<'de, D>(deserializer: D) -> Result<Behaviors, D::Error>
 where
     D: Deserializer<'de>,
 {
@@ -118,10 +116,7 @@ where
     deserializer.deserialize_map(BehaviorVisitor)
 }
 
-fn behavior_serializer<S>(
-    behaviors: &Behaviors,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
+fn behavior_serializer<S>(behaviors: &Behaviors, serializer: S) -> Result<S::Ok, S::Error>
 where
     S: Serializer,
 {
