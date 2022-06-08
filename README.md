@@ -59,7 +59,7 @@ The simulation outputs the state of the world and the agents each time a task fi
 This domain demonstrates actions of various durations, a world agent that respawns collectibles, disappearance of agents (upon death), and the use of the simple executor utility.
 
 
-Source: [`capture.rs`](npc-engine-common/examples/capture.rs)
+Source directory: [`capture`](npc-engine-common/examples/capture/)
 
 ### Learn
 
