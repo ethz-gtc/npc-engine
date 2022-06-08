@@ -27,6 +27,8 @@ pub trait Behavior<D: Domain>: 'static {
     fn is_valid(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId) -> bool;
 
     /// Helper method to recursively collect all valid tasks for the given agent in the given world state.
+    ///
+    /// It will not do anything if the behavior is invalid at that point.
     fn add_tasks(
         &self,
         tick: u64,
@@ -34,10 +36,12 @@ pub trait Behavior<D: Domain>: 'static {
         agent: AgentId,
         tasks: &mut Vec<Box<dyn Task<D>>>,
     ) {
+        if !self.is_valid(tick, state, agent) {
+            return;
+        }
         self.add_own_tasks(tick, state, agent, tasks);
         self.get_dependent_behaviors()
             .iter()
-            .filter(|behavior| behavior.is_valid(tick, state, agent))
             .for_each(|behavior| behavior.add_tasks(tick, state, agent, tasks));
     }
 }

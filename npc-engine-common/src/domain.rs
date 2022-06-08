@@ -48,7 +48,6 @@ pub trait Domain: Sized + 'static {
         let mut actions = Vec::new();
         Self::list_behaviors()
             .iter()
-            .filter(|behavior| behavior.is_valid(tick, state_diff, agent))
             .for_each(|behavior| behavior.add_tasks(tick, state_diff, agent, &mut actions));
 
         actions.dedup();
