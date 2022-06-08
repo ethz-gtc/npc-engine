@@ -10,7 +10,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install libusb
+      - name: Install system dev dependencies
         run: sudo apt install -y libudev-dev libasound2-dev
 
       - name: Install stable toolchain
@@ -32,7 +32,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install libusb
+      - name: Install system dev dependencies
         run: sudo apt install -y libudev-dev libasound2-dev
 
       - name: Install stable toolchain
@@ -55,7 +55,7 @@ jobs:
       - name: Checkout sources
         uses: actions/checkout@v2
 
-      - name: Install libusb
+      - name: Install system dev dependencies
         run: sudo apt install -y libudev-dev libasound2-dev
 
       - name: Install stable toolchain
