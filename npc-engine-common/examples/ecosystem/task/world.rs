@@ -7,14 +7,14 @@ use std::collections::HashSet;
 
 use npc_engine_common::{impl_task_boxed_methods, AgentId, StateDiffRefMut, TaskDuration, StateDiffRef, Task};
 
-use crate::{domain::{EcosystemDomain, DisplayAction}, state::AgentState};
+use crate::{domain::{EcosystemDomain, DisplayAction}, state::AgentState, constants::WORLD_TASK_DURATION};
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct WorldStep;
 
 impl Task<EcosystemDomain> for WorldStep {
 	fn duration(&self, _tick: u64, _state_diff: StateDiffRef<EcosystemDomain>, _agent: AgentId) -> TaskDuration {
-		10
+		WORLD_TASK_DURATION
 	}
 
 	fn execute(

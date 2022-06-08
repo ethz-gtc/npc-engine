@@ -7,6 +7,7 @@ use core::time;
 use std::{collections::{HashSet, HashMap}, num::NonZeroU64, thread, iter};
 
 use behavior::world::WORLD_AGENT_ID;
+use constants::*;
 use domain::EcosystemDomain;
 use map::{Tile, Map, GridAccess};
 use npc_engine_common::{AgentId, ActiveTasks, ActiveTask, IdleTask, MCTSConfiguration, MCTS};
@@ -22,15 +23,7 @@ mod state;
 mod domain;
 mod task;
 mod behavior;
-
-const MAP_SIZE: Coord2D = Coord2D::new(40, 20);
-// const MAP_SIZE: Coord2D = Coord2D::new(3, 2);
-const OBSTACLE_RANDOM_COUNT: usize = 20;
-const OBSTACLE_HOTSPOT_COUNT: usize = 6;
-const PLANT_RANDOM_COUNT: usize = 40;
-const PLANT_HOTSPOT_COUNT: usize = 9;
-const HERBIVORE_COUNT: usize = 20;
-const CARNIVORE_COUNT: usize = 4;
+mod constants;
 
 struct EcosystemExecutorState;
 impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {

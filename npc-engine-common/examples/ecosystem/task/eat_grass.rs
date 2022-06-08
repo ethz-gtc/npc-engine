@@ -5,14 +5,14 @@
 
 use npc_engine_common::{Task, impl_task_boxed_methods, StateDiffRef, AgentId, TaskDuration, StateDiffRefMut};
 
-use crate::{domain::{EcosystemDomain, DisplayAction}, state::{Access, AccessMut}, map::Tile};
+use crate::{domain::{EcosystemDomain, DisplayAction}, state::{Access, AccessMut}, map::Tile, constants::*};
 
 #[derive(Hash, Clone, Eq, PartialEq, Debug)]
 pub struct EatGrass;
 
 impl Task<EcosystemDomain> for EatGrass {
     fn weight(&self, _tick: u64, _state_diff: StateDiffRef<EcosystemDomain>, _agent: AgentId) -> f32 {
-        5.0
+        EAT_GRASS_WEIGHT
     }
 
     fn duration(&self, _tick: u64, _state_diff: StateDiffRef<EcosystemDomain>, _agent: AgentId) -> TaskDuration {
@@ -21,7 +21,7 @@ impl Task<EcosystemDomain> for EatGrass {
 
 	fn execute(&self, _tick: u64, mut state_diff: StateDiffRefMut<EcosystemDomain>, agent: AgentId) -> Option<Box<dyn Task<EcosystemDomain>>> {
         let agent_state = state_diff.get_agent_mut(agent).unwrap();
-		agent_state.food = 5;
+		agent_state.food = HERBIVORE_MAX_FOOD;
 		let agent_pos = agent_state.position;
 		let growth = state_diff.get_grass(agent_pos).unwrap();
 		state_diff.set_tile(agent_pos, Tile::Grass(growth - 1));
@@ -34,7 +34,7 @@ impl Task<EcosystemDomain> for EatGrass {
         if !agent_state.alive {
             return false;
         }
-		if !agent_state.food < 5 {
+		if !agent_state.food < HERBIVORE_MAX_FOOD {
 			return false;
 		}
 		state_diff.get_grass(agent_state.position)

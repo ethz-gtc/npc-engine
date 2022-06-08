@@ -8,7 +8,7 @@
 use npc_engine_common::{Task, impl_task_boxed_methods, StateDiffRef, AgentId, TaskDuration, StateDiffRefMut};
 use npc_engine_utils::Direction;
 
-use crate::{domain::{EcosystemDomain, DisplayAction}, state::{Access, AccessMut}, map::DirConv};
+use crate::{domain::{EcosystemDomain, DisplayAction}, state::{Access, AccessMut}, map::DirConv, constants::MOVE_WEIGHT};
 
 
 #[derive(Hash, Clone, Eq, PartialEq, Debug)]
@@ -16,7 +16,7 @@ pub struct Move(pub Direction);
 
 impl Task<EcosystemDomain> for Move {
     fn weight(&self, _tick: u64, _state_diff: StateDiffRef<EcosystemDomain>, _agent: AgentId) -> f32 {
-        5.0
+        MOVE_WEIGHT
     }
 
     fn duration(&self, _tick: u64, _state_diff: StateDiffRef<EcosystemDomain>, _agent: AgentId) -> TaskDuration {

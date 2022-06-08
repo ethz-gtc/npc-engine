@@ -8,7 +8,7 @@
 use npc_engine_common::{Task, impl_task_boxed_methods, StateDiffRef, AgentId, TaskDuration, StateDiffRefMut};
 use npc_engine_utils::Direction;
 
-use crate::{domain::{EcosystemDomain, DisplayAction}, state::{Access, AccessMut, AgentType}, map::DirConv};
+use crate::{domain::{EcosystemDomain, DisplayAction}, state::{Access, AccessMut, AgentType}, map::DirConv, constants::*};
 
 
 #[derive(Hash, Clone, Eq, PartialEq, Debug)]
@@ -16,7 +16,7 @@ pub struct EatHerbivore(pub Direction);
 
 impl Task<EcosystemDomain> for EatHerbivore {
     fn weight(&self, _tick: u64, _state_diff: StateDiffRef<EcosystemDomain>, _agent: AgentId) -> f32 {
-        20.0
+        EAT_HERBIVORE_WEIGHT
     }
 
     fn duration(&self, _tick: u64, _state_diff: StateDiffRef<EcosystemDomain>, _agent: AgentId) -> TaskDuration {
@@ -33,7 +33,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
                 prey_state.alive = false;
                 let agent_state = state_diff.get_agent_mut(agent).unwrap();
                 agent_state.position = passage_pos;
-                agent_state.food = 7;
+                agent_state.food = CARNIVORE_MAX_FOOD;
                 return None;
             }
         }
@@ -43,7 +43,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
         prey_state.1.alive = false;
         let agent_state = state_diff.get_agent_mut(agent).unwrap();
         agent_state.position = target_pos;
-        agent_state.food = 7;
+        agent_state.food = CARNIVORE_MAX_FOOD;
         None
     }
 
@@ -53,6 +53,9 @@ impl Task<EcosystemDomain> for EatHerbivore {
         if !agent_state.alive {
             return false;
         }
+        if !agent_state.food < CARNIVORE_MAX_FOOD {
+			return false;
+		}
         let is_herbivore = |position| {
             state_diff.is_tile_passable(position) &&
             state_diff.get_agent_at(position)

@@ -9,7 +9,7 @@ use npc_engine_common::{Domain, Behavior, AgentValue, AgentId, StateDiffRef};
 use npc_engine_utils::{Direction, GlobalDomain, DomainWithPlanningTask, Coord2D};
 use num_traits::Zero;
 
-use crate::{state::{GlobalState, LocalState, Diff, Access, AgentType}, behavior::{herbivore::Herbivore, world::{WorldBehavior, WORLD_AGENT_ID}, carnivore::Carnivore}, map::{GridAccess, Map}};
+use crate::{state::{GlobalState, LocalState, Diff, Access, AgentType}, behavior::{herbivore::Herbivore, world::{WorldBehavior, WORLD_AGENT_ID}, carnivore::Carnivore}, map::{GridAccess, Map}, constants::*};
 
 #[derive(Debug)]
 pub enum DisplayAction {
@@ -92,10 +92,6 @@ impl Domain for EcosystemDomain {
 	}
 }
 
-const AGENTS_RADIUS_HERBIVORE: i32 = 3;
-const AGENTS_RADIUS_CARNIVORE: i32 = 6;
-const MAP_RADIUS: i32 = 8;
-const MAX_AGENTS_ATTENTION: usize = 3;
 
 fn derive_local_state_radius(global_state: &GlobalState, agent: AgentId, map_radius: i32, agent_radius: i32) -> LocalState {
 	assert!(agent != WORLD_AGENT_ID);
