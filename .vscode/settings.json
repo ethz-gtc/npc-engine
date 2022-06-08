@@ -25,5 +25,14 @@
 	],
 	"license-header-manager.excludeFolders": [
         "target"
-    ]
+    ],
+	"license-header-manager.excludeExtensions": [
+        ".py"
+    ],
+	"license-header-manager.additionalCommentStyles": [{
+        "extension": ".rs",
+        "commentStart": "/*",
+        "commentMiddle": " * ",
+        "commentEnd": " */"
+    }]
 }
