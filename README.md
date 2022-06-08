@@ -1,5 +1,10 @@
 # NPC engine
 
+[![Build Status][ci-badge]][ci-url]
+
+[ci-badge]: https://img.shields.io/github/workflow/status/ethz-gtc/npc-engine/CI
+[ci-url]: https://github.com/ethz-gtc/npc-engine/actions
+
 © 2020-2022 ETH Zurich and other contributors. See [AUTHORS.txt](AUTHORS.txt) for more details.
 
 A customizable [Monte Carlo Tree Search (MCTS)](https://en.wikipedia.org/wiki/Monte_Carlo_tree_search) planner with advanced featured tailored to multi-agent simulations and emergent narratives, by the [ETH Game Technology Center](https://gtc.inf.ethz.ch/research/emergent-narrative.html).
