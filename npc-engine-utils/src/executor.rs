@@ -147,7 +147,7 @@ impl<D> ExecutionQueue<D>
                     active_agent
                 ))
                 .collect();
-            executor_state.post_action_execute_hook(state, &diff, &active_task, &mut self.task_queue);
+            executor_state.post_action_execute_hook(state, &diff, active_task, &mut self.task_queue);
             (diff, new_task)
         } else {
             log::info!("Invalid task!");
@@ -598,7 +598,7 @@ mod tests {
         }
         impl GlobalDomain for TrivialDomain {
             type GlobalState = ();
-            fn derive_local_state(_global_state: &Self::GlobalState, _agent: AgentId) -> Self::State { () }
+            fn derive_local_state(_global_state: &Self::GlobalState, _agent: AgentId) -> Self::State {  }
             fn apply(_global_state: &mut Self::GlobalState, _local_state: &Self::State, _diff: &Self::Diff) { }
         }
         impl DomainWithPlanningTask for TrivialDomain {}

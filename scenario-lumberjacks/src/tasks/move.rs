@@ -40,9 +40,9 @@ impl Task<Lumberjacks> for Move {
             state_diff.set_tile(x, y, Tile::Empty);
             state_diff.set_tile(_x, _y, Tile::Agent(agent));
 
-            let path = self.path.iter().skip(1).copied().collect::<Vec<_>>();
+            let mut path = self.path.iter().skip(1).copied();
 
-            if !path.is_empty() {
+            if path.next().is_some() {
                 panic!("Objectives are currently disabled in Lumberjack, so path do not make sense"); // objectives are disabled
                 /*Some(Box::new(Move {
                     path,

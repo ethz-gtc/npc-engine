@@ -77,6 +77,7 @@ pub trait StateValueEstimator<D: Domain>: Send {
     /// Takes the state of an explored node and returns the estimated expected (discounted) values.
     ///
     /// Returns None if the passed node has no unexpanded edge.
+    #[allow(clippy::too_many_arguments)]
     fn estimate(
         &mut self,
         rnd: &mut ChaCha8Rng,

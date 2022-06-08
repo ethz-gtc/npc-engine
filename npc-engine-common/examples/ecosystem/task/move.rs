@@ -37,7 +37,7 @@ impl Task<EcosystemDomain> for Move {
             return false;
         }
         let target_pos = DirConv::apply(self.0, agent_state.position);
-        return state_diff.is_position_free(target_pos);
+        state_diff.is_position_free(target_pos)
     }
 
 	fn display_action(&self) -> DisplayAction {

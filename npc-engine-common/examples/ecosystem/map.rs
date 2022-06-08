@@ -80,7 +80,7 @@ pub enum ParseGridError<T: FromStr> {
 fn parse_map_str<T: FromStr>(s: &str) -> Result<Box<[Box<[T]>]>, ParseGridError<T>> {
 	let mut map = Vec::new();
 	let mut previous_length: Option<usize> = None;
-	for line in s.split("\n") {
+	for line in s.split('\n') {
 		if previous_length.map_or(false, |len| len != line.len()) {
 			return Err(ParseGridError::InconsistentLines);
 		}

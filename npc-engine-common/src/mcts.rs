@@ -650,11 +650,9 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 &mut agents,
             );
             for agent in agents.iter() {
-                if *agent != active_agent {
-                    if !agents_with_tasks.contains(agent) {
-                        tasks.insert(ActiveTask::new_idle(tick, *agent, active_agent));
-                        agents_with_tasks.insert(*agent);
-                    }
+                if *agent != active_agent && !agents_with_tasks.contains(agent) {
+                    tasks.insert(ActiveTask::new_idle(tick, *agent, active_agent));
+                    agents_with_tasks.insert(*agent);
                 }
             }
 
@@ -878,7 +876,7 @@ pub mod graphviz {
             let state_diff = StateDiffRef::new(&self.initial_state, &n.diff);
             let mut state = D::get_state_description(state_diff);
             if !state.is_empty() {
-                state = state.replace("\n", "<br/>");
+                state = state.replace('\n', "<br/>");
                 state = format!("<br/><font point-size='10'>{state}</font>");
             }
             LabelText::HtmlStr(Cow::Owned(format!(

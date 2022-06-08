@@ -7,7 +7,6 @@ use std::collections::hash_map::DefaultHasher;
 use std::f32;
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::mem;
 
 use ggez::graphics::Color;
 use npc_engine_utils::Coord2D;
@@ -100,10 +99,8 @@ impl<T> Map2D<T> {
 pub fn agent_color(agent: AgentId) -> Color {
     let mut hasher = DefaultHasher::default();
     agent.0.hash(&mut hasher);
-    unsafe {
-        let bytes: [u8; 8] = mem::transmute(hasher.finish());
-        Color::from_rgb(bytes[5], bytes[6], bytes[7])
-    }
+    let bytes: [u8; 8] = hasher.finish().to_ne_bytes();
+    Color::from_rgb(bytes[5], bytes[6], bytes[7])
 }
 
 pub fn apply_direction(direction: Direction, x: isize, y: isize) -> (isize, isize) {
