@@ -35,7 +35,7 @@ cargo run --release --example tic-tac-toe
 A traditional tic-tac-toe turn-based game to play interactively against the computer.
 To make a move, type `X Y` where `X` and `Y` are the coordinates (0, 1, or 2) of your move.
 
-Source: [`tic-tac-toe.rs`](npc-engine-common/examples/tic-tac-toe.rs)
+Source directory: [`tic-tac-toe`](npc-engine-common/examples/tic-tac-toe/)
 
 ### Capture
 
