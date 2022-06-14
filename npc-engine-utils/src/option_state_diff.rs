@@ -3,11 +3,16 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use npc_engine_common::{Domain, StateDiffRef, StateDiffRefMut};
+use npc_engine_core::{Domain, StateDiffRef, StateDiffRefMut};
 use std::hash::Hash;
 
-/// In case your domain has a `Diff` that is an `Option` of its State,
-/// this trait provides generic helper functions.
+/// In case your domain has a [Diff](Domain::Diff) that is an [Option]
+/// of its [State](Domain::State),
+/// provides helper functions to retrieve the state in your [tasks](npc_engine_core::Task).
+///
+/// The functions [get_cur_state](Self::get_cur_state) and [get_cur_state_mut](Self::get_cur_state_mut)
+/// are available when read-only, respectively read-write, access is required.
+/// In that case, just use the trait in your task files: `use npc_engine_utils::OptionDiffDomain;`.
 pub trait OptionDiffDomain {
     type Domain: Domain<State = Self::State, Diff = Option<Self::State>>;
     type State: Clone;

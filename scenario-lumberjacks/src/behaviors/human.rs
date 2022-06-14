@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use npc_engine_common::{AgentId, Behavior, StateDiffRef};
+use npc_engine_core::{AgentId, Behavior, StateDiffRef};
 
 use crate::Lumberjacks;
 

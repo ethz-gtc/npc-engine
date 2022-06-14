@@ -5,7 +5,7 @@
 
 use std::fs;
 
-use npc_engine_common::graphviz::plot_mcts_tree;
+use npc_engine_core::graphviz::plot_mcts_tree;
 
 use crate::{output_path, PostMCTSHookArgs, PostMCTSHookFn};
 

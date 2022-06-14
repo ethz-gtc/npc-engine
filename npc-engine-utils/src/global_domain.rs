@@ -3,7 +3,7 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use npc_engine_common::{AgentId, Domain};
+use npc_engine_core::{AgentId, Domain};
 
 /// A domain that provides a global state, out of which a local state for the planning can be derived.
 pub trait GlobalDomain: Domain {

@@ -14,9 +14,9 @@ use ggez::graphics::{Image, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{graphics, input::keyboard};
 use ggez::{Context, GameResult};
-use npc_engine_common::MCTSConfiguration;
-use npc_engine_common::StateDiffRefMut;
-use npc_engine_common::{AgentId, Task, MCTS};
+use npc_engine_core::MCTSConfiguration;
+use npc_engine_core::StateDiffRefMut;
+use npc_engine_core::{AgentId, Task, MCTS};
 use npc_engine_utils::GlobalDomain;
 
 use crate::WorldDiff;

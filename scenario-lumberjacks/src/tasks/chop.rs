@@ -6,7 +6,7 @@
 use std::hash::Hash;
 use std::num::NonZeroU8;
 
-use npc_engine_common::{
+use npc_engine_core::{
     impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
     TaskDuration,
 };

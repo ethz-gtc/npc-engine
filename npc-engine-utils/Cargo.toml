@@ -14,7 +14,7 @@ categories = ["algorithms", "science", "simulation", "game-development"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-npc-engine-common = { version = "0.1", path = "../npc-engine-common", features = ["graphviz"] }
+npc-engine-core = { version = "0.1", path = "../npc-engine-core", features = ["graphviz"] }
 log = "0.4"
 ansi_term = "0.12"
 rand = "0.8"

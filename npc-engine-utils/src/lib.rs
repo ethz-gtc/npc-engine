@@ -6,12 +6,12 @@
 //! This is the utility module of the NPC engine, containing re-usable support code.
 //!
 //! It contains the following features:
-//! - An helper trait when the diff is just a copy of the domain.
-//! - Two "executors" that implement the execution logic of a domain beyond planning itself, and related abstractions.
-//! - A simple implementation of feed-forward leaky ReLU neurons including learning based on back-propagation.
-//! - Simple 2-D coordinates and direction implementations.
-//! - Some helper functions to plot trees.
-//! - Some helper functions to simplify functional programming.
+//! - An helper trait ([OptionDiffDomain]) when the diff is just a copy of the domain.
+//! - Two "executors" ([SimpleExecutor] and [ThreadedExecutor]) that implement the execution logic of a domain beyond planning itself, and related abstractions.
+//! - A simple implementation of feed-forward leaky ReLU neurons ([Neuron]) and simple networks of these ([NeuralNetwork]), including learning based on back-propagation ([NeuralNetwork::train]).
+//! - Simple 2-D coordinates ([Coord2D]) and direction ([Direction]) implementations.
+//! - Some helper functions to plot trees ([plot_tree_in_tmp] and [plot_tree_in_tmp_with_task_name]).
+//! - Some helper functions to simplify functional programming with tuples (such as [keep_first], etc.).
 
 mod coord2d;
 mod direction;

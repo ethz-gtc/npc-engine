@@ -15,7 +15,7 @@ use npc_engine_utils::DirectionConverterYDown;
 use num_traits::{AsPrimitive, PrimInt};
 use serde::Serialize;
 
-use npc_engine_common::AgentId;
+use npc_engine_core::AgentId;
 
 pub const SPRITE_SIZE: f32 = 32.;
 

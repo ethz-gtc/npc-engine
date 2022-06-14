@@ -18,7 +18,7 @@ NPC engine provides the following features:
 * choice of behavior when tasks become invalid: prune that subtree (as in board games), or re-plan (as in simulations),
 * custom state value function in addition to standard rollout,
 * multiple debugging features including tracing and plotting search trees as graphs using graphviz's dot format,
-* batteries included with several [examples](npc-engine-common/examples/), helper library and the [code of our research paper](scenario-lumberjacks/) (see below).
+* batteries included with several [examples](npc-engine-core/examples/), helper library and the [code of our research paper](scenario-lumberjacks/) (see below).
 
 ## Getting it
 
@@ -51,7 +51,7 @@ cargo run --release --example tic-tac-toe
 A traditional tic-tac-toe turn-based game to play interactively against the computer.
 To make a move, type `X Y` where `X` and `Y` are the coordinates (0, 1, or 2) of your move.
 
-Source directory: [`tic-tac-toe`](npc-engine-common/examples/tic-tac-toe/)
+Source directory: [`tic-tac-toe`](npc-engine-core/examples/tic-tac-toe/)
 
 ### Capture
 
@@ -75,7 +75,7 @@ The simulation outputs the state of the world and the agents each time a task fi
 This domain demonstrates actions of various durations, a world agent that respawns collectibles, disappearance of agents (upon death), and the use of the simple executor utility.
 
 
-Source directory: [`capture`](npc-engine-common/examples/capture/)
+Source directory: [`capture`](npc-engine-core/examples/capture/)
 
 ### Learn
 
@@ -93,14 +93,14 @@ This simulation shows that over the course of several hundreds epochs, the perfo
 With Python 3, `scipy` and `matplotlib` installed, the performance over epochs, averaged over 20 runs, can be seen with the following command:
 
 ```
-npc-engine-common/examples/learn/plot.py
+npc-engine-core/examples/learn/plot.py
 ```
 
 The curve should look like this:
 
 ![Wood collected over epochs](images/learn_wood_collected_over_epochs.png)
 
-Source directory: [`learn`](npc-engine-common/examples/learn/)
+Source directory: [`learn`](npc-engine-core/examples/learn/)
 
 ### Ecosystem
 
@@ -129,7 +129,7 @@ They aim at 1000 visits per planning, but if not enough computational power is a
 In that case, the plan quality degrades.
 The simulation runs at 25 frames per second.
 
-Source directory: [`ecosystem`](npc-engine-common/examples/ecosystem/)
+Source directory: [`ecosystem`](npc-engine-core/examples/ecosystem/)
 
 
 ### Lumberjack
@@ -200,11 +200,11 @@ cargo run --release --bin lumberjacks -- -s features.planting=true scenario-lumb
 
 ## Documentation
 
-The NPC engine is composed of two packages: `npc-engine-common` and `npc-engine-utils`.
+The NPC engine is composed of two packages: `npc-engine-core` and `npc-engine-utils`.
 The documentation can be generated and browsed interactively with the following command:
 
 ```
-cargo doc --open -p npc-engine-common -p npc-engine-utils
+cargo doc --open -p npc-engine-core -p npc-engine-utils
 ```
 
 ### A note on performance

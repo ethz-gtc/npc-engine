@@ -10,7 +10,7 @@ use ggez::graphics::{draw, Image, Text, DEFAULT_FONT_SCALE, WHITE};
 use ggez::Context;
 use serde::Serialize;
 
-use npc_engine_common::AgentId;
+use npc_engine_core::AgentId;
 
 use crate::SPRITE_SIZE;
 

@@ -14,7 +14,7 @@ use ggez::graphics::{draw, Image, WHITE};
 use ggez::Context;
 use image::png::PngDecoder;
 use image::{ColorType, ImageDecoder};
-use npc_engine_common::AgentId;
+use npc_engine_core::AgentId;
 
 use serde::Serialize;
 

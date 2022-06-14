@@ -39,6 +39,9 @@ impl YUpDown for YDown {
 }
 
 /// A direction type.
+///
+/// Directions can be applied to [Coord2D] through the help of a [DirectionConverter],
+/// which decides whether up is positive or negative y.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Direction {
@@ -60,6 +63,9 @@ impl fmt::Display for Direction {
 }
 
 /// A helper struct to apply direction to coordinates.
+///
+/// If used as DirectionConverter<[YUp]>, y will be positive up,
+/// and if used as DirectionConverter<[YDown]>, y will be negative up.
 pub struct DirectionConverter<YDir: YUpDown> {
     _phantom: PhantomData<YDir>,
 }

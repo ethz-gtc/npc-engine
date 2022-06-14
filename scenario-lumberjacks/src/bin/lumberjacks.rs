@@ -10,7 +10,7 @@ use ggez::graphics::Image;
 use ggez::ContextBuilder;
 use image::{png::PngDecoder, ImageDecoder};
 
-use npc_engine_common::graphviz::set_graph_output_depth;
+use npc_engine_core::graphviz::set_graph_output_depth;
 use rand::{thread_rng, RngCore};
 use rayon::prelude::*;
 

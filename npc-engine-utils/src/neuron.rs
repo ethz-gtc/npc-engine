@@ -11,6 +11,8 @@ const RELU_LEAK: f32 = 0.01;
 
 #[derive(Debug, Clone)]
 /// A simple leaky ReLU neuron with I inputs.
+///
+/// The leak slope is 0.01.
 pub struct Neuron<const I: usize> {
     pub weights: [f32; I],
     pub bias: f32,
@@ -129,12 +131,14 @@ impl<const I: usize> Neuron<I> {
 }
 
 /// A simple neural network with I inputs and one hidden layer of H neurons.
+///
+/// The network has a single output, use multiple networks for multiple outputs.
 #[derive(Debug, Clone)]
-pub struct NetworkWithHiddenLayer<const I: usize, const H: usize> {
+pub struct NeuralNetwork<const I: usize, const H: usize> {
     pub hidden_layer: [Neuron<I>; H],
     pub output_layer: Neuron<H>,
 }
-impl<const I: usize, const H: usize> NetworkWithHiddenLayer<I, H> {
+impl<const I: usize, const H: usize> NeuralNetwork<I, H> {
     fn x_mid(&self, x: &[f32; I]) -> [f32; H] {
         self.hidden_layer
             .iter()
@@ -195,7 +199,7 @@ impl<const I: usize, const H: usize> NetworkWithHiddenLayer<I, H> {
 mod tests {
     use rand::Rng;
 
-    use crate::NetworkWithHiddenLayer;
+    use crate::NeuralNetwork;
 
     use super::Neuron;
 
@@ -242,7 +246,7 @@ mod tests {
 
     #[test]
     fn two_layers_optimal_must_be_stable() {
-        let mut network = NetworkWithHiddenLayer {
+        let mut network = NeuralNetwork {
             hidden_layer: [Neuron {
                 weights: [1.0],
                 bias: 0.0,
@@ -259,7 +263,7 @@ mod tests {
         assert_approx_equal(network.hidden_layer[0].bias, 0.0);
         assert_approx_equal(network.output_layer.weights[0], 1.5);
         assert_approx_equal(network.output_layer.bias, 1.0);
-        network = NetworkWithHiddenLayer {
+        network = NeuralNetwork {
             hidden_layer: [Neuron {
                 weights: [1.5],
                 bias: 1.0,
@@ -282,7 +286,7 @@ mod tests {
     fn linear_function_1d_hidden() {
         let mut min_sse = f32::INFINITY;
         for _rerun in 0..20 {
-            let mut network = NetworkWithHiddenLayer {
+            let mut network = NeuralNetwork {
                 hidden_layer: [Neuron::<1>::random()],
                 output_layer: Neuron::random(),
             };
@@ -313,7 +317,7 @@ mod tests {
         fn f(x: f32) -> f32 {
             x * x
         }
-        let mut network = NetworkWithHiddenLayer {
+        let mut network = NeuralNetwork {
             hidden_layer: [
                 Neuron::<1>::random(),
                 Neuron::random(),
@@ -389,7 +393,7 @@ mod tests {
         ];
         let mut min_sse = f32::INFINITY;
         for _rerun in 0..20 {
-            let mut network = NetworkWithHiddenLayer {
+            let mut network = NeuralNetwork {
                 hidden_layer: [
                     Neuron::<2>::random_with_0_bias(),
                     Neuron::random_with_0_bias(),

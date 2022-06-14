@@ -8,7 +8,7 @@ use std::mem;
 use std::time::Duration;
 
 use crate::{Barrier, Chop, Move, Plant, PostMCTSHookArgs, PostMCTSHookFn, Refill, Wait, Water};
-use npc_engine_common::AgentId;
+use npc_engine_core::AgentId;
 use npc_engine_utils::Direction;
 
 pub fn node_edges_count_metric_hook() -> PostMCTSHookFn {

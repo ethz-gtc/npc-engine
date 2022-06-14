@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use npc_engine_common::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
+use npc_engine_core::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
 use npc_engine_utils::GlobalDomain;
 
 use crate::{

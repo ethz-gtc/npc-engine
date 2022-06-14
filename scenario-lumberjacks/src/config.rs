@@ -6,13 +6,13 @@
 use std::fmt;
 use std::{collections::HashMap, num::NonZeroU8};
 
-use npc_engine_common::graphviz::get_graph_output_depth;
+use npc_engine_core::graphviz::get_graph_output_depth;
 use serde::de::{MapAccess, Visitor};
 use serde::ser::SerializeMap;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use serde_json::Value;
 
-use npc_engine_common::{AgentId, StateDiffRef};
+use npc_engine_core::{AgentId, StateDiffRef};
 
 use crate::fitnesses;
 use crate::Lumberjacks;

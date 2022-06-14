@@ -4,7 +4,7 @@
  */
 
 use ansi_term::Style;
-use npc_engine_common::{
+use npc_engine_core::{
     ActiveTask, ActiveTasks, AgentId, DefaultPolicyEstimator, Domain, IdleTask, MCTSConfiguration,
     PlanningTask, StateDiffRef, StateDiffRefMut, StateValueEstimator, Task, MCTS,
 };
@@ -16,6 +16,7 @@ use std::{
         Arc,
     },
     thread::{self, JoinHandle},
+    time::Duration,
 };
 
 use crate::GlobalDomain;
@@ -52,14 +53,19 @@ impl<
     }
 }
 
-/// User-defined properties for the executor, consisting of a set of
-/// helper functions.
+/// User-defined methods for the executor.
+///
+/// If you have no special need, you can just implement this trait on an empty struct:
+/// ```
+/// struct MyExecutorState;
+/// impl ExecutorState<MyDomain> for MyExecutorState {}
+/// ```
 pub trait ExecutorState<D: Domain> {
     /// Creates the state value estimator (by default uses rollout-based simulation).
     fn create_state_value_estimator(&self) -> Box<dyn StateValueEstimator<D> + Send> {
         Box::new(DefaultPolicyEstimator {})
     }
-    /// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents (by default do nothing).
+    /// Method called after action execution, to perform tasks such as visual updates and checking for newly-created agents (by default does nothing).
     fn post_action_execute_hook(
         &mut self,
         _state: &D::State,
@@ -68,12 +74,17 @@ pub trait ExecutorState<D: Domain> {
         _queue: &mut ActiveTasks<D>,
     ) {
     }
-    /// Method called after MCTS has run, to perform tasks such as printing the search tree (by default do nothing).
+    /// Method called after MCTS has run, to perform tasks such as printing the search tree (by default does nothing).
     fn post_mcts_run_hook(&mut self, _mcts: &MCTS<D>, _last_active_task: &ActiveTask<D>) {}
 }
 
-/// User-defined properties for the executor,
+/// User-defined methods for the executor,
 /// where world and planner states are similar.
+///
+/// This trait is used with the [SimpleExecutor].
+/// You must implement at least [create_initial_state](Self::create_initial_state)
+/// and [init_task_queue](Self::init_task_queue),
+/// to create the initial state and build the initial list of tasks from it.
 pub trait ExecutorStateLocal<D: Domain> {
     /// Creates the initial world state.
     fn create_initial_state(&self) -> D::State;
@@ -85,8 +96,13 @@ pub trait ExecutorStateLocal<D: Domain> {
     }
 }
 
-/// User-defined properties for the executor,
-/// where world and planner states are similar.
+/// User-defined methods for the executor,
+/// where world and planner states are different.
+///
+/// This trait is typically used with the [ThreadedExecutor].
+/// You must implement at least [create_initial_state](Self::create_initial_state)
+/// and [init_task_queue](Self::init_task_queue),
+/// to create the initial state and build the initial list of tasks from it.
 pub trait ExecutorStateGlobal<D: GlobalDomain> {
     /// Creates the initial world state.
     fn create_initial_state(&self) -> D::GlobalState;
@@ -96,12 +112,18 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
     fn keep_agent(&self, _tick: u64, _state: &D::GlobalState, _agent: AgentId) -> bool {
         true
     }
+    /// Returns whether execution should continue in given state (by default returns true).
+    fn keep_execution(&self, _tick: u64, _queue_size: usize, _state: &D::GlobalState) -> bool {
+        true
+    }
+    /// Method called from [ThreadedExecutor::step] after all tasks have been executed at a given step (by default does nothing).
+    fn post_step_hook(&self, _tick: u64, _state: &D::GlobalState) {}
 }
 
 /// The state of tasks undergoing execution.
 ///
 /// This can be used directly to build your own executor,
-/// or indirectly through SimpleExecutor or ThreadedExecutor.
+/// or indirectly through [SimpleExecutor] or [ThreadedExecutor].
 struct ExecutionQueue<D>
 where
     D: Domain,
@@ -218,6 +240,11 @@ where
 }
 
 /// A single-threaded generic executor.
+///
+/// It requies a domain `D` that knows how to apply a [Diff](Domain::Diff) to a [State](Domain::State),
+/// and an executor state `S` that knows how to create the initial state
+/// and build the initial list of tasks from it ([ExecutorStateLocal]).
+/// The helper function [run_simple_executor] can create and run it for you.
 pub struct SimpleExecutor<'a, D, S>
 where
     D: ExecutableDomain,
@@ -306,7 +333,7 @@ where
     }
 }
 
-/// Creates and runs a single-threaded executor, initializes state and task queue from the S trait.
+/// Creates and runs a single-threaded executor, initializes state and task queue from the `S` trait.
 pub fn run_simple_executor<D, S>(mcts_config: &MCTSConfiguration, executor_state: &mut S)
 where
     D: ExecutableDomain,
@@ -322,7 +349,7 @@ where
     }
 }
 
-/// Domains who want to use the ThreadedExecutor must impement this.
+/// Domains who want to use the ThreadedExecutor must implement this.
 pub trait DomainWithPlanningTask: Domain {
     /// A fallback task, in case, during planning, the world evolved in a different direction than what the MCTS tree explored.
     fn fallback_task(_agent: AgentId) -> Box<dyn Task<Self>> {
@@ -332,9 +359,11 @@ pub trait DomainWithPlanningTask: Domain {
 
 /// A multi-threaded generic executor.
 ///
-/// It maintains a `D::GlobalState` out of which a `D::State` is extracted for planning.
+/// It maintains a [D::GlobalState](GlobalDomain::GlobalState) out of which a
+/// [D::State](Domain::State) is [derived](GlobalDomain::derive_local_state) for planning.
 /// This allows to simulate a large world with many agents, each of them planning on a small
 /// subset of that world.
+/// The helper function [run_threaded_executor] can create and run it for you.
 pub struct ThreadedExecutor<'a, D, S>
 where
     D: DomainWithPlanningTask + GlobalDomain,
@@ -596,15 +625,24 @@ where
         }
     }
 
-    /// Executes one task, returns whether there are still tasks in the queue.
+    /// Executes all tasks finishing at the current tick and then increments it.
+    ///
+    /// Returns whether execution should continue.
     pub fn step(&mut self) -> bool {
         if self.queue.is_empty() {
             return false;
         }
 
         let tick = self.tick.load(Ordering::Relaxed);
+        if !self
+            .executor_state
+            .keep_execution(tick, self.agents_count(), &self.state)
+        {
+            return false;
+        }
         self.block_on_planning(tick);
         self.execute_finished_tasks(tick);
+        self.executor_state.post_step_hook(tick, &self.state);
 
         self.tick.fetch_add(1, Ordering::Relaxed);
         true
@@ -631,11 +669,34 @@ where
     }
 }
 
+/// Creates and runs a multi-threaded executor, initializes state and task queue from the `S` trait.
+/// 
+/// Parameter `step_duration` defines how long a logical step lasts in wall time.
+pub fn run_threaded_executor<D, S>(
+    mcts_config: &MCTSConfiguration,
+    executor_state: &mut S,
+    step_duration: Duration,
+) where
+    D: DomainWithPlanningTask + GlobalDomain,
+    D::State: Clone + Send,
+    D::Diff: Send + Sync,
+    S: ExecutorState<D> + ExecutorStateGlobal<D>,
+{
+    // Initialize the state and the agent queue
+    let mut executor = ThreadedExecutor::<D, S>::new(mcts_config.clone(), executor_state);
+    loop {
+        if !executor.step() {
+            break;
+        }
+        thread::sleep(step_duration);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::*;
     use core::time;
-    use npc_engine_common::{
+    use npc_engine_core::{
         ActiveTask, ActiveTasks, AgentId, AgentValue, Behavior, Domain, IdleTask,
         MCTSConfiguration, StateDiffRef, Task,
     };

@@ -9,7 +9,7 @@ use std::usize;
 use ggez::graphics;
 use ggez::graphics::Image;
 use ggez::Context;
-use npc_engine_common::{AgentId, StateDiffRef, StateDiffRefMut};
+use npc_engine_core::{AgentId, StateDiffRef, StateDiffRefMut};
 use npc_engine_utils::DIRECTIONS;
 use serde::Serialize;
 
