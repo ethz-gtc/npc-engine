@@ -20,8 +20,6 @@ NPC engine provides the following features:
 * multiple debugging features including tracing and plotting search trees as graphs using graphviz's dot format,
 * batteries included with several [examples](npc-engine-core/examples/), helper library and the [code of our research paper](scenario-lumberjacks/) (see below).
 
-You can get an overview of this work in [this video](https://youtu.be/-O_iOwNVGDw).
-
 ## Getting it
 
 To get the NPC engine, clone this repository:
@@ -141,6 +139,7 @@ Directory [`scenario-lumberjacks`](scenario-lumberjacks/)
 The research code used in the paper [*Leveraging efficient planning and lightweight agent definition: a novel path towards emergent narrative* by Raymond et al, 2020](https://www.research-collection.ethz.ch/handle/20.500.11850/439084).
 This domain features two lumberjacks whose value function is the total collected wood logs.
 There is no explicit communication between these two agents, but because they plan for each others, a theory of mind emerges.
+You can get an overview of this work in [this video](https://youtu.be/-O_iOwNVGDw).
 
 To see a basic run of this scenario, use the following command:
 
