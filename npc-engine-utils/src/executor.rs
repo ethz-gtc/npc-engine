@@ -113,7 +113,7 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
         true
     }
     /// Returns whether execution should continue in given state (by default returns true).
-    fn keep_execution(&self, _tick: u64, _queue_size: usize, _state: &D::GlobalState) -> bool {
+    fn keep_execution(&self, _tick: u64, _queue: &ActiveTasks<D>, _state: &D::GlobalState) -> bool {
         true
     }
     /// Method called from [ThreadedExecutor::step] after all tasks have been executed at a given step (by default does nothing).
@@ -636,7 +636,7 @@ where
         let tick = self.tick.load(Ordering::Relaxed);
         if !self
             .executor_state
-            .keep_execution(tick, self.agents_count(), &self.state)
+            .keep_execution(tick, &self.queue.task_queue, &self.state)
         {
             return false;
         }

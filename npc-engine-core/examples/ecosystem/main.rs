@@ -18,8 +18,8 @@ use npc_engine_utils::{
     ExecutorStateGlobal,
 };
 use rand::Rng;
-use state::{Agents, GlobalState};
-use task::world::WorldStep;
+use state::{Agents, Diff, GlobalState, LocalState};
+use task::{eat_grass::EatGrass, eat_herbivore::EatHerbivore, world::WorldStep};
 
 use crate::state::{AgentState, AgentType};
 
@@ -30,7 +30,11 @@ mod map;
 mod state;
 mod task;
 
-struct EcosystemExecutorState;
+#[derive(Default, Debug, Clone)]
+struct EcosystemExecutorState {
+    herbivore_eat_count: u32,
+    carnivore_eat_count: u32,
+}
 impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
     fn create_initial_state(&self) -> GlobalState {
         let mut map = Map::new(MAP_SIZE, Tile::Grass(0));
@@ -145,16 +149,41 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
                 .map_or(false, |agent_state| agent_state.alive)
     }
 
-    fn keep_execution(&self, _tick: u64, queue_size: usize, _state: &GlobalState) -> bool {
-        queue_size > 1
+    fn keep_execution(
+        &self,
+        _tick: u64,
+        queue: &ActiveTasks<EcosystemDomain>,
+        _state: &GlobalState,
+    ) -> bool {
+        queue.len() > 1
     }
 
     fn post_step_hook(&self, _tick: u64, state: &GlobalState) {
-        print!("\x1B[H{}", *state);
+        print!(
+            "\x1B[H\
+            🐄: {}🌿, 🐅: {}🍖\n\
+            {}",
+            self.herbivore_eat_count, self.carnivore_eat_count, *state
+        );
     }
 }
 
 impl ExecutorState<EcosystemDomain> for EcosystemExecutorState {
+    fn post_action_execute_hook(
+        &mut self,
+        _state: &LocalState,
+        _diff: &Diff,
+        active_task: &ActiveTask<EcosystemDomain>,
+        _queue: &mut ActiveTasks<EcosystemDomain>,
+    ) {
+        let task = &active_task.task;
+        if task.downcast_ref::<EatGrass>().is_some() {
+            self.herbivore_eat_count += 1;
+        }
+        if task.downcast_ref::<EatHerbivore>().is_some() {
+            self.carnivore_eat_count += 1;
+        }
+    }
     fn post_mcts_run_hook(
         &mut self,
         mcts: &MCTS<EcosystemDomain>,
@@ -185,7 +214,7 @@ fn main() {
     clearscreen::clear().unwrap();
 
     // State of the execution.
-    let mut executor_state = EcosystemExecutorState;
+    let mut executor_state = EcosystemExecutorState::default();
 
     // Run as long as there is at least one agent alive.
     const ONE_FRAME: Duration = time::Duration::from_millis(40);
