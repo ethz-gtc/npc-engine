@@ -146,7 +146,7 @@ fn linear_bellman() {
     // Check length is depth with root
     assert_eq!((CONFIG.depth + 1) as usize, mcts.node_count());
 
-    let mut node = mcts.root.clone();
+    let mut node = mcts.root_node();
 
     {
         assert_eq!(Diff(0), *node.diff());
@@ -154,18 +154,18 @@ fn linear_bellman() {
 
     for i in 1..CONFIG.depth {
         let edges = mcts.get_edges(&node).unwrap();
-        assert_eq!(edges.expanded_tasks.len(), 1);
-        let edge_rc = edges.expanded_tasks.values().next().unwrap();
+        assert_eq!(edges.expanded_count(), 1);
+        let edge_rc = edges
+            .get_edge(&(Box::new(TestTask) as Box<dyn Task<TestEngine>>))
+            .unwrap();
         let edge = edge_rc.lock().unwrap();
 
-        node = edge.child.upgrade().unwrap();
+        node = edge.child();
 
         assert_eq!(Diff(i as u16), *node.diff());
-        assert_eq!((CONFIG.visits - i + 1) as usize, edge.visits);
+        assert_eq!((CONFIG.visits - i + 1) as usize, edge.visits());
         assert!(
-            (expected_value(CONFIG.discount_hl, CONFIG.depth - i + 1)
-                - *edge.q_values.get(&agent).unwrap())
-            .abs()
+            (expected_value(CONFIG.discount_hl, CONFIG.depth - i + 1) - edge.q_value(agent)).abs()
                 < EPSILON
         );
     }

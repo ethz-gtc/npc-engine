@@ -42,14 +42,14 @@ pub fn heatmap_hook() -> PostMCTSHookFn {
                 mcts.nodes().for_each(|(_, edges)| {
                     edges.into_iter().for_each(|(_, edge)| {
                         let edge = edge.lock().unwrap();
-                        let child = edge.child.upgrade().unwrap();
+                        let child = edge.child();
 
                         if child.agent() == agent {
                             let state_diff = StateDiffRef::new(mcts.initial_state(), child.diff());
 
                             let (x, y) = state_diff.find_agent(mcts.agent()).unwrap();
 
-                            let visits = edge.visits;
+                            let visits = edge.visits();
                             let score = edge.q_value(mcts.agent());
                             let entry = positions
                                 .entry((x, y))
@@ -62,7 +62,7 @@ pub fn heatmap_hook() -> PostMCTSHookFn {
                             best_avg_score = best_avg_score.max(entry.score / entry.visits as f32);
                             worst_avg_score =
                                 worst_avg_score.min(entry.score / entry.visits as f32);
-                            max_visits = max_visits.max(edge.visits);
+                            max_visits = max_visits.max(edge.visits());
                         }
                     })
                 });

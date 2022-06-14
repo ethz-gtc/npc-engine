@@ -9,7 +9,9 @@ use crate::Domain;
 
 /// A joint reference to an initial state and a difference to this state.
 pub struct StateDiffRef<'a, D: Domain> {
+    /// Initial state
     pub initial_state: &'a D::State,
+    /// Difference to the initial state
     pub diff: &'a D::Diff,
 }
 impl<D: Domain> Copy for StateDiffRef<'_, D> {}
@@ -42,7 +44,9 @@ where
 
 /// A joint reference to an initial state and a difference to this state, where the difference is mutable.
 pub struct StateDiffRefMut<'a, D: Domain> {
+    /// Initial state
     pub initial_state: &'a D::State,
+    /// Difference (mutable) to the initial state
     pub diff: &'a mut D::Diff,
 }
 impl<'a, D: Domain> StateDiffRefMut<'a, D> {

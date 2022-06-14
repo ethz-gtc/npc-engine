@@ -152,22 +152,18 @@ fn ucb() {
     assert!(task.downcast_ref::<TestTask>().is_some());
     assert_eq!((CONFIG.depth * 2 + 1) as usize, mcts.node_count());
 
-    let node = mcts.root.clone();
+    let node = mcts.root_node();
     let edges = mcts.get_edges(&node).unwrap();
     let root_visits = edges.child_visits();
 
     let edge_a = edges
-        .expanded_tasks
-        .get(&(Box::new(TestTask(true)) as Box<dyn Task<TestEngine>>))
-        .unwrap()
-        .lock()
+        .get_edge(&(Box::new(TestTask(true)) as Box<dyn Task<TestEngine>>))
         .unwrap();
+    let edge_a = edge_a.lock().unwrap();
     let edge_b = edges
-        .expanded_tasks
-        .get(&(Box::new(TestTask(false)) as Box<dyn Task<TestEngine>>))
-        .unwrap()
-        .lock()
+        .get_edge(&(Box::new(TestTask(false)) as Box<dyn Task<TestEngine>>))
         .unwrap();
+    let edge_b = edge_b.lock().unwrap();
 
     assert!(
         (edge_a.uct(

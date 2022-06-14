@@ -197,7 +197,7 @@ impl<D: Domain> MCTS<D> {
                 edge.unwrap()
             };
             let edge = edge.lock().unwrap();
-            current_node = edge.child.upgrade().unwrap();
+            current_node = edge.child();
             // log::debug!("NEW_CUR_NODE: {current_node:?} {:p}", Arc::as_ptr(current_node));
             edges = self.nodes.get(&current_node).unwrap();
 
@@ -470,7 +470,7 @@ impl<D: Domain> MCTS<D> {
             let parent_tick = node.tick;
             node = {
                 let edge = edge.lock().unwrap();
-                edge.child.upgrade().unwrap()
+                edge.child()
             };
             let child_tick = node.tick;
             depth += (child_tick - parent_tick) as u32;
@@ -500,8 +500,8 @@ impl<D: Domain> MCTS<D> {
             let edge = &mut edge.lock().unwrap();
             edge.visits += 1;
             if let Some(rollout_values) = &rollout_values {
-                let parent_node = edge.parent.upgrade().unwrap();
-                let child_node = edge.child.upgrade().unwrap();
+                let parent_node = edge.parent();
+                let child_node = edge.child();
                 let visits = edge.visits;
                 let child_edges = self.nodes.get(&child_node).unwrap();
 
@@ -582,6 +582,11 @@ impl<D: Domain> MCTS<D> {
     /// Returns an iterator over all nodes and edges in the tree.
     pub fn nodes(&self) -> impl Iterator<Item = (&Node<D>, &Edges<D>)> {
         self.nodes.iter()
+    }
+
+    /// Returns the root node of the search tree.
+    pub fn root_node(&self) -> Node<D> {
+        self.root.clone()
     }
 
     /// Returns the edges associated to a given node.
@@ -987,15 +992,15 @@ pub mod graphviz {
                     edges.expanded_tasks.iter().for_each(|(obj, _edge)| {
                         let edge = _edge.lock().unwrap();
 
-                        let parent = edge.parent.upgrade().unwrap();
-                        let child = edge.child.upgrade().unwrap();
+                        let parent = edge.parent();
+                        let child = edge.child();
 
                         if nodes.contains(&child) {
                             let child_value = child.current_value(node.active_agent);
                             let parent_value = parent.current_value(node.active_agent);
                             let reward = child_value - parent_value;
                             edge_vec.push(Edge {
-                                parent: edge.parent.upgrade().unwrap(),
+                                parent: edge.parent(),
                                 child,
                                 task: obj.clone(),
                                 best: obj == &best_task,

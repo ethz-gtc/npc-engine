@@ -38,7 +38,10 @@ use util::*;
     Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
 )]
 #[serde(rename_all = "kebab-case")]
-pub struct AgentId(pub u32);
+pub struct AgentId(
+    /// The internal identifier
+    pub u32,
+);
 impl std::fmt::Display for AgentId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "A{}", self.0)

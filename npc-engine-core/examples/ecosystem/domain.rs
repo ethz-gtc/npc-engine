@@ -5,8 +5,10 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use npc_engine_core::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
-use npc_engine_utils::{Coord2D, Direction, DomainWithPlanningTask, GlobalDomain};
+use npc_engine_core::{
+    AgentId, AgentValue, Behavior, Domain, DomainWithPlanningTask, StateDiffRef,
+};
+use npc_engine_utils::{Coord2D, Direction, GlobalDomain};
 use num_traits::Zero;
 
 use crate::{

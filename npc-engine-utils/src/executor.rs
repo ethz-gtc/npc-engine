@@ -629,6 +629,7 @@ pub fn run_threaded_executor<D, S>(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::*;
     use core::time;
     use npc_engine_core::{

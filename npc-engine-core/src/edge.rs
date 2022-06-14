@@ -151,13 +151,27 @@ impl<D: Domain> Edges<D> {
             .map(|(sum, count)| sum / count as f32)
     }
 
+    /// Returns the number of already-expanded edges.
+    pub fn expanded_count(&self) -> usize {
+        self.expanded_tasks.len()
+    }
+
+    /// Returns the number of not-yet-expanded edges.
+    pub fn unexpanded_count(&self) -> usize {
+        self.unexpanded_tasks
+            .as_ref()
+            .map_or(0, |(_, tasks)| tasks.len())
+    }
+
     /// Returns how many edges there are, the sum of the expanded and not-yet expanded counts.
     pub fn branching_factor(&self) -> usize {
-        self.expanded_tasks.len()
-            + self
-                .unexpanded_tasks
-                .as_ref()
-                .map_or(0, |(_, tasks)| tasks.len())
+        self.expanded_count() + self.unexpanded_count()
+    }
+
+    /// Returns the expanded edge associated to a task, None if it does not exist.
+    #[allow(clippy::borrowed_box)]
+    pub fn get_edge(&self, task: &Box<dyn Task<D>>) -> Option<Edge<D>> {
+        self.expanded_tasks.get(task).cloned()
     }
 
     /// The memory footprint of this struct.
@@ -186,9 +200,9 @@ pub type Edge<D> = Arc<Mutex<EdgeInner<D>>>;
 
 /// The data associated with an edge.
 pub struct EdgeInner<D: Domain> {
-    pub parent: WeakNode<D>,
-    pub child: WeakNode<D>,
-    pub visits: usize,
+    pub(crate) parent: WeakNode<D>,
+    pub(crate) child: WeakNode<D>,
+    pub(crate) visits: usize,
     pub(crate) q_values: SeededHashMap<AgentId, f32>,
 }
 
@@ -239,9 +253,24 @@ impl<D: Domain> EdgeInner<D> {
         }
     }
 
+    /// Returns the number of visits to this edge
+    pub fn visits(&self) -> usize {
+        self.visits
+    }
+
     /// Get the q-value of a given agent, 0 if not present
     pub fn q_value(&self, agent: AgentId) -> f32 {
         self.q_values.get(&agent).copied().unwrap_or(0.)
+    }
+
+    /// Returns the linked child node.
+    pub fn child(&self) -> Node<D> {
+        self.child.upgrade().unwrap()
+    }
+
+    /// Returns the linked parent node.
+    pub fn parent(&self) -> Node<D> {
+        self.parent.upgrade().unwrap()
     }
 
     /// The memory footprint of this struct.

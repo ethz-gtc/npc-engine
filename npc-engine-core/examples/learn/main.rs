@@ -78,7 +78,7 @@ impl ExecutorState<LearnDomain> for LearnExecutorState {
         _last_active_task: &ActiveTask<LearnDomain>,
     ) {
         self.planned_values.push((
-            mcts.initial_state.local_view(),
+            mcts.initial_state().local_view(),
             mcts.q_value_at_root(AgentId(0)),
         ));
     }

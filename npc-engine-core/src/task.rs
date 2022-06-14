@@ -102,7 +102,10 @@ impl<D: Domain> Task<D> for IdleTask {
 
 /// A task to represent planning in the planning tree, if these need to be represented.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct PlanningTask(pub NonZeroU64);
+pub struct PlanningTask(
+    /// The duration of the planning task
+    pub NonZeroU64,
+);
 
 impl<D: Domain> Task<D> for PlanningTask {
     fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {

@@ -84,27 +84,27 @@ impl<D: Domain> NodeInner<D> {
         }
     }
 
-    /// Return agent who owns the node
+    /// Returns the agent who owns the node
     pub fn agent(&self) -> AgentId {
         self.active_agent
     }
 
-    /// Return the tick
+    /// Returns the tick
     pub fn tick(&self) -> u64 {
         self.tick
     }
 
-    /// Return all agents that are in considered by this node
+    /// Returns all agents that are in considered by this node
     pub fn agents(&self) -> BTreeSet<AgentId> {
         self.tasks.iter().map(|task| task.agent).collect()
     }
 
-    /// Return diff of current node.
+    /// Returns the diff of current node.
     pub fn diff(&self) -> &D::Diff {
         &self.diff
     }
 
-    /// Return the current value from an agent, panic if not present in the node
+    /// Returns the current value from an agent, panic if not present in the node
     pub fn current_value(&self, agent: AgentId) -> AgentValue {
         self.current_values
             .get(&agent)
@@ -112,7 +112,7 @@ impl<D: Domain> NodeInner<D> {
             .unwrap_or_else(|| AgentValue::new(0.0).unwrap())
     }
 
-    /// Return the current value from an agent, compute if not present in the node
+    /// Returns the current value from an agent, compute if not present in the node
     pub fn current_value_or_compute(&self, agent: AgentId, initial_state: &D::State) -> AgentValue {
         self.current_values.get(&agent).copied().unwrap_or_else(|| {
             D::get_current_value(
@@ -123,7 +123,7 @@ impl<D: Domain> NodeInner<D> {
         })
     }
 
-    /// Return all current values
+    /// Returns all current values
     pub fn current_values(&self) -> &BTreeMap<AgentId, AgentValue> {
         &self.current_values
     }
