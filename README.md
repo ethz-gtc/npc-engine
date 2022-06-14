@@ -20,6 +20,8 @@ NPC engine provides the following features:
 * multiple debugging features including tracing and plotting search trees as graphs using graphviz's dot format,
 * batteries included with several [examples](npc-engine-core/examples/), helper library and the [code of our research paper](scenario-lumberjacks/) (see below).
 
+You can get an overview of this work in [this video](https://youtu.be/-O_iOwNVGDw).
+
 ## Getting it
 
 To get the NPC engine, clone this repository:
