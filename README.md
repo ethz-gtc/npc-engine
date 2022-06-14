@@ -20,6 +20,17 @@ NPC engine provides the following features:
 * multiple debugging features including tracing and plotting search trees as graphs using graphviz's dot format,
 * batteries included with several [examples](npc-engine-common/examples/), helper library and the [code of our research paper](scenario-lumberjacks/) (see below).
 
+## Getting it
+
+To get the NPC engine, clone this repository:
+
+```
+git clone https://github.com/ethz-gtc/npc-engine.git
+```
+
+Make sure that you have GIT LFS installed, you can read [here how to install it](https://docs.github.com/en/repositories/working-with-files/managing-large-files/installing-git-large-file-storage).
+If not, the PNG files will not be properly fetched, and you will see PNG decoding errors.
+
 ## Examples
 
 We provide several examples that illustrate the various features of the engine.
