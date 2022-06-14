@@ -670,7 +670,7 @@ where
 }
 
 /// Creates and runs a multi-threaded executor, initializes state and task queue from the `S` trait.
-/// 
+///
 /// Parameter `step_duration` defines how long a logical step lasts in wall time.
 pub fn run_threaded_executor<D, S>(
     mcts_config: &MCTSConfiguration,
