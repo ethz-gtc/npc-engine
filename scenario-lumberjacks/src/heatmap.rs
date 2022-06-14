@@ -45,12 +45,12 @@ pub fn heatmap_hook() -> PostMCTSHookFn {
                         let child = edge.child.upgrade().unwrap();
 
                         if child.agent() == agent {
-                            let state_diff = StateDiffRef::new(&mcts.initial_state, child.diff());
+                            let state_diff = StateDiffRef::new(mcts.initial_state(), child.diff());
 
                             let (x, y) = state_diff.find_agent(mcts.agent()).unwrap();
 
                             let visits = edge.visits;
-                            let score = edge.q_values.get(&mcts.agent()).copied().unwrap_or(0.);
+                            let score = edge.q_value(mcts.agent());
                             let entry = positions
                                 .entry((x, y))
                                 .and_modify(|entry| {

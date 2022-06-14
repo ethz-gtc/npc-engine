@@ -3,6 +3,7 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
+use std::collections::HashMap;
 use std::collections::{btree_map::Entry, BTreeMap, BTreeSet, HashSet};
 use std::f32;
 use std::mem;
@@ -35,24 +36,24 @@ pub struct MCTS<D: Domain> {
     time: Duration,
 
     // Config
-    pub(crate) config: MCTSConfiguration,
+    config: MCTSConfiguration,
     state_value_estimator: Box<dyn StateValueEstimator<D> + Send>,
-    pub early_stop_condition: Option<Box<EarlyStopCondition>>,
+    early_stop_condition: Option<Box<EarlyStopCondition>>,
 
     // Run-specific parameters
-    pub(crate) root_agent: AgentId,
+    root_agent: AgentId,
     seed: u64,
 
     // Nodes
-    pub root: Node<D>,
-    pub nodes: SeededHashMap<Node<D>, Edges<D>>,
+    root: Node<D>,
+    nodes: SeededHashMap<Node<D>, Edges<D>>,
 
     // Globals
     q_value_ranges: BTreeMap<AgentId, Range<AgentValue>>,
 
     // State before planning
-    pub initial_state: D::State,
-    pub start_tick: u64,
+    initial_state: D::State,
+    start_tick: u64,
 
     // Rng
     rng: ChaCha8Rng,
@@ -77,6 +78,7 @@ impl<D: Domain> MCTS<D> {
             Default::default(),
             config,
             state_value_estimator,
+            None,
         )
     }
 
@@ -88,6 +90,7 @@ impl<D: Domain> MCTS<D> {
         tasks: ActiveTasks<D>,
         config: MCTSConfiguration,
         state_value_estimator: Box<dyn StateValueEstimator<D> + Send>,
+        early_stop_condition: Option<Box<EarlyStopCondition>>,
     ) -> Self {
         // Check whether there is a task for this agent already
         let next_task =
@@ -120,7 +123,7 @@ impl<D: Domain> MCTS<D> {
             time: Duration::default(),
             config,
             state_value_estimator,
-            early_stop_condition: None,
+            early_stop_condition,
             seed: cur_seed,
             root_agent,
             root,
@@ -150,6 +153,75 @@ impl<D: Domain> MCTS<D> {
                     }
                 })
             })
+    }
+
+    /// Returns the best task, following a given recent task history, in case planning tasks are used.
+    pub fn best_task_with_history(
+        &self,
+        task_history: &HashMap<AgentId, ActiveTask<D>>,
+    ) -> Box<dyn Task<D>>
+    where
+        D: DomainWithPlanningTask,
+    {
+        log::debug!(
+            "Finding best task for {} using history {:?}",
+            self.root_agent,
+            task_history
+        );
+        let mut current_node = self.root.clone();
+        let mut edges = self.nodes.get(&current_node).unwrap();
+        let mut depth = 0;
+        loop {
+            let node_agent = current_node.agent();
+            let node_tick = current_node.tick();
+            let edge = if edges.expanded_tasks.len() == 1 {
+                let (task, edge) = edges.expanded_tasks.iter().next().unwrap();
+                log::trace!("[{depth}] T{node_tick} {node_agent} skipping {task:?}");
+
+                // Skip non-branching nodes
+                edge
+            } else {
+                let executed_task = task_history.get(&node_agent);
+                let executed_task = executed_task
+                    .unwrap_or_else(|| panic!("Found no task for {node_agent} is history"));
+                let task = &executed_task.task;
+                log::trace!("[{depth}] T{node_tick} {node_agent} executed {task:?}");
+
+                let edge = edges.expanded_tasks.get(task);
+
+                if edge.is_none() {
+                    log::info!("{node_agent} executed unexpected {task:?} not present in search tree, returning fallback task");
+                    return D::fallback_task(self.root_agent);
+                }
+
+                edge.unwrap()
+            };
+            let edge = edge.lock().unwrap();
+            current_node = edge.child.upgrade().unwrap();
+            // log::debug!("NEW_CUR_NODE: {current_node:?} {:p}", Arc::as_ptr(current_node));
+            edges = self.nodes.get(&current_node).unwrap();
+
+            depth += 1;
+
+            // Stop if we reach our own node again
+            if current_node.agent() == self.root_agent {
+                break;
+            }
+        }
+
+        // Return best task, using exploration value of 0
+        let range = self.min_max_range(self.root_agent);
+        let best = edges.best_task(self.root_agent, 0., range);
+
+        if best.is_none() {
+            log::info!(
+                "No valid task for agent {}, returning fallback task",
+                self.root_agent
+            );
+            return D::fallback_task(self.root_agent);
+        }
+
+        best.unwrap().clone()
     }
 
     /// Returns the q-value at root.
@@ -482,6 +554,16 @@ impl<D: Domain> MCTS<D> {
     /// This means the discount factor will be 0.5 if the given ticks are equal to the configured half-life in the MCTS.
     fn discount_factor(duration: u64, config: &MCTSConfiguration) -> f32 {
         2f64.powf((-(duration as f64)) / (config.discount_hl as f64)) as f32
+    }
+
+    /// Returns the initial state at the root of the planning tree.
+    pub fn initial_state(&self) -> &D::State {
+        &self.initial_state
+    }
+
+    /// Returns the tick at the root of the planning tree.
+    pub fn start_tick(&self) -> u64 {
+        self.start_tick
     }
 
     /// Returns the agent the tree searches for.

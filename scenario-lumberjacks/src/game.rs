@@ -284,10 +284,10 @@ impl GameState {
         let mut diff = WorldDiff::default();
         let new_objective = objective.execute(
             0,
-            StateDiffRefMut::new(&mcts.initial_state, &mut diff),
+            StateDiffRefMut::new(mcts.initial_state(), &mut diff),
             agent,
         );
-        Lumberjacks::apply(world, &mcts.initial_state, &diff);
+        Lumberjacks::apply(world, mcts.initial_state(), &diff);
         world.actions.insert(agent, objective.display_action());
         new_objective.map(|objective| self.objectives.insert(agent, objective));
 

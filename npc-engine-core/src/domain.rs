@@ -9,7 +9,7 @@ use std::hash::Hash;
 use ordered_float::NotNan;
 use rand_chacha::ChaCha8Rng;
 
-use crate::{AgentId, Behavior, Edges, MCTSConfiguration, Node, StateDiffRef, Task};
+use crate::{AgentId, Behavior, Edges, IdleTask, MCTSConfiguration, Node, StateDiffRef, Task};
 
 /// The "current" value an agent has in a given state.
 pub type AgentValue = NotNan<f32>;
@@ -92,4 +92,12 @@ pub trait StateValueEstimator<D: Domain>: Send {
         edges: &Edges<D>,
         depth: u32,
     ) -> Option<BTreeMap<AgentId, f32>>;
+}
+
+/// Domains who want to use planning tasks must implement this.
+pub trait DomainWithPlanningTask: Domain {
+    /// A fallback task, in case, during planning, the world evolved in a different direction than what the MCTS tree explored.
+    fn fallback_task(_agent: AgentId) -> Box<dyn Task<Self>> {
+        Box::new(IdleTask)
+    }
 }

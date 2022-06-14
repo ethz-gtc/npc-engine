@@ -29,7 +29,7 @@ pub fn plot_tree_in_tmp_with_task_name<D: Domain>(
     base_dir_name: &str,
     last_active_task: &ActiveTask<D>,
 ) -> std::io::Result<()> {
-    let time_text = format!("T{}", mcts.start_tick);
+    let time_text = format!("T{}", mcts.start_tick());
     let agent_id_text = format!("A{}", mcts.agent().0);
     let last_task_name = format!("{:?}", last_active_task.task);
     let last_task_name = debug_name_to_filename_safe(&last_task_name);

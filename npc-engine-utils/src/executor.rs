@@ -5,8 +5,9 @@
 
 use ansi_term::Style;
 use npc_engine_core::{
-    ActiveTask, ActiveTasks, AgentId, DefaultPolicyEstimator, Domain, IdleTask, MCTSConfiguration,
-    PlanningTask, StateDiffRef, StateDiffRefMut, StateValueEstimator, Task, MCTS,
+    ActiveTask, ActiveTasks, AgentId, DefaultPolicyEstimator, Domain, DomainWithPlanningTask,
+    EarlyStopCondition, IdleTask, MCTSConfiguration, PlanningTask, StateDiffRef, StateDiffRefMut,
+    StateValueEstimator, Task, MCTS,
 };
 use std::{
     collections::HashMap,
@@ -329,6 +330,7 @@ where
             self.queue.task_queue.clone(),
             self.mcts_config.clone(),
             self.executor_state.create_state_value_estimator(),
+            None,
         )
     }
 }
@@ -346,14 +348,6 @@ where
         if !executor.step() {
             break;
         }
-    }
-}
-
-/// Domains who want to use the ThreadedExecutor must implement this.
-pub trait DomainWithPlanningTask: Domain {
-    /// A fallback task, in case, during planning, the world evolved in a different direction than what the MCTS tree explored.
-    fn fallback_task(_agent: AgentId) -> Box<dyn Task<Self>> {
-        Box::new(IdleTask)
     }
 }
 
@@ -416,67 +410,15 @@ where
         }
     }
 
-    fn find_best_task(&self, mcts: &MCTS<D>) -> Box<dyn Task<D>> {
-        let root_agent = mcts.agent();
-        log::debug!(
-            "Finding best task for {} using history {:?}",
-            root_agent,
-            self.task_history
-        );
-        let mut current_node = mcts.root.clone();
-        let mut edges = mcts.nodes.get(&current_node).unwrap();
-        let mut depth = 0;
-        loop {
-            let node_agent = current_node.agent();
-            let node_tick = current_node.tick();
-            let edge = if edges.expanded_tasks.len() == 1 {
-                let (task, edge) = edges.expanded_tasks.iter().next().unwrap();
-                log::trace!("[{depth}] T{node_tick} {node_agent} skipping {task:?}");
-
-                // Skip non-branching nodes
-                edge
-            } else {
-                let executed_task = self.task_history.get(&node_agent);
-                let executed_task = executed_task
-                    .unwrap_or_else(|| panic!("Found no task for {node_agent} is history"));
-                let task = &executed_task.task;
-                log::trace!("[{depth}] T{node_tick} {node_agent} executed {task:?}");
-
-                let edge = edges.expanded_tasks.get(task);
-
-                if edge.is_none() {
-                    log::info!("{node_agent} executed unexpected {task:?} not present in search tree, returning fallback task");
-                    return D::fallback_task(root_agent);
-                }
-
-                edge.unwrap()
-            };
-            let edge = edge.lock().unwrap();
-            current_node = edge.child.upgrade().unwrap();
-            // log::debug!("NEW_CUR_NODE: {current_node:?} {:p}", Arc::as_ptr(current_node));
-            edges = mcts.nodes.get(&current_node).unwrap();
-
-            depth += 1;
-
-            // Stop if we reach our own node again
-            if current_node.agent() == root_agent {
-                break;
-            }
-        }
-
-        // Return best task, using exploration value of 0
-        let range = mcts.min_max_range(mcts.agent());
-        let best = edges.best_task(mcts.agent(), 0., range);
-
-        if best.is_none() {
-            log::info!("No valid task for agent {root_agent}, returning fallback task");
-            return D::fallback_task(root_agent);
-        }
-
-        best.unwrap().clone()
-    }
-
     fn new_mcts(&self, tick: u64, active_agent: AgentId) -> MCTS<D> {
+        let planning_task_duration = self
+            .mcts_config
+            .planning_task_duration
+            .expect("Planning task must have non-zero duration for threaded executor");
+        let tick_atomic = self.tick.clone();
+        let early_stop_condition: Option<Box<EarlyStopCondition>> = Some(Box::new(move || {
+            tick_atomic.load(Ordering::Relaxed) >= tick + planning_task_duration.get() - 1
+        }));
         MCTS::<D>::new_with_tasks(
             D::derive_local_state(&self.state, active_agent),
             active_agent,
@@ -484,6 +426,7 @@ where
             self.queue.task_queue.clone(),
             self.mcts_config.clone(),
             self.executor_state.create_state_value_estimator(),
+            early_stop_condition,
         )
     }
 
@@ -525,7 +468,7 @@ where
                     highlight_agent(active_agent)
                 );
             }
-            let best_task = self.find_best_task(&mcts);
+            let best_task = mcts.best_task_with_history(&self.task_history);
             log::info!("Best Task: {best_task:?}");
 
             self.queue.task_queue.remove(active_task);
@@ -586,14 +529,6 @@ where
             // Deploy new planning thread for this agent if needed
             if new_task.downcast_ref::<PlanningTask>().is_some() {
                 let mut mcts = self.new_mcts(tick, active_agent);
-                let tick_atomic = self.tick.clone();
-                let planning_task_duration = self
-                    .mcts_config
-                    .planning_task_duration
-                    .expect("Planning task must have non-zero duration for threaded executor");
-                mcts.early_stop_condition = Some(Box::new(move || {
-                    tick_atomic.load(Ordering::Relaxed) >= tick + planning_task_duration.get() - 1
-                }));
                 if log::log_enabled!(log::Level::Info) {
                     log::info!(
                         "{} - {} starts planning until {}.",

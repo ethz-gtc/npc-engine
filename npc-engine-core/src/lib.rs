@@ -3,7 +3,13 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-//! This is the core of the NPC engine, containing the MCTS algorithm implementation and related abstractions.
+//! This is the core of the NPC engine, containing the [MCTS] algorithm implementation and related abstractions.
+//!
+//! We provide several [examples](https://github.com/ethz-gtc/npc-engine/tree/main/npc-engine-core/examples)
+//! as introductions on how to use the planner.
+//! A good place to start is the [tic-tac-toe](https://github.com/ethz-gtc/npc-engine/tree/main/npc-engine-core/examples/tic-tac-toe) one.
+//!
+//! Support features and utilites such as execution loops are available in the [`npc-engine-utils`](https://crates.io/crates/npc-engine-utils/) crate.
 
 mod active_task;
 mod behavior;
@@ -25,7 +31,7 @@ pub use mcts::*;
 pub use node::*;
 pub use state_diff::*;
 pub use task::*;
-pub use util::*;
+use util::*;
 
 /// The identifier of an agent, essentially a u32.
 #[derive(

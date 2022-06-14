@@ -21,8 +21,8 @@ pub type UnexpandedTasks<D> = Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)
 
 /// The outgoing edges from a node, possibly partially expanded.
 pub struct Edges<D: Domain> {
-    pub unexpanded_tasks: UnexpandedTasks<D>,
-    pub expanded_tasks: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
+    pub(crate) unexpanded_tasks: UnexpandedTasks<D>,
+    pub(crate) expanded_tasks: SeededHashMap<Box<dyn Task<D>>, Edge<D>>,
 }
 impl<D: Domain> fmt::Debug for Edges<D> {
     fn fmt(&self, f: &'_ mut fmt::Formatter) -> fmt::Result {
@@ -189,7 +189,7 @@ pub struct EdgeInner<D: Domain> {
     pub parent: WeakNode<D>,
     pub child: WeakNode<D>,
     pub visits: usize,
-    pub q_values: SeededHashMap<AgentId, f32>,
+    pub(crate) q_values: SeededHashMap<AgentId, f32>,
 }
 
 impl<D: Domain> fmt::Debug for EdgeInner<D> {
@@ -237,6 +237,11 @@ impl<D: Domain> EdgeInner<D> {
         } else {
             0.
         }
+    }
+
+    /// Get the q-value of a given agent, 0 if not present
+    pub fn q_value(&self, agent: AgentId) -> f32 {
+        self.q_values.get(&agent).copied().unwrap_or(0.)
     }
 
     /// The memory footprint of this struct.
