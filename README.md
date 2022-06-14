@@ -93,7 +93,7 @@ This simulation shows that over the course of several hundreds epochs, the perfo
 With Python 3, `scipy` and `matplotlib` installed, the performance over epochs, averaged over 20 runs, can be seen with the following command:
 
 ```
-npc-engine-common/examples/plot-learn.py
+npc-engine-common/examples/learn/plot.py
 ```
 
 The curve should look like this:
