@@ -1,11 +1,11 @@
 # NPC engine
 
-Core:
+**Core:** 
 [![Crates.io][core-crates-badge]][core-crates-url]
 [![Docs.rs][core-docs-badge]][core-docs-url]
 [![Build Status][ci-badge]][ci-url]
 
-Utils:
+**Utils:** 
 [![Crates.io][utils-crates-badge]][utils-crates-url]
 [![Docs.rs][utils-docs-badge]][utils-docs-url]
 [![Build Status][ci-badge]][ci-url]
