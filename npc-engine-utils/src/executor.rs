@@ -131,18 +131,13 @@ where
 {
     /// The current queue of tasks
     task_queue: ActiveTasks<D>,
-    /// The tasks of the new agents, non-empty between execute_task and queue_new_agents
-    new_agents_tasks: Vec<ActiveTask<D>>, // TODO: we could get ride of these by passing an optional callback to execute_task
 }
 impl<D> ExecutionQueue<D>
 where
     D: Domain,
 {
     pub fn new(task_queue: ActiveTasks<D>) -> Self {
-        Self {
-            task_queue,
-            new_agents_tasks: Vec::new(),
-        }
+        Self { task_queue }
     }
 
     pub fn is_empty(&self) -> bool {
@@ -160,14 +155,16 @@ where
         active_task
     }
 
-    pub fn execute_task<S>(
+    pub fn execute_task<S, C>(
         &mut self,
         active_task: &ActiveTask<D>,
         state: &D::State,
         executor_state: &mut S,
+        mut new_agents_cb: C,
     ) -> (D::Diff, Option<Box<dyn Task<D>>>)
     where
         S: ExecutorState<D>,
+        C: FnMut(&Vec<ActiveTask<D>>),
     {
         let active_agent = active_task.agent;
         let tick = active_task.end;
@@ -195,10 +192,16 @@ where
             log::info!("Valid task, executing...");
             let state_diff_mut = StateDiffRefMut::new(state, &mut diff);
             let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
-            self.new_agents_tasks = D::get_new_agents(StateDiffRef::new(state, &diff))
+            // Get the new agents and create idle tasks for them,
+            let mut new_agents_tasks = D::get_new_agents(StateDiffRef::new(state, &diff))
                 .into_iter()
                 .map(|new_agent| ActiveTask::new_idle(tick, new_agent, active_agent))
                 .collect();
+            // call-back the user with these tasks,
+            new_agents_cb(&new_agents_tasks);
+            // then add them to our queue,
+            self.task_queue.extend(new_agents_tasks.drain(..));
+            // then call the hook.
             executor_state.post_action_execute_hook(
                 state,
                 &diff,
@@ -210,10 +213,6 @@ where
             log::info!("Invalid task!");
             (diff, None)
         }
-    }
-
-    pub fn queue_new_agents(&mut self) {
-        self.task_queue.extend(self.new_agents_tasks.drain(..));
     }
 
     pub fn queue_task(
@@ -302,9 +301,8 @@ where
         // Execute the task and queue the new agents
         let (diff, new_task) =
             self.queue
-                .execute_task(&active_task, &self.state, self.executor_state);
+                .execute_task(&active_task, &self.state, self.executor_state, |_| {});
         D::apply_diff(diff, &mut self.state);
-        self.queue.queue_new_agents();
 
         // If no next task, plan and get the task for this agent
         let new_task = new_task.unwrap_or_else(|| {
@@ -503,15 +501,18 @@ where
 
             // Execute the task, queue the new agents
             let local_state = D::derive_local_state(&self.state, active_agent);
-            let (diff, new_task) =
-                self.queue
-                    .execute_task(active_task, &local_state, self.executor_state);
+            let (diff, new_task) = self.queue.execute_task(
+                active_task,
+                &local_state,
+                self.executor_state,
+                |new_agents_tasks| {
+                    for new_task in new_agents_tasks.iter() {
+                        self.task_history.insert(new_task.agent, new_task.clone());
+                    }
+                },
+            );
             D::apply(&mut self.state, &local_state, &diff);
             let local_state = D::derive_local_state(&self.state, active_agent);
-            for new_task in &self.queue.new_agents_tasks {
-                self.task_history.insert(new_task.agent, new_task.clone());
-            }
-            self.queue.queue_new_agents();
 
             // If no next task, spawn a plan task and an associated thread
             let new_task = new_task.unwrap_or_else(|| {
