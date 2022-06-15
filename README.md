@@ -37,6 +37,8 @@ NPC engine provides the following features:
 * multiple debugging features including tracing and plotting search trees as graphs using graphviz's dot format,
 * batteries included with several [examples](npc-engine-core/examples/), helper library and the [code of our research paper](scenario-lumberjacks/) (see below).
 
+The NPC engine is composed of two packages: [`npc-engine-core`](https://crates.io/crates/npc-engine-core) and [`npc-engine-utils`](https://crates.io/crates/npc-engine-utils).
+
 ## Getting it
 
 To get the NPC engine, clone this repository:
