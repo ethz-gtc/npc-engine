@@ -33,4 +33,5 @@ impl BuildHasher for SeededRandomState {
 /// An `HashMap` with a defined seed.
 pub(crate) type SeededHashMap<K, V> = std::collections::HashMap<K, V, SeededRandomState>;
 /// An `HashSet` with a defined seed.
+#[cfg(feature = "graphviz")]
 pub(crate) type SeededHashSet<V> = std::collections::HashSet<V, SeededRandomState>;
