@@ -8,7 +8,7 @@ description = "The lumberjack experiment from the ETH-GTC AIIDE 2020 INT paper"
 repository = "https://github.com/ethz-gtc/npc-engine"
 homepage = "https://github.com/ethz-gtc/npc-engine"
 readme = "README.md"
-keywords = ["Monte Carlo Tree Search", "Artificial Intelligence", "multi-agent simulation", "game theory", "emergent storytelling"]
+keywords = ["MCTS", "AI", "multi-agent sim", "game theory", "emergent story"]
 categories = ["algorithms", "science", "simulation", "game-development"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
