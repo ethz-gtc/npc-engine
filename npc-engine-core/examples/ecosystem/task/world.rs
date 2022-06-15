@@ -8,11 +8,13 @@ use std::collections::HashSet;
 use npc_engine_core::{
     impl_task_boxed_methods, AgentId, StateDiffRef, StateDiffRefMut, Task, TaskDuration,
 };
+use npc_engine_utils::Coord2D;
 
 use crate::{
-    constants::WORLD_TASK_DURATION,
+    constants::{WORLD_GRASS_CYCLE_DURATION, WORLD_TASK_DURATION},
     domain::{DisplayAction, EcosystemDomain},
-    state::AgentState,
+    map::Tile,
+    state::{Access, AccessMut, AgentState},
 };
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
@@ -30,10 +32,11 @@ impl Task<EcosystemDomain> for WorldStep {
 
     fn execute(
         &self,
-        _tick: u64,
-        state_diff: StateDiffRefMut<EcosystemDomain>,
+        tick: u64,
+        mut state_diff: StateDiffRefMut<EcosystemDomain>,
         _agent: AgentId,
     ) -> Option<Box<dyn Task<EcosystemDomain>>> {
+        // 1. age agents, every time
         let age_agent = |state: &mut AgentState| {
             if state.food > 0 {
                 state.food -= 1;
@@ -54,6 +57,24 @@ impl Task<EcosystemDomain> for WorldStep {
                 let mut agent_state = agent_state.clone();
                 age_agent(&mut agent_state);
                 state_diff.diff.agents.push((*agent, agent_state.clone()));
+            }
+        }
+        // 2. grow grass, if it is time (1/WORLD_GRASS_REGROW_FREQUENCY of times)
+        if tick % WORLD_GRASS_CYCLE_DURATION < WORLD_TASK_DURATION {
+            let width = state_diff.map_width();
+            let height = state_diff.map_height();
+            for y in 0..height {
+                for x in 0..width {
+                    let position = Coord2D::new(x, y);
+                    match state_diff.get_tile(position).unwrap() {
+                        Tile::Grass(0) => (),
+                        Tile::Grass(3) => (),
+                        Tile::Grass(amount) => {
+                            state_diff.set_tile(position, Tile::Grass(amount + 1))
+                        }
+                        Tile::Obstacle => (),
+                    }
+                }
             }
         }
 

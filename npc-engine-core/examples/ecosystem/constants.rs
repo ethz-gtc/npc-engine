@@ -16,7 +16,7 @@ pub const OBSTACLE_HOTSPOT_COUNT: usize = 6;
 pub const PLANT_RANDOM_COUNT: usize = 40;
 pub const PLANT_HOTSPOT_COUNT: usize = 9;
 pub const HERBIVORE_COUNT: usize = 20;
-pub const CARNIVORE_COUNT: usize = 4;
+pub const CARNIVORE_COUNT: usize = 6;
 
 // local state derivation
 pub const AGENTS_RADIUS_HERBIVORE: i32 = 3;
@@ -26,10 +26,12 @@ pub const MAX_AGENTS_ATTENTION: usize = 3;
 
 // food parameter
 pub const HERBIVORE_MAX_FOOD: u32 = 5;
-pub const CARNIVORE_MAX_FOOD: u32 = 7;
+pub const CARNIVORE_MAX_FOOD: u32 = 10;
 
 // world task parameter
 pub const WORLD_TASK_DURATION: TaskDuration = 10;
+pub const WORLD_GRASS_REGROW_FREQUENCY: u64 = 3;
+pub const WORLD_GRASS_CYCLE_DURATION: u64 = WORLD_TASK_DURATION * WORLD_GRASS_REGROW_FREQUENCY;
 
 // task weights (idle task has weight 1)
 pub const EAT_GRASS_WEIGHT: f32 = 5.0;

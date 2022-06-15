@@ -58,7 +58,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
                 return None;
             }
         }
-        // if not, it is one further away
+        // if not, the prey is one further away
         let target_pos = DirConv::apply(self.0, passage_pos);
         let prey_state = state_diff.get_agent_at_mut(target_pos).unwrap();
         prey_state.1.alive = false;

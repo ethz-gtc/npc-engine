@@ -104,8 +104,15 @@ fn parse_map_str<T: FromStr>(s: &str) -> Result<Box<[Box<[T]>]>, ParseGridError<
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Map(pub Box<[Box<[Tile]>]>);
 impl Map {
+    #[allow(dead_code)]
     pub fn empty() -> Self {
         Self(vec![Vec::new().into_boxed_slice()].into_boxed_slice())
+    }
+    pub fn height(&self) -> i32 {
+        self.0.len() as i32
+    }
+    pub fn width(&self) -> i32 {
+        self.0[0].len() as i32
     }
 }
 

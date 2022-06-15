@@ -18,7 +18,7 @@ use crate::{
         world::{WorldBehavior, WORLD_AGENT_ID},
     },
     constants::*,
-    map::{GridAccess, Map},
+    map::GridAccess,
     state::{Access, AgentType, Diff, GlobalState, LocalState},
 };
 
@@ -153,10 +153,10 @@ impl GlobalDomain for EcosystemDomain {
 
     fn derive_local_state(global_state: &Self::GlobalState, agent: AgentId) -> Self::State {
         global_state.agents.get(&agent).map_or(
-            // world agent, collect all agents
+            // world agent, collect all agents and copy map
             LocalState {
                 origin: Coord2D::default(),
-                map: Map::empty(),
+                map: global_state.map.clone(),
                 agents: global_state.agents.clone(),
             },
             |agent_state| {

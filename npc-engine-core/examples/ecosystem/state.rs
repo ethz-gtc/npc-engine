@@ -160,6 +160,8 @@ impl Diff {
 }
 
 pub trait Access {
+    fn map_width(&self) -> i32;
+    fn map_height(&self) -> i32;
     fn get_tile(&self, position: Coord2D) -> Option<Tile>;
     fn get_grass(&self, position: Coord2D) -> Option<u8> {
         self.get_tile(position).and_then(|tile| {
@@ -189,6 +191,12 @@ pub trait Access {
 }
 
 impl Access for StateDiffRef<'_, EcosystemDomain> {
+    fn map_width(&self) -> i32 {
+        self.initial_state.map.width()
+    }
+    fn map_height(&self) -> i32 {
+        self.initial_state.map.height()
+    }
     fn get_tile(&self, position: Coord2D) -> Option<Tile> {
         self.diff
             .map

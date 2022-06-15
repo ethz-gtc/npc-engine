@@ -75,7 +75,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         let mut agents = Agents::new();
         let mut used_poses = HashSet::new();
         let mut agent_id = 0;
-        let mut add_animals = |ty, count| {
+        let mut add_animals = |ty, count, food| {
             for _i in 0..count {
                 loop {
                     let pos = Coord2D::rand_uniform(MAP_SIZE);
@@ -87,7 +87,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
                                 ty,
                                 birth_date: 0,
                                 position: pos,
-                                food: 5,
+                                food,
                                 alive: true,
                             },
                         );
@@ -99,8 +99,8 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         };
 
         // animals
-        add_animals(AgentType::Herbivore, HERBIVORE_COUNT);
-        add_animals(AgentType::Carnivore, CARNIVORE_COUNT);
+        add_animals(AgentType::Herbivore, HERBIVORE_COUNT, HERBIVORE_MAX_FOOD);
+        add_animals(AgentType::Carnivore, CARNIVORE_COUNT, CARNIVORE_MAX_FOOD);
         //*map.at_mut(Coord2D::new(0, 1)).unwrap() = Tile::Obstacle;
         //*map.at_mut(Coord2D::new(0, 0)).unwrap() = Tile::Grass(3);
         // let agents = HashMap::from([
