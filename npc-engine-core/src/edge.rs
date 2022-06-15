@@ -219,7 +219,7 @@ impl<D: Domain> fmt::Debug for EdgeInner<D> {
 }
 
 /// Creates a new edge between a parent and a child.
-pub fn new_edge<D: Domain>(
+pub(crate) fn new_edge<D: Domain>(
     parent: &Node<D>,
     child: &Node<D>,
     agents: &BTreeSet<AgentId>,

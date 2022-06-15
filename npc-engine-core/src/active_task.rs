@@ -11,8 +11,11 @@ use std::{fmt, mem};
 
 /// A task associated to an agent and that is being processed by the planner.
 pub struct ActiveTask<D: Domain> {
+    /// the end tick of this task
     pub end: u64,
+    /// the agent executing this task
     pub agent: AgentId,
+    /// the actual task
     pub task: Box<dyn Task<D>>,
 }
 /// A set of active tasks.
@@ -55,18 +58,8 @@ impl<D: Domain> ActiveTask<D> {
     }
 }
 
-/// Returns whether an active task set contains a given agent.
-pub fn contains_agent<D: Domain>(set: &ActiveTasks<D>, agent: AgentId) -> bool {
-    for task in set {
-        if task.agent == agent {
-            return true;
-        }
-    }
-    false
-}
-
 /// Returns the task associated to a given agent from an active task set.
-pub fn get_task_for_agent<D: Domain>(
+pub(crate) fn get_task_for_agent<D: Domain>(
     set: &ActiveTasks<D>,
     agent: AgentId,
 ) -> Option<&ActiveTask<D>> {
