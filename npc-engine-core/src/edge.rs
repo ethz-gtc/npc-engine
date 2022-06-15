@@ -130,7 +130,8 @@ impl<D: Domain> Edges<D> {
     }
 
     /// Returns the weighted average q value of all child edges.
-    /// `fallback` value is for self-referential edges.
+    ///
+    /// The `fallback` value is used for self-referential edges.
     pub fn q_value(&self, fallback: (usize, f32), agent: AgentId) -> Option<f32> {
         self.expanded_tasks
             .values()

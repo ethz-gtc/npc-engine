@@ -56,13 +56,20 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     fn display_action(&self) -> D::DisplayAction;
 
     /// Utility method for cloning, since `Self: Clone` is not object-safe.
+    ///
+    /// Use the macro [impl_task_boxed_methods] to automatically generate this method.
     fn box_clone(&self) -> Box<dyn Task<D>>;
 
     /// Utility method for hashing, since `Self: Hash` is not object-safe.
+    ///
+    /// Use the macro [impl_task_boxed_methods] to automatically generate this method.
     fn box_hash(&self, state: &mut dyn Hasher);
 
     /// Utility method for equality, since trait objects are not inherently `Eq`.
+    ///
     /// Should perform downcast to current type and then check equality.
+    ///
+    /// Use the macro [impl_task_boxed_methods] to automatically generate this method.
     #[allow(clippy::borrowed_box)]
     fn box_eq(&self, other: &Box<dyn Task<D>>) -> bool;
 }
@@ -162,10 +169,12 @@ impl<D: Domain> PartialEq for Box<dyn Task<D>> {
 impl<D: Domain> Eq for Box<dyn Task<D>> {}
 
 /// Task implementors can use this macro to implement the `box_clone`, `box_hash` and `box_eq` functions.
+///
+/// The parameter is the name of your [Domain] struct.
 #[macro_export]
 macro_rules! impl_task_boxed_methods {
-    ($e: ty) => {
-        fn box_clone(&self) -> Box<dyn Task<$e>> {
+    ($domain: ty) => {
+        fn box_clone(&self) -> Box<dyn Task<$domain>> {
             Box::new(self.clone())
         }
 
@@ -174,7 +183,7 @@ macro_rules! impl_task_boxed_methods {
             self.hash(&mut state)
         }
 
-        fn box_eq(&self, other: &Box<dyn Task<$e>>) -> bool {
+        fn box_eq(&self, other: &Box<dyn Task<$domain>>) -> bool {
             other
                 .downcast_ref::<Self>()
                 .map_or(false, |other| self.eq(other))
