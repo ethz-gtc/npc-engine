@@ -1,16 +1,26 @@
 # NPC engine
 
-[![Crates.io][crates-badge]][crates-url]
-[![Docs.rs][docs-badge]][docs-url]
+Core:
+[![Crates.io][core-crates-badge]][core-crates-url]
+[![Docs.rs][core-docs-badge]][core-docs-url]
 [![Build Status][ci-badge]][ci-url]
 
-[crates-badge]: https://img.shields.io/crates/v/npc-engine-core
-[crates-url]: https://crates.io/crates/npc-engine-core
-[docs-badge]: https://img.shields.io/docsrs/npc-engine-core
-[docs-url]: https://docs.rs/npc-engine-core
+Utils:
+[![Crates.io][utils-crates-badge]][utils-crates-url]
+[![Docs.rs][utils-docs-badge]][utils-docs-url]
+[![Build Status][ci-badge]][ci-url]
+
+[core-crates-badge]: https://img.shields.io/crates/v/npc-engine-core
+[core-crates-url]: https://crates.io/crates/npc-engine-core
+[core-docs-badge]: https://img.shields.io/docsrs/npc-engine-core
+[core-docs-url]: https://docs.rs/npc-engine-core
+[utils-crates-badge]: https://img.shields.io/crates/v/npc-engine-utils
+[utils-crates-url]: https://crates.io/crates/npc-engine-utils
+[utils-docs-badge]: https://img.shields.io/docsrs/npc-engine-utils
+[utils-docs-url]: https://docs.rs/npc-engine-utils
+
 [ci-badge]: https://img.shields.io/github/workflow/status/ethz-gtc/npc-engine/CI
 [ci-url]: https://github.com/ethz-gtc/npc-engine/actions
-
 
 © 2020-2022 ETH Zurich and other contributors. See [AUTHORS.txt](AUTHORS.txt) for more details.
 
