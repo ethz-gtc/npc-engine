@@ -339,7 +339,7 @@ mod tests {
             .collect::<Vec<_>>();
         let count = 1000;
         let mut min_avg_sse = f32::INFINITY;
-        for _rerun in 0..20 {
+        for _rerun in 0..50 {
             for batch in 0..count {
                 // generate new data and train
                 let data = (0..4)
