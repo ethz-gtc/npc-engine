@@ -20,6 +20,8 @@
 //! * [get_current_value](Domain::get_current_value) returns the instantaneous (not discounted) value of an agent in a given state.
 //! * [update_visible_agents](Domain::update_visible_agents) lists all agents visible from a given agent in a given state.
 //!
+//! The `graphviz` feature enables to output the search tree in the Graphviz's dot format using the [plot_mcts_tree](graphviz::plot_mcts_tree) function.
+//!
 //! Additional features and utilites such as execution loops are available in the [`npc-engine-utils`](https://crates.io/crates/npc-engine-utils/) crate.
 //! You might want to use them in your project as they make the planner significantly simpler to use.
 //! Most [examples](https://github.com/ethz-gtc/npc-engine/tree/main/npc-engine-core/examples) use them.

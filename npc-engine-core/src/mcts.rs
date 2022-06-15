@@ -870,7 +870,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
     }
 }
 
-/// When feature graphviz is enabled, provides plotting of the search tree.
+/// When `graphviz` feature is enabled, provides plotting of the search tree.
 #[cfg(feature = "graphviz")]
 pub mod graphviz {
     use super::*;
