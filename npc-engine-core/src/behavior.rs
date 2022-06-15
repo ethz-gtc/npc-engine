@@ -6,11 +6,11 @@
 use crate::{AgentId, Domain, StateDiffRef, Task};
 
 /// A possibly-recursive set of possible tasks.
+///
+/// You need to implement at least two methods: [is_valid](Self::is_valid) and  [add_own_tasks](Self::add_own_tasks).
 pub trait Behavior<D: Domain>: 'static {
-    /// Returns dependent behaviors.
-    fn get_dependent_behaviors(&self) -> &'static [&'static dyn Behavior<D>] {
-        &[]
-    }
+    /// Returns if the behavior is valid for the given agent in the given world state.
+    fn is_valid(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId) -> bool;
 
     /// Collects valid tasks for the given agent in the given world state.
     #[allow(unused)]
@@ -20,11 +20,12 @@ pub trait Behavior<D: Domain>: 'static {
         state: StateDiffRef<D>,
         agent: AgentId,
         tasks: &mut Vec<Box<dyn Task<D>>>,
-    ) {
-    }
+    );
 
-    /// Returns if the behavior is valid for the given agent in the given world state.
-    fn is_valid(&self, tick: u64, state: StateDiffRef<D>, agent: AgentId) -> bool;
+    /// Returns dependent behaviors.
+    fn get_dependent_behaviors(&self) -> &'static [&'static dyn Behavior<D>] {
+        &[]
+    }
 
     /// Helper method to recursively collect all valid tasks for the given agent in the given world state.
     ///

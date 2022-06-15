@@ -9,7 +9,20 @@
 //! as introductions on how to use the planner.
 //! A good place to start is the [tic-tac-toe](https://github.com/ethz-gtc/npc-engine/tree/main/npc-engine-core/examples/tic-tac-toe) one.
 //!
+//! The core of the planner is the [MCTS] struct, which holds the state of the planner.
+//! It has two constructors, a simple one, [new](MCTS::new) and a complete one, [new_with_tasks](MCTS::new_with_tasks).
+//! Once constructed, the [run](MCTS::run) method performs the search and returns the best task.
+//! After a search, the resulting tree can be inspected, starting from the [root node](MCTS::root_node).
+//!
+//! The [MCTS] struct is generic over a [Domain], which is describes your own domain.
+//! You need at least to implement these three methods:
+//! * [list_behaviors](Domain::list_behaviors) returns the possible actions through a hierarchical [Behavior] abstraction.
+//! * [get_current_value](Domain::get_current_value) returns the instantoneous (not discounted) value of an agent in a given state.
+//! * [update_visible_agents](Domain::update_visible_agents) lists all agents visible from a given agent in a given state.
+//!
 //! Support features and utilites such as execution loops are available in the [`npc-engine-utils`](https://crates.io/crates/npc-engine-utils/) crate.
+//! You might want to use them in your projects as they make the planner significantly simpler to use.
+//! Most examples use it.
 
 mod active_task;
 mod behavior;
