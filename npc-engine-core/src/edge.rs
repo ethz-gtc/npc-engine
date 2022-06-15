@@ -17,7 +17,7 @@ use rand::distributions::WeightedIndex;
 /// The tasks left to expand in a given node.
 ///
 /// None if all tasks are expanded.
-pub type UnexpandedTasks<D> = Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>;
+type UnexpandedTasks<D> = Option<(WeightedIndex<f32>, Vec<Box<dyn Task<D>>>)>;
 
 /// The outgoing edges from a node, possibly partially expanded.
 pub struct Edges<D: Domain> {
