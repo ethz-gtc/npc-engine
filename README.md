@@ -116,7 +116,7 @@ By eating, a herbivore reduces the amount of food of the tile it's standing on b
 Herbivores are born with 5 units of food, and can store up to 5 units of food.
 Carnivores can eat herbivores on an adjacent tile or one tile away.
 They can also jump to one tile away, including over other agents, but not over obstacles, at a cost of 1 additional unit of food.
-Carnivores are born with 5 units of food, and can store up to 7 units of food.
+Carnivores are born with 10 units of food, and can store up to 10 units of food.
 When agents eat, their stored food are resplenished to their maximum amount.
 Every 10 frames, all agents consume one unit of food.
 If they do not have food any more, they die.
@@ -128,6 +128,8 @@ When planning, agents only consider the 3 closest other agents, if there are mor
 They aim at 1000 visits per planning, but if not enough computational power is available, planning might end earlier.
 In that case, the plan quality degrades.
 The simulation runs at 25 frames per second.
+
+A world agent, with only one "step" action, manages the decrease of food per agent, every 10 frames; and the regrow of the grass, for tiles having 1 or 2 unit of food, every 30 frames.
 
 Source directory: [`ecosystem`](npc-engine-core/examples/ecosystem/)
 
