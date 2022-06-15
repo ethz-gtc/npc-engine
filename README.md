@@ -1,9 +1,16 @@
 # NPC engine
 
+[![Crates.io][crates-badge]][crates-url]
+[![Docs.rs][docs-badge]][docs-url]
 [![Build Status][ci-badge]][ci-url]
 
+[crates-badge]: https://img.shields.io/crates/v/npc-engine-core
+[crates-url]: https://crates.io/crates/npc-engine-core
+[docs-badge]: https://img.shields.io/docsrs/npc-engine-core
+[docs-url]: https://docs.rs/npc-engine-core
 [ci-badge]: https://img.shields.io/github/workflow/status/ethz-gtc/npc-engine/CI
 [ci-url]: https://github.com/ethz-gtc/npc-engine/actions
+
 
 © 2020-2022 ETH Zurich and other contributors. See [AUTHORS.txt](AUTHORS.txt) for more details.
 
