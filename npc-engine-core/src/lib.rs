@@ -14,6 +14,8 @@
 //! Once constructed, the [run](MCTS::run) method performs the search and returns the best task.
 //! After a search, the resulting tree can be inspected, starting from the [root node](MCTS::root_node).
 //!
+//! The planner's search parameters are described by the [MCTSConfiguration] struct.
+//!
 //! The [MCTS] struct is generic over a [Domain], which you have to implement to describe your own planning domain.
 //! You need to implement at least these three methods:
 //! * [list_behaviors](Domain::list_behaviors) returns the possible actions employing a hierarchical [Behavior] abstraction.
