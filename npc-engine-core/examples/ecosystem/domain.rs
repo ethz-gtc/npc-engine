@@ -53,7 +53,7 @@ impl Domain for EcosystemDomain {
         state_diff
             .get_agent(agent)
             .map_or(AgentValue::zero(), |agent_state| {
-                if agent_state.alive {
+                if agent_state.alive() {
                     let age = tick - agent_state.birth_date;
                     AgentValue::new(age as f32).unwrap()
                 } else {
@@ -74,9 +74,15 @@ impl Domain for EcosystemDomain {
         // add all agents from the state
         agents.extend(state_diff.initial_state.agents.keys());
         // remove dead agents
-        for (agent, agent_state) in state_diff.diff.agents.iter() {
-            if !agent_state.alive {
+        for (agent, agent_state) in state_diff.diff.cur_agents.iter() {
+            if !agent_state.alive() {
                 agents.remove(agent);
+            }
+        }
+        // add alive new agents only in the diff
+        for (agent, agent_state) in state_diff.diff.new_agents.iter() {
+            if agent_state.alive() {
+                agents.insert(*agent);
             }
         }
         // add world agent
@@ -88,14 +94,14 @@ impl Domain for EcosystemDomain {
         for (agent, agent_state) in state_diff.initial_state.agents.iter() {
             agents.insert(*agent, agent_state.clone());
         }
-        for (agent, agent_state) in state_diff.diff.agents.iter() {
+        for (agent, agent_state) in state_diff.diff.cur_agents.iter() {
             if !agents.contains_key(agent) {
                 agents.insert(*agent, agent_state.clone());
             }
         }
         let mut s = String::new();
         for (agent, agent_state) in agents.into_iter() {
-            let food = if agent_state.alive {
+            let food = if agent_state.alive() {
                 format!("🍞{}", agent_state.food)
             } else {
                 "🕇".into()
@@ -103,6 +109,10 @@ impl Domain for EcosystemDomain {
             s += &format!("{}:{}{}, ", agent.0, agent_state.position, food);
         }
         s
+    }
+
+    fn get_new_agents(state_diff: StateDiffRef<Self>) -> Vec<AgentId> {
+        state_diff.diff.get_new_agents_ids().collect()
     }
 
     fn display_action_task_planning() -> Self::DisplayAction {
@@ -126,7 +136,7 @@ fn derive_local_state_radius(
         .get_agents_in_region(center_position, agent_radius)
         .filter_map(|(agent, agent_state)| {
             let mut agent_state = agent_state.clone();
-            if agent_state.alive {
+            if agent_state.alive() {
                 let dist = agent_state.position.manhattan_dist(center_position);
                 agent_state.position -= origin;
                 Some((dist, (*agent, agent_state)))
@@ -145,6 +155,7 @@ fn derive_local_state_radius(
         origin,
         map,
         agents,
+        next_agent_id: global_state.next_agent_id,
     }
 }
 
@@ -158,6 +169,7 @@ impl GlobalDomain for EcosystemDomain {
                 origin: Coord2D::default(),
                 map: global_state.map.clone(),
                 agents: global_state.agents.clone(),
+                next_agent_id: global_state.next_agent_id,
             },
             |agent_state| {
                 let agent_radius = match agent_state.ty {
@@ -175,9 +187,18 @@ impl GlobalDomain for EcosystemDomain {
             *global_state.map.at_mut(pos + local_state.origin).unwrap() = tile;
         }
         // update agents
-        for (agent, mut agent_state) in diff.agents.iter().cloned() {
+        for (agent, mut agent_state) in diff
+            .cur_agents
+            .iter()
+            .chain(diff.new_agents.iter())
+            .cloned()
+        {
             agent_state.position += local_state.origin;
             global_state.agents.insert(agent, agent_state);
+        }
+        // update next agent id
+        if let Some(next_agent_id) = diff.next_agent_id {
+            global_state.next_agent_id = next_agent_id;
         }
     }
 }
@@ -206,7 +227,7 @@ mod tests {
                     birth_date: 0,
                     position: Coord2D::new(1, 0),
                     food: 2,
-                    alive: true,
+                    dead_tick: None,
                 },
             ),
             (
@@ -216,11 +237,15 @@ mod tests {
                     birth_date: 2,
                     position: Coord2D::new(3, 2),
                     food: 5,
-                    alive: true,
+                    dead_tick: None,
                 },
             ),
         ]);
-        GlobalState { map, agents }
+        GlobalState {
+            map,
+            agents,
+            next_agent_id: 4,
+        }
     }
 
     #[test]

@@ -3,17 +3,17 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use std::collections::HashSet;
-
 use npc_engine_core::{
     impl_task_boxed_methods, AgentId, StateDiffRef, StateDiffRefMut, Task, TaskDuration,
 };
-use npc_engine_utils::Coord2D;
+use npc_engine_utils::{Coord2D, DIRECTIONS};
 
 use crate::{
-    constants::{WORLD_GRASS_CYCLE_DURATION, WORLD_TASK_DURATION},
+    constants::{
+        WORLD_GRASS_EXPAND_CYCLE_DURATION, WORLD_GRASS_GROW_CYCLE_DURATION, WORLD_TASK_DURATION,
+    },
     domain::{DisplayAction, EcosystemDomain},
-    map::Tile,
+    map::{DirConv, Tile},
     state::{Access, AccessMut, AgentState},
 };
 
@@ -36,44 +36,80 @@ impl Task<EcosystemDomain> for WorldStep {
         mut state_diff: StateDiffRefMut<EcosystemDomain>,
         _agent: AgentId,
     ) -> Option<Box<dyn Task<EcosystemDomain>>> {
-        // 1. age agents, every time
-        let age_agent = |state: &mut AgentState| {
+        // 1. consume food and make kids if right time, every time
+        for agent in state_diff.list_agents() {
+            // consume food
+            let state = state_diff.get_agent_mut(agent).unwrap();
             if state.food > 0 {
                 state.food -= 1;
                 if state.food == 0 {
-                    state.alive = false;
+                    state.kill(tick)
                 }
             }
-        };
-        // process agents from the diff
-        let mut seen_agents = HashSet::new();
-        for (agent, agent_state) in state_diff.diff.agents.iter_mut() {
-            seen_agents.insert(*agent);
-            age_agent(agent_state);
-        }
-        // then from the state
-        for (agent, agent_state) in state_diff.initial_state.agents.iter() {
-            if !seen_agents.contains(agent) {
-                let mut agent_state = agent_state.clone();
-                age_agent(&mut agent_state);
-                state_diff.diff.agents.push((*agent, agent_state.clone()));
+            // make baby
+            let baby_season = tick % state.ty.reproduction_cycle_duration() < WORLD_TASK_DURATION;
+            if baby_season && state.food >= state.ty.min_food_for_reproduction() {
+                let parent_position = state.position;
+                for direction in DIRECTIONS {
+                    let baby_position = DirConv::apply(direction, parent_position);
+                    if state_diff.is_position_free(baby_position) {
+                        // modify parent
+                        let parent_state = state_diff.get_agent_mut(agent).unwrap();
+                        let food = parent_state.ty.food_given_to_baby();
+                        parent_state.food -= food;
+                        let ty = parent_state.ty;
+                        // create child
+                        state_diff.new_agent(AgentState {
+                            ty,
+                            birth_date: tick,
+                            position: baby_position,
+                            food,
+                            dead_tick: None,
+                        });
+                        break;
+                    }
+                }
             }
         }
         // 2. grow grass, if it is time (1/WORLD_GRASS_REGROW_FREQUENCY of times)
-        if tick % WORLD_GRASS_CYCLE_DURATION < WORLD_TASK_DURATION {
-            let width = state_diff.map_width();
-            let height = state_diff.map_height();
-            for y in 0..height {
-                for x in 0..width {
-                    let position = Coord2D::new(x, y);
-                    match state_diff.get_tile(position).unwrap() {
-                        Tile::Grass(0) => (),
-                        Tile::Grass(3) => (),
-                        Tile::Grass(amount) => {
+        let width = state_diff.map_width();
+        let height = state_diff.map_height();
+        for y in 0..height {
+            for x in 0..width {
+                let handle_tick = tick
+                    .wrapping_add((x as u64) * 2797)
+                    .wrapping_add((y as u64) * 3637);
+                let position = Coord2D::new(x, y);
+                match state_diff.get_tile(position).unwrap() {
+                    Tile::Grass(0) => (),
+                    Tile::Grass(3) => {
+                        let expand =
+                            handle_tick % WORLD_GRASS_EXPAND_CYCLE_DURATION < WORLD_TASK_DURATION;
+                        if expand {
+                            let side = (handle_tick / WORLD_GRASS_EXPAND_CYCLE_DURATION) % 4;
+                            if let Some(neighbor) = match side {
+                                0 => Some((x - 1, y)),
+                                1 => Some((x + 1, y)),
+                                2 => Some((x, y - 1)),
+                                3 => Some((x, y + 1)),
+                                _ => None,
+                            } {
+                                let neighbor_position = Coord2D::from_tuple(neighbor);
+                                match state_diff.get_tile(neighbor_position) {
+                                    Some(Tile::Grass(0)) => {
+                                        state_diff.set_tile(neighbor_position, Tile::Grass(1))
+                                    }
+                                    _ => {}
+                                }
+                            }
+                        }
+                    }
+                    Tile::Grass(amount) => {
+                        if handle_tick % WORLD_GRASS_GROW_CYCLE_DURATION < WORLD_TASK_DURATION {
                             state_diff.set_tile(position, Tile::Grass(amount + 1))
                         }
-                        Tile::Obstacle => (),
                     }
+                    Tile::Obstacle => (),
                 }
             }
         }

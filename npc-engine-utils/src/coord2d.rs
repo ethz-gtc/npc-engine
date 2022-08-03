@@ -17,6 +17,12 @@ impl Coord2D {
     pub const fn new(x: i32, y: i32) -> Self {
         Coord2D { x, y }
     }
+    pub const fn from_tuple(coord: (i32, i32)) -> Self {
+        Coord2D {
+            x: coord.0,
+            y: coord.1,
+        }
+    }
     /// Returns the absolute value, component by component.
     pub const fn abs(&self) -> Self {
         Self::new(self.x.abs(), self.y.abs())

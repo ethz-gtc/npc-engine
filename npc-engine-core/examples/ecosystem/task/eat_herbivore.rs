@@ -41,7 +41,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
 
     fn execute(
         &self,
-        _tick: u64,
+        tick: u64,
         mut state_diff: StateDiffRefMut<EcosystemDomain>,
         agent: AgentId,
     ) -> Option<Box<dyn Task<EcosystemDomain>>> {
@@ -50,8 +50,8 @@ impl Task<EcosystemDomain> for EatHerbivore {
         let passage_pos = DirConv::apply(self.0, agent_state.position);
         let prey_state = state_diff.get_agent_at_mut(passage_pos);
         if let Some((_, prey_state)) = prey_state {
-            if prey_state.ty == AgentType::Herbivore && prey_state.alive {
-                prey_state.alive = false;
+            if prey_state.ty == AgentType::Herbivore && prey_state.alive() {
+                prey_state.kill(tick);
                 let agent_state = state_diff.get_agent_mut(agent).unwrap();
                 agent_state.position = passage_pos;
                 agent_state.food = CARNIVORE_MAX_FOOD;
@@ -61,7 +61,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
         // if not, the prey is one further away
         let target_pos = DirConv::apply(self.0, passage_pos);
         let prey_state = state_diff.get_agent_at_mut(target_pos).unwrap();
-        prey_state.1.alive = false;
+        prey_state.1.kill(tick);
         let agent_state = state_diff.get_agent_mut(agent).unwrap();
         agent_state.position = target_pos;
         agent_state.food = CARNIVORE_MAX_FOOD;
@@ -76,10 +76,10 @@ impl Task<EcosystemDomain> for EatHerbivore {
     ) -> bool {
         let agent_state = state_diff.get_agent(agent).unwrap();
         debug_assert!(
-            agent_state.alive,
+            agent_state.alive(),
             "Task validity check called on a dead agent"
         );
-        if !agent_state.alive {
+        if !agent_state.alive() {
             return false;
         }
         if !agent_state.food < CARNIVORE_MAX_FOOD {
@@ -90,7 +90,7 @@ impl Task<EcosystemDomain> for EatHerbivore {
                 && state_diff
                     .get_agent_at(position)
                     .map(|(_, agent_state)| {
-                        agent_state.ty == AgentType::Herbivore && agent_state.alive
+                        agent_state.ty == AgentType::Herbivore && agent_state.alive()
                     })
                     .unwrap_or(false)
         };

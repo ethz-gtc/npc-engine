@@ -73,6 +73,41 @@ pub trait GridAccess {
         }
         (origin, map)
     }
+
+    fn iter(&self) -> GridAccessIterator<'_, Self>
+    where
+        Self: Sized,
+    {
+        let size = self.size();
+        assert_ne!(size.x, 0);
+        assert_ne!(size.y, 0);
+        GridAccessIterator {
+            grid: self,
+            coord: Coord2D::default(),
+        }
+    }
+}
+
+pub struct GridAccessIterator<'a, G: GridAccess> {
+    grid: &'a G,
+    coord: Coord2D,
+}
+impl<'a, G: GridAccess> Iterator for GridAccessIterator<'a, G> {
+    type Item = G::Tile;
+    fn next(&mut self) -> Option<G::Tile> {
+        let size = self.grid.size();
+        if self.coord.y >= size.y {
+            None
+        } else {
+            let tile = self.grid.at(self.coord).unwrap().clone();
+            self.coord.x += 1;
+            if self.coord.x == size.x {
+                self.coord.x = 0;
+                self.coord.y += 1;
+            }
+            Some(tile)
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -113,6 +148,14 @@ impl Map {
     }
     pub fn width(&self) -> i32 {
         self.0[0].len() as i32
+    }
+    pub fn grass_count(&self) -> u32 {
+        self.iter().fold(0, |acc, tile| {
+            acc + match tile {
+                Tile::Grass(amount) => amount as u32,
+                Tile::Obstacle => 0,
+            }
+        }) / 3
     }
 }
 

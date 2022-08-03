@@ -118,7 +118,7 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
         true
     }
     /// Method called from [ThreadedExecutor::step] after all tasks have been executed at a given step (by default does nothing).
-    fn post_step_hook(&self, _tick: u64, _state: &D::GlobalState) {}
+    fn post_step_hook(&mut self, _tick: u64, _state: &mut D::GlobalState) {}
 }
 
 /// The state of tasks undergoing execution.
@@ -578,7 +578,7 @@ where
         }
         self.block_on_planning(tick);
         self.execute_finished_tasks(tick);
-        self.executor_state.post_step_hook(tick, &self.state);
+        self.executor_state.post_step_hook(tick, &mut self.state);
 
         self.tick.fetch_add(1, Ordering::Relaxed);
         true

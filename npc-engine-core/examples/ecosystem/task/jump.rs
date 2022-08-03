@@ -61,10 +61,10 @@ impl Task<EcosystemDomain> for Jump {
     ) -> bool {
         let agent_state = state_diff.get_agent(agent).unwrap();
         debug_assert!(
-            agent_state.alive,
+            agent_state.alive(),
             "Task validity check called on a dead agent"
         );
-        if !agent_state.alive || agent_state.food <= 1 {
+        if !agent_state.alive() || agent_state.food <= 1 {
             return false;
         }
 

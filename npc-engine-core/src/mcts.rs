@@ -174,7 +174,12 @@ impl<D: Domain> MCTS<D> {
         loop {
             let node_agent = current_node.agent();
             let node_tick = current_node.tick();
-            let edge = if edges.expanded_tasks.len() == 1 {
+            let expanded_tasks_count = edges.expanded_tasks.len();
+            let edge = if expanded_tasks_count <= 1 {
+                if expanded_tasks_count == 0 {
+                    log::info!("{node_agent} has no possible tasks in search tree, returning fallback task");
+                    return D::fallback_task(self.root_agent);
+                }
                 let (task, edge) = edges.expanded_tasks.iter().next().unwrap();
                 log::trace!("[{depth}] T{node_tick} {node_agent} skipping {task:?}");
 
@@ -183,7 +188,12 @@ impl<D: Domain> MCTS<D> {
             } else {
                 let executed_task = task_history.get(&node_agent);
                 let executed_task = executed_task
-                    .unwrap_or_else(|| panic!("Found no task for {node_agent} is history"));
+                    .unwrap_or_else(||
+                        panic!(
+                            "Found no task for {node_agent} is history, but in planning it had multiple possible tasks: {:?}",
+                            edges.expanded_tasks.keys()
+                        )
+                    );
                 let task = &executed_task.task;
                 log::trace!("[{depth}] T{node_tick} {node_agent} executed {task:?}");
 

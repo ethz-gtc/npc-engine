@@ -6,6 +6,8 @@
 use core::time;
 #[allow(unused_imports)]
 use std::collections::HashMap;
+use std::fs::File;
+use std::io::prelude::*;
 use std::{collections::HashSet, iter, num::NonZeroU64, time::Duration};
 
 use behavior::world::WORLD_AGENT_ID;
@@ -30,10 +32,20 @@ mod map;
 mod state;
 mod task;
 
-#[derive(Default, Debug, Clone)]
+#[derive(Debug)]
 struct EcosystemExecutorState {
     herbivore_eat_count: u32,
     carnivore_eat_count: u32,
+    stat_file: Option<File>,
+}
+impl Default for EcosystemExecutorState {
+    fn default() -> Self {
+        Self {
+            herbivore_eat_count: 0,
+            carnivore_eat_count: 0,
+            stat_file: File::create("stats.txt").ok(),
+        }
+    }
 }
 impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
     fn create_initial_state(&self) -> GlobalState {
@@ -88,7 +100,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
                                 birth_date: 0,
                                 position: pos,
                                 food,
-                                alive: true,
+                                dead_tick: None,
                             },
                         );
                         agent_id += 1;
@@ -125,7 +137,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         // 		}
         // 	)
         // ]);
-        GlobalState { map, agents }
+        GlobalState::from_map_and_agents(map, agents)
     }
 
     fn init_task_queue(&self, state: &GlobalState) -> ActiveTasks<EcosystemDomain> {
@@ -146,7 +158,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
             || state
                 .agents
                 .get(&agent)
-                .map_or(false, |agent_state| agent_state.alive)
+                .map_or(false, |agent_state| agent_state.alive())
     }
 
     fn keep_execution(
@@ -158,13 +170,32 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         queue.len() > 1
     }
 
-    fn post_step_hook(&self, _tick: u64, state: &GlobalState) {
+    fn post_step_hook(&mut self, tick: u64, state: &mut GlobalState) {
+        // garbage collect dead agents
+        state.garbage_collect_deads(tick, TOMB_DURATION);
+        // show screen
+        let agents_count = state.agents_alive_count();
+        let grass_count = state.map.grass_count();
         print!(
             "\x1B[H\
-            🐄: {}🌿, 🐅: {}🍖\n\
+            T{tick}   🌿: {grass_count}, 🐄: {} ({}🌿), 🐅: {} ({}🍖)   Next: A{}  \n\
             {}",
-            self.herbivore_eat_count, self.carnivore_eat_count, *state
+            agents_count.0,
+            self.herbivore_eat_count,
+            agents_count.1,
+            self.carnivore_eat_count,
+            state.next_agent_id,
+            *state
         );
+        // write log
+        if let Some(file) = &mut self.stat_file {
+            writeln!(
+                file,
+                "{}, {}, {}",
+                grass_count, agents_count.0, agents_count.1
+            )
+            .expect("Cannot happened stats to file");
+        }
     }
 }
 

@@ -58,10 +58,10 @@ impl Task<EcosystemDomain> for EatGrass {
     ) -> bool {
         let agent_state = state_diff.get_agent(agent).unwrap();
         debug_assert!(
-            agent_state.alive,
+            agent_state.alive(),
             "Task validity check called on a dead agent"
         );
-        if !agent_state.alive {
+        if !agent_state.alive() {
             return false;
         }
         if !agent_state.food < HERBIVORE_MAX_FOOD {

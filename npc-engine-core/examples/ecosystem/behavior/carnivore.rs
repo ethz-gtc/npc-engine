@@ -48,7 +48,7 @@ impl Behavior<EcosystemDomain> for Carnivore {
             .get_agent(agent)
             .filter(|agent_state| {
                 // debug_assert!(agent_state.alive, "Behavior validity check called on a dead agent");
-                agent_state.alive && agent_state.ty == AgentType::Carnivore
+                agent_state.alive() && agent_state.ty == AgentType::Carnivore
             })
             .is_some()
     }

@@ -12,6 +12,11 @@ use npc_engine_core::{AgentId, StateDiffRef, StateDiffRefMut};
 use npc_engine_utils::{keep_second_mut, Coord2D};
 
 use crate::{
+    constants::{
+        CARNIVORE_FOOD_GIVEN_TO_BABY, CARNIVORE_MAX_FOOD, CARNIVORE_MIN_FOOD_FOR_REPRODUCTION,
+        CARNIVORE_REPRODUCTION_CYCLE_DURATION, HERBIVORE_FOOD_GIVEN_TO_BABY, HERBIVORE_MAX_FOOD,
+        HERBIVORE_MIN_FOOD_FOR_REPRODUCTION, HERBIVORE_REPRODUCTION_CYCLE_DURATION,
+    },
     domain::EcosystemDomain,
     map::{GridAccess, Map, Tile},
 };
@@ -21,6 +26,33 @@ pub enum AgentType {
     Herbivore,
     Carnivore,
 }
+impl AgentType {
+    #[allow(dead_code)]
+    pub(crate) fn max_food(&self) -> u32 {
+        match self {
+            AgentType::Herbivore => HERBIVORE_MAX_FOOD,
+            AgentType::Carnivore => CARNIVORE_MAX_FOOD,
+        }
+    }
+    pub(crate) fn reproduction_cycle_duration(&self) -> u64 {
+        match self {
+            AgentType::Herbivore => HERBIVORE_REPRODUCTION_CYCLE_DURATION,
+            AgentType::Carnivore => CARNIVORE_REPRODUCTION_CYCLE_DURATION,
+        }
+    }
+    pub(crate) fn min_food_for_reproduction(&self) -> u32 {
+        match self {
+            AgentType::Herbivore => HERBIVORE_MIN_FOOD_FOR_REPRODUCTION,
+            AgentType::Carnivore => CARNIVORE_MIN_FOOD_FOR_REPRODUCTION,
+        }
+    }
+    pub(crate) fn food_given_to_baby(&self) -> u32 {
+        match self {
+            AgentType::Herbivore => HERBIVORE_FOOD_GIVEN_TO_BABY,
+            AgentType::Carnivore => CARNIVORE_FOOD_GIVEN_TO_BABY,
+        }
+    }
+}
 
 #[derive(Debug, Hash, Clone, Eq, PartialEq)]
 pub struct AgentState {
@@ -28,9 +60,16 @@ pub struct AgentState {
     pub birth_date: u64,
     pub position: Coord2D,
     pub food: u32,
-    pub alive: bool,
+    pub dead_tick: Option<u64>,
 }
-impl AgentState {}
+impl AgentState {
+    pub(crate) fn alive(&self) -> bool {
+        self.dead_tick.is_none()
+    }
+    pub(crate) fn kill(&mut self, tick: u64) {
+        self.dead_tick = Some(tick)
+    }
+}
 pub type Agents = HashMap<AgentId, AgentState>;
 
 fn format_map_and_agents(
@@ -44,7 +83,7 @@ fn format_map_and_agents(
         agents_map
             .entry(agent_state.position)
             .or_insert_with(Vec::new)
-            .push((agent_state.ty, agent_state.alive));
+            .push((agent_state.ty, agent_state.alive()));
     }
     // iterate positions, showing agents if needed
     for (y, row) in map.0.iter().enumerate() {
@@ -93,8 +132,23 @@ fn format_map_and_agents(
 pub struct GlobalState {
     pub map: Map,
     pub agents: Agents,
+    pub next_agent_id: u32,
 }
 impl GlobalState {
+    pub fn from_map_and_agents(map: Map, agents: Agents) -> Self {
+        let next_agent_id = agents
+            .keys()
+            .copied()
+            .max_by(|x, y| x.0.cmp(&y.0))
+            .map_or(0, |max| max.0 + 1);
+        assert!(next_agent_id as usize >= agents.len());
+        Self {
+            map,
+            agents,
+            next_agent_id,
+        }
+    }
+
     pub fn get_agents_in_region(
         &self,
         center: Coord2D,
@@ -104,7 +158,33 @@ impl GlobalState {
             agent_state.position.largest_dim_dist(&center) <= radius
         })
     }
+
+    pub fn agents_alive_count(&self) -> (u32, u32) {
+        self.agents
+            .values()
+            .map(|agent| {
+                if agent.alive() {
+                    if agent.ty == AgentType::Herbivore {
+                        (1, 0)
+                    } else {
+                        (0, 1)
+                    }
+                } else {
+                    (0, 0)
+                }
+            })
+            .fold((0, 0), |acc, x| (acc.0 + x.0, acc.1 + x.1))
+    }
+
+    pub fn garbage_collect_deads(&mut self, tick: u64, tomb_duration: u64) {
+        self.agents.retain(|_, state| {
+            state
+                .dead_tick
+                .map_or(true, |dead_tick| tick <= dead_tick + tomb_duration)
+        })
+    }
 }
+
 impl Display for GlobalState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         format_map_and_agents(f, &self.map, &self.agents)
@@ -116,6 +196,12 @@ pub struct LocalState {
     pub origin: Coord2D,
     pub map: Map,
     pub agents: Agents,
+    pub next_agent_id: u32,
+}
+impl LocalState {
+    pub(crate) fn get_agents_ids(&self) -> impl Iterator<Item = AgentId> + '_ {
+        self.agents.iter().map(|(agent, _)| *agent)
+    }
 }
 impl Display for LocalState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -141,21 +227,40 @@ impl Default for MapDiff {
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Default)]
 pub struct Diff {
     pub map: MapDiff,
-    pub agents: Vec<(AgentId, AgentState)>,
+    pub cur_agents: Vec<(AgentId, AgentState)>,
+    pub new_agents: Vec<(AgentId, AgentState)>,
+    pub next_agent_id: Option<u32>,
 }
 impl Diff {
     fn has_agent(&self, agent: AgentId) -> bool {
         self.get_agent(agent).is_some()
     }
     fn get_agent(&self, agent: AgentId) -> Option<&AgentState> {
-        self.agents
+        self.cur_agents
             .iter()
             .find_map(|(id, state)| if *id == agent { Some(state) } else { None })
+            .or_else(|| {
+                self.new_agents
+                    .iter()
+                    .find_map(|(id, state)| if *id == agent { Some(state) } else { None })
+            })
     }
     fn get_agent_mut(&mut self, agent: AgentId) -> Option<&mut AgentState> {
-        self.agents
+        self.cur_agents
             .iter_mut()
             .find_map(|(id, state)| if *id == agent { Some(state) } else { None })
+            .or_else(|| {
+                self.new_agents
+                    .iter_mut()
+                    .find_map(|(id, state)| if *id == agent { Some(state) } else { None })
+            })
+    }
+    #[allow(dead_code)]
+    pub(crate) fn get_cur_agents_ids(&self) -> impl Iterator<Item = AgentId> + '_ {
+        self.cur_agents.iter().map(|(agent, _)| *agent)
+    }
+    pub(crate) fn get_new_agents_ids(&self) -> impl Iterator<Item = AgentId> + '_ {
+        self.new_agents.iter().map(|(agent, _)| *agent)
     }
 }
 
@@ -172,6 +277,7 @@ pub trait Access {
             }
         })
     }
+    fn list_agents(&self) -> Vec<AgentId>;
     fn get_agent(&self, agent: AgentId) -> Option<&AgentState>;
     fn get_agent_at(&self, position: Coord2D) -> Option<(AgentId, &AgentState)>;
     fn get_first_adjacent_agent(&self, position: Coord2D, n: u8) -> Option<(AgentId, &AgentState)> {
@@ -206,6 +312,12 @@ impl Access for StateDiffRef<'_, EcosystemDomain> {
             .copied()
     }
 
+    fn list_agents(&self) -> Vec<AgentId> {
+        self.initial_state
+            .get_agents_ids()
+            .chain(self.diff.get_new_agents_ids())
+            .collect()
+    }
     fn get_agent(&self, agent: AgentId) -> Option<&AgentState> {
         self.diff
             .get_agent(agent)
@@ -224,10 +336,16 @@ impl Access for StateDiffRef<'_, EcosystemDomain> {
                 None
             }
         }
-        self.diff
-            .agents
-            .iter()
-            .find_map(|(id, state)| filter_position(position, *id, state))
+        fn get_agent_at_position(
+            position: Coord2D,
+            candidates: &Vec<(AgentId, AgentState)>,
+        ) -> Option<(AgentId, &'_ AgentState)> {
+            candidates
+                .iter()
+                .find_map(|(id, state)| filter_position(position, *id, state))
+        }
+        get_agent_at_position(position, &self.diff.cur_agents)
+            .or_else(|| get_agent_at_position(position, &self.diff.new_agents))
             .or_else(|| {
                 self.initial_state.agents.iter().find_map(|(id, state)| {
                     if self.diff.get_agent(*id).is_some() {
@@ -254,6 +372,7 @@ where
         self.get_agent_mut(agent)
             .map(|agent_state| (agent, agent_state))
     }
+    fn new_agent(&mut self, state: AgentState) -> AgentId;
 }
 
 impl AccessMut for StateDiffRefMut<'_, EcosystemDomain> {
@@ -265,8 +384,8 @@ impl AccessMut for StateDiffRefMut<'_, EcosystemDomain> {
                 .agents
                 .get(&agent)
                 .and_then(|agent_state| {
-                    self.diff.agents.push((agent, agent_state.clone()));
-                    self.diff.agents.last_mut().map(keep_second_mut)
+                    self.diff.cur_agents.push((agent, agent_state.clone()));
+                    self.diff.cur_agents.last_mut().map(keep_second_mut)
                 })
         }
     }
@@ -277,6 +396,16 @@ impl AccessMut for StateDiffRefMut<'_, EcosystemDomain> {
         } else {
             self.diff.map.tiles.insert(position, tile);
         }
+    }
+
+    fn new_agent(&mut self, state: AgentState) -> AgentId {
+        let agent_id = self
+            .diff
+            .next_agent_id
+            .unwrap_or_else(|| self.initial_state.next_agent_id);
+        self.diff.next_agent_id = Some(agent_id + 1);
+        self.diff.new_agents.push((AgentId(agent_id), state));
+        AgentId(agent_id)
     }
 }
 
@@ -302,7 +431,7 @@ mod tests {
                     birth_date: 0,
                     position: Coord2D::new(1, 0),
                     food: 2,
-                    alive: true,
+                    dead_tick: None,
                 },
             ),
             (
@@ -312,7 +441,7 @@ mod tests {
                     birth_date: 2,
                     position: Coord2D::new(3, 2),
                     food: 5,
-                    alive: true,
+                    dead_tick: None,
                 },
             ),
         ]);
@@ -320,6 +449,7 @@ mod tests {
             origin: Coord2D::default(),
             map,
             agents,
+            next_agent_id: 4,
         }
     }
 
@@ -379,16 +509,18 @@ mod tests {
                 (Coord2D::new(1, 0), Tile::Grass(1)),
                 (Coord2D::new(3, 1), Tile::Grass(2)),
             ])),
-            agents: vec![(
+            cur_agents: vec![(
                 AgentId(3),
                 AgentState {
                     ty: AgentType::Carnivore,
                     birth_date: 2,
                     position: Coord2D::new(3, 1),
                     food: 6,
-                    alive: true,
+                    dead_tick: None,
                 },
             )],
+            new_agents: vec![],
+            next_agent_id: None,
         };
         let state_diff = StateDiffRef::new(&state, &diff);
         assert_eq!(
@@ -430,12 +562,12 @@ mod tests {
         let mut diff = Diff::default();
         let mut state_diff_mut = StateDiffRefMut::new(&state, &mut diff);
         state_diff_mut.get_agent_mut(AgentId(1)).unwrap().food = 3;
-        assert_eq!(diff.agents.len(), 1);
-        assert_eq!(diff.agents[0].0, AgentId(1));
-        assert_eq!(diff.agents[0].1.food, 3);
+        assert_eq!(diff.cur_agents.len(), 1);
+        assert_eq!(diff.cur_agents[0].0, AgentId(1));
+        assert_eq!(diff.cur_agents[0].1.food, 3);
         let mut state_diff_mut = StateDiffRefMut::new(&state, &mut diff);
         *state_diff_mut.get_agent_pos_mut(AgentId(1)).unwrap() = Coord2D::new(2, 0);
-        assert_eq!(diff.agents[0].1.position, Coord2D::new(2, 0));
+        assert_eq!(diff.cur_agents[0].1.position, Coord2D::new(2, 0));
         let mut state_diff_mut = StateDiffRefMut::new(&state, &mut diff);
         state_diff_mut.set_tile(Coord2D::new(1, 0), Tile::Grass(0));
         state_diff_mut.set_tile(Coord2D::new(4, 2), Tile::Grass(2));
@@ -452,6 +584,7 @@ mod tests {
         let state = GlobalState {
             map: state.map,
             agents: state.agents,
+            next_agent_id: state.next_agent_id,
         };
         let get_agents = |center, radius| {
             state

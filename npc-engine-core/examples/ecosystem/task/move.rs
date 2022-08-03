@@ -59,10 +59,10 @@ impl Task<EcosystemDomain> for Move {
     ) -> bool {
         let agent_state = state_diff.get_agent(agent).unwrap();
         debug_assert!(
-            agent_state.alive,
+            agent_state.alive(),
             "Task validity check called on a dead agent"
         );
-        if !agent_state.alive {
+        if !agent_state.alive() {
             return false;
         }
         let target_pos = DirConv::apply(self.0, agent_state.position);
