@@ -48,6 +48,8 @@ impl Default for EcosystemExecutorState {
     }
 }
 impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
+    const MINIMUM_VISITS: u32 = 50;
+
     fn create_initial_state(&self) -> GlobalState {
         let mut map = Map::new(MAP_SIZE, Tile::Grass(0));
 

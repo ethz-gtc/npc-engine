@@ -6,7 +6,7 @@
 use std::num::NonZeroU64;
 
 /// A functor that returns whether the planner must do an early stop.
-pub type EarlyStopCondition = dyn Fn() -> bool + Send;
+pub type EarlyStopCondition = dyn Fn(u32) -> bool + Send;
 
 /// The configuration of an MCTS instance.
 #[derive(Clone, Debug, Default)]

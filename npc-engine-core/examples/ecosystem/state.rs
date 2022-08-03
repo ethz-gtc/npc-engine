@@ -325,11 +325,11 @@ impl Access for StateDiffRef<'_, EcosystemDomain> {
     }
 
     fn get_agent_at(&self, position: Coord2D) -> Option<(AgentId, &AgentState)> {
-        fn filter_position<'l>(
+        fn filter_position(
             position: Coord2D,
             id: AgentId,
-            state: &'l AgentState,
-        ) -> Option<(AgentId, &'l AgentState)> {
+            state: &AgentState,
+        ) -> Option<(AgentId, &AgentState)> {
             if state.position == position {
                 Some((id, state))
             } else {
@@ -338,7 +338,7 @@ impl Access for StateDiffRef<'_, EcosystemDomain> {
         }
         fn get_agent_at_position(
             position: Coord2D,
-            candidates: &Vec<(AgentId, AgentState)>,
+            candidates: &[(AgentId, AgentState)],
         ) -> Option<(AgentId, &'_ AgentState)> {
             candidates
                 .iter()

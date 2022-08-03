@@ -280,7 +280,7 @@ impl<D: Domain> MCTS<D> {
 
             // Early stopping if told so by some user-defined condition
             if let Some(early_stop_condition) = &self.early_stop_condition {
-                if early_stop_condition() {
+                if early_stop_condition(i) {
                     log::info!("{:?} early stops planning after {} visits", self.agent(), i);
                     break;
                 }

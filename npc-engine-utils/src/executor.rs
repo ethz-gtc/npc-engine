@@ -105,6 +105,8 @@ pub trait ExecutorStateLocal<D: Domain> {
 /// and [init_task_queue](Self::init_task_queue),
 /// to create the initial state and build the initial list of tasks from it.
 pub trait ExecutorStateGlobal<D: GlobalDomain> {
+    /// The minimum number of visits to at least do, even when under heavy load
+    const MINIMUM_VISITS: u32;
     /// Creates the initial world state.
     fn create_initial_state(&self) -> D::GlobalState;
     /// Fills the initial queue of tasks.
@@ -414,8 +416,9 @@ where
             .planning_task_duration
             .expect("Planning task must have non-zero duration for threaded executor");
         let tick_atomic = self.tick.clone();
-        let early_stop_condition: Option<Box<EarlyStopCondition>> = Some(Box::new(move || {
-            tick_atomic.load(Ordering::Relaxed) >= tick + planning_task_duration.get() - 1
+        let early_stop_condition: Option<Box<EarlyStopCondition>> = Some(Box::new(move |visits| {
+            visits >= S::MINIMUM_VISITS
+                && tick_atomic.load(Ordering::Relaxed) >= tick + planning_task_duration.get() - 1
         }));
         MCTS::<D>::new_with_tasks(
             D::derive_local_state(&self.state, active_agent),
@@ -507,6 +510,7 @@ where
                 self.executor_state,
                 |new_agents_tasks| {
                     for new_task in new_agents_tasks.iter() {
+                        debug_assert!(!self.task_history.contains_key(&new_task.agent));
                         self.task_history.insert(new_task.agent, new_task.clone());
                     }
                 },
@@ -726,6 +730,7 @@ mod tests {
 
         struct TrivialExecutorState;
         impl ExecutorStateGlobal<TrivialDomain> for TrivialExecutorState {
+            const MINIMUM_VISITS: u32 = 0;
             fn create_initial_state(&self) {}
             fn init_task_queue(&self, _: &()) -> ActiveTasks<TrivialDomain> {
                 vec![ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask))]
