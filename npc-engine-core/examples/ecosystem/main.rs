@@ -82,7 +82,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         // plants
         add_random_and_hotspots(PLANT_RANDOM_COUNT, PLANT_HOTSPOT_COUNT, &|| {
             let mut rng = rand::thread_rng();
-            Tile::Grass(rng.gen_range(0..=3))
+            Tile::Grass(rng.gen_range(2..=3))
         });
 
         // helper for animals
@@ -102,7 +102,7 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
                                 birth_date: 0,
                                 position: pos,
                                 food,
-                                dead_tick: None,
+                                death_date: None,
                             },
                         );
                         agent_id += 1;

@@ -106,7 +106,8 @@ impl Domain for EcosystemDomain {
             } else {
                 "🕇".into()
             };
-            s += &format!("{}:{}{}, ", agent.0, agent_state.position, food);
+            use std::fmt::Write;
+            write!(s, "{}:{}{}, ", agent.0, agent_state.position, food).unwrap();
         }
         s
     }
@@ -227,7 +228,7 @@ mod tests {
                     birth_date: 0,
                     position: Coord2D::new(1, 0),
                     food: 2,
-                    dead_tick: None,
+                    death_date: None,
                 },
             ),
             (
@@ -237,7 +238,7 @@ mod tests {
                     birth_date: 2,
                     position: Coord2D::new(3, 2),
                     food: 5,
-                    dead_tick: None,
+                    death_date: None,
                 },
             ),
         ]);

@@ -60,14 +60,14 @@ pub struct AgentState {
     pub birth_date: u64,
     pub position: Coord2D,
     pub food: u32,
-    pub dead_tick: Option<u64>,
+    pub death_date: Option<u64>,
 }
 impl AgentState {
     pub(crate) fn alive(&self) -> bool {
-        self.dead_tick.is_none()
+        self.death_date.is_none()
     }
     pub(crate) fn kill(&mut self, tick: u64) {
-        self.dead_tick = Some(tick)
+        self.death_date = Some(tick)
     }
 }
 pub type Agents = HashMap<AgentId, AgentState>;
@@ -111,10 +111,10 @@ fn format_map_and_agents(
                 match best {
                     Some((AgentType::Herbivore, true)) => "🐄",
                     Some((AgentType::Carnivore, true)) => "🐅",
-                    #[cfg(target_os = "macos")]
-                    Some((AgentType::Herbivore, false)) => "☠️ ",
-                    #[cfg(not(target_os = "macos"))]
+                    #[cfg(target_os = "windows")]
                     Some((AgentType::Herbivore, false)) => "☠️",
+                    #[cfg(not(target_os = "windows"))]
+                    Some((AgentType::Herbivore, false)) => "☠️ ",
                     Some((AgentType::Carnivore, false)) => "💀",
                     None => "  ",
                 }
@@ -179,7 +179,7 @@ impl GlobalState {
     pub fn garbage_collect_deads(&mut self, tick: u64, tomb_duration: u64) {
         self.agents.retain(|_, state| {
             state
-                .dead_tick
+                .death_date
                 .map_or(true, |dead_tick| tick <= dead_tick + tomb_duration)
         })
     }
@@ -402,7 +402,7 @@ impl AccessMut for StateDiffRefMut<'_, EcosystemDomain> {
         let agent_id = self
             .diff
             .next_agent_id
-            .unwrap_or_else(|| self.initial_state.next_agent_id);
+            .unwrap_or(self.initial_state.next_agent_id);
         self.diff.next_agent_id = Some(agent_id + 1);
         self.diff.new_agents.push((AgentId(agent_id), state));
         AgentId(agent_id)
@@ -431,7 +431,7 @@ mod tests {
                     birth_date: 0,
                     position: Coord2D::new(1, 0),
                     food: 2,
-                    dead_tick: None,
+                    death_date: None,
                 },
             ),
             (
@@ -441,7 +441,7 @@ mod tests {
                     birth_date: 2,
                     position: Coord2D::new(3, 2),
                     food: 5,
-                    dead_tick: None,
+                    death_date: None,
                 },
             ),
         ]);
@@ -516,7 +516,7 @@ mod tests {
                     birth_date: 2,
                     position: Coord2D::new(3, 1),
                     food: 6,
-                    dead_tick: None,
+                    death_date: None,
                 },
             )],
             new_agents: vec![],

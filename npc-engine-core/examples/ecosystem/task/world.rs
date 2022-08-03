@@ -54,23 +54,38 @@ impl Task<EcosystemDomain> for WorldStep {
             let baby_season = tick % state.ty.reproduction_cycle_duration() < WORLD_TASK_DURATION;
             if baby_season && state.food >= state.ty.min_food_for_reproduction() {
                 let parent_position = state.position;
+                let parent_ty = state.ty;
+                // if agent of same type around us, too crowded, do not reproduce
+                let mut alone = true;
                 for direction in DIRECTIONS {
-                    let baby_position = DirConv::apply(direction, parent_position);
-                    if state_diff.is_position_free(baby_position) {
-                        // modify parent
-                        let parent_state = state_diff.get_agent_mut(agent).unwrap();
-                        let food = parent_state.ty.food_given_to_baby();
-                        parent_state.food -= food;
-                        let ty = parent_state.ty;
-                        // create child
-                        state_diff.new_agent(AgentState {
-                            ty,
-                            birth_date: tick,
-                            position: baby_position,
-                            food,
-                            dead_tick: None,
-                        });
+                    let neighbor_position = DirConv::apply(direction, parent_position);
+                    if state_diff
+                        .get_agent_at(neighbor_position)
+                        .map_or(false, |(_, agent)| agent.ty == parent_ty)
+                    {
+                        alone = false;
                         break;
+                    }
+                }
+                // if alone, attempt to reproduce
+                if alone {
+                    for direction in DIRECTIONS {
+                        let baby_position = DirConv::apply(direction, parent_position);
+                        if state_diff.is_position_free(baby_position) {
+                            // modify parent
+                            let parent_state = state_diff.get_agent_mut(agent).unwrap();
+                            let food = parent_state.ty.food_given_to_baby();
+                            parent_state.food -= food;
+                            // create child
+                            state_diff.new_agent(AgentState {
+                                ty: parent_ty,
+                                birth_date: tick,
+                                position: baby_position,
+                                food,
+                                death_date: None,
+                            });
+                            break;
+                        }
                     }
                 }
             }
