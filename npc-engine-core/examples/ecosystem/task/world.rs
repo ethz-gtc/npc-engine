@@ -36,9 +36,9 @@ impl Task<EcosystemDomain> for WorldStep {
         mut state_diff: StateDiffRefMut<EcosystemDomain>,
         _agent: AgentId,
     ) -> Option<Box<dyn Task<EcosystemDomain>>> {
-        // 1. consume food and make kids if right time, every time
+        // 1. Consume food, every time, and make kids, if it is the right time
         for agent in state_diff.list_agents() {
-            // consume food
+            // Consume food
             let state = state_diff.get_agent_mut(agent).unwrap();
             if state.food > 0 {
                 state.food -= 1;
@@ -46,7 +46,11 @@ impl Task<EcosystemDomain> for WorldStep {
                     state.kill(tick)
                 }
             }
-            // make baby
+            // Make baby
+            // Note: It is important that only a single agent creates new agent, otherwise
+            // there is a risk of collision in AgentId. In that case, either an atomic could be used,
+            // but the agent id space will be consumed fast, or some form of agent id renaming will
+            // need to be implemented.
             let baby_season = tick % state.ty.reproduction_cycle_duration() < WORLD_TASK_DURATION;
             if baby_season && state.food >= state.ty.min_food_for_reproduction() {
                 let parent_position = state.position;
@@ -71,7 +75,7 @@ impl Task<EcosystemDomain> for WorldStep {
                 }
             }
         }
-        // 2. grow grass, if it is time (1/WORLD_GRASS_REGROW_FREQUENCY of times)
+        // 2. Grow grass, if it is time (1/WORLD_GRASS_REGROW_PERIOD of times)
         let width = state_diff.map_width();
         let height = state_diff.map_height();
         for y in 0..height {
@@ -95,11 +99,9 @@ impl Task<EcosystemDomain> for WorldStep {
                                 _ => None,
                             } {
                                 let neighbor_position = Coord2D::from_tuple(neighbor);
-                                match state_diff.get_tile(neighbor_position) {
-                                    Some(Tile::Grass(0)) => {
-                                        state_diff.set_tile(neighbor_position, Tile::Grass(1))
-                                    }
-                                    _ => {}
+                                if let Some(Tile::Grass(0)) = state_diff.get_tile(neighbor_position)
+                                {
+                                    state_diff.set_tile(neighbor_position, Tile::Grass(1))
                                 }
                             }
                         }
