@@ -3,12 +3,11 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use core::time;
 #[allow(unused_imports)]
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-use std::{collections::HashSet, iter, num::NonZeroU64, time::Duration};
+use std::{collections::HashSet, iter, num::NonZeroU64};
 
 use behavior::world::WORLD_AGENT_ID;
 use constants::*;
@@ -48,7 +47,7 @@ impl Default for EcosystemExecutorState {
     }
 }
 impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
-    const MINIMUM_VISITS: u32 = 50;
+    const MINIMUM_VISITS: u32 = PLANNING_MINIMUM_VISITS;
 
     fn create_initial_state(&self) -> GlobalState {
         let mut map = Map::new(MAP_SIZE, Tile::Grass(0));
@@ -232,12 +231,12 @@ fn main() {
     // These parameters control the MCTS algorithm.
     let mcts_config = MCTSConfiguration {
         allow_invalid_tasks: false,
-        visits: 1000,
-        depth: 50,
-        exploration: 1.414,
-        discount_hl: 17.,
+        visits: PLANNING_VISITS,
+        depth: PLANNING_DEPTH,
+        exploration: PLANNING_EXPLORATION,
+        discount_hl: PLANNING_DISCOUNT_HL,
         seed: None,
-        planning_task_duration: Some(NonZeroU64::new(3).unwrap()),
+        planning_task_duration: Some(NonZeroU64::new(PLANNING_DURATION).unwrap()),
     };
 
     // Enable logging if specified in the RUST_LOG environment variable.
@@ -250,6 +249,5 @@ fn main() {
     let mut executor_state = EcosystemExecutorState::default();
 
     // Run as long as there is at least one agent alive.
-    const ONE_FRAME: Duration = time::Duration::from_millis(40);
-    run_threaded_executor(&mcts_config, &mut executor_state, ONE_FRAME);
+    run_threaded_executor(&mcts_config, &mut executor_state, EXECUTION_STEP_DURATION);
 }

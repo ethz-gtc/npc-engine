@@ -58,6 +58,18 @@ impl<
 ///
 /// If you have no special need, you can just implement this trait on an empty struct:
 /// ```
+/// # struct MyDomain;
+/// # use npc_engine_core::{Domain, Behavior, StateDiffRef, AgentId, AgentValue};
+/// # use std::collections::BTreeSet;
+/// # impl Domain for MyDomain {
+/// #     type State = ();
+/// #     type Diff = ();
+/// #     type DisplayAction = ();
+/// #     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] { &[] }
+/// #     fn get_current_value(_tick: u64, _state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue { AgentValue::new(0.).unwrap() }
+/// #     fn update_visible_agents(_start_tick: u64, _tick: u64, _state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {}
+/// # }
+/// # use npc_engine_utils::ExecutorState;
 /// struct MyExecutorState;
 /// impl ExecutorState<MyDomain> for MyExecutorState {}
 /// ```

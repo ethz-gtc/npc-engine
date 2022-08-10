@@ -132,23 +132,34 @@ A 2-D ecosystem simulation in which herbivores (🐄) and carnivores (🐅) eat 
 The world consists of a tilemap where each tile can be empty (dark green), an obstacle (gray), or grass (green).
 A grass tile can provide 1-3 units of food, visualized with increasing saturation levels.
 By eating, a herbivore reduces the amount of food of the tile it's standing on by 1.
-Herbivores are born with 5 units of food, and can store up to 5 units of food.
+Herbivores are born with a given units of food, and can store a limited units of food.
 Carnivores can eat herbivores on an adjacent tile or one tile away.
 They can also jump to one tile away, including over other agents, but not over obstacles, at a cost of 1 additional unit of food.
-Carnivores are born with 10 units of food, and can store up to 10 units of food.
+Carnivores are born with a given units of food, and can store a limited units of food.
 When agents eat, their stored food are resplenished to their maximum amount.
-Every 10 frames, all agents consume one unit of food.
+Periodically, all agents consume one unit of food.
 If they do not have food any more, they die.
 
 All agents plan in parallel in a multi-threaded way on their own partial world views.
-The planning lasts 3 frames, and other actions are instantaneous.
-Agents see the map up to a distance of 8 tiles and consider other agents up to a distance of 3, respectively 6 tiles for herbivores, respectively carnivores.
-When planning, agents only consider the 3 closest other agents, if there are more than 3.
-They aim at 1000 visits per planning, but if not enough computational power is available, planning might end earlier.
+The planning lasts a fixed number of frames, and other actions are instantaneous.
+Agents see the map up to a limited distance and also consider other agents up to a limited distance, typically lower than the first one.
+When planning, agents only consider a limited number of closest other agents, event if it sees more than these.
+Agents aim at a given number of visits per planning, but if not enough computational power is available, planning might end earlier.
 In that case, the plan quality degrades.
-The simulation runs at 25 frames per second.
+The simulation targets a certain number of frames per second.
+A minimum number of visits per agents is ensured, if there is not enough computational power even for these, the simulation will slow down.
 
-A world agent, with only one "step" action, manages the decrease of food per agent, every 10 frames; and the regrow of the grass, for tiles having 1 or 2 unit of food, every 30 frames.
+A world agent, with only one "step" action, periodically decreases the amount of food per animal agent, regrows the grass, and spawn animals' children.
+These periods differ.
+
+The exact domain, planning and simulation parameters are available in file [`constants.rs`](npc-engine-core/examples/ecosystem/constants.rs).
+
+The simulation stops if all agents die.
+After running the simulation, one can plot the statistics of the ecosystem over time with the following command (assuming you have Python3, Numpy and Matplotlib installed):
+
+```
+npc-engine-core/examples/ecosystem/plot_ecosystem_stats.py
+```
 
 Source directory: [`ecosystem`](npc-engine-core/examples/ecosystem/)
 
