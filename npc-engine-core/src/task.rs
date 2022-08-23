@@ -10,7 +10,7 @@ use std::{
 
 use downcast_rs::{impl_downcast, Downcast};
 
-use crate::{impl_task_boxed_methods, AgentId, Domain, StateDiffRef, StateDiffRefMut};
+use crate::{impl_task_boxed_methods, Context, ContextMut, Domain};
 
 /// The duration of a task, in ticks.
 pub type TaskDuration = u64;
@@ -34,23 +34,18 @@ pub fn debug_name_to_filename_safe(debug_name: &str) -> String {
 /// as this would lead to self-looping nodes in the planner.
 pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
     /// Returns the relative weight of the task for the given agent in the given tick and world state, by default weight is 1.0.
-    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<D>) -> f32 {
         1.0
     }
 
     /// Returns the duration of the task, for a given agent in a given tick and world state.
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration;
+    fn duration(&self, ctx: Context<D>) -> TaskDuration;
 
     /// Executes one step of the task for the given agent on the given tick and world state.
-    fn execute(
-        &self,
-        tick: u64,
-        state_diff: StateDiffRefMut<D>,
-        agent: AgentId,
-    ) -> Option<Box<dyn Task<D>>>;
+    fn execute(&self, ctx: ContextMut<D>) -> Option<Box<dyn Task<D>>>;
 
     /// Returns if the task is valid for the given agent in the given tick and world state.
-    fn is_valid(&self, tick: u64, state_diff: StateDiffRef<D>, agent: AgentId) -> bool;
+    fn is_valid(&self, ctx: Context<D>) -> bool;
 
     /// Returns the display actions corresponding to this task.
     fn display_action(&self) -> D::DisplayAction;
@@ -79,24 +74,19 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
 pub struct IdleTask;
 
 impl<D: Domain> Task<D> for IdleTask {
-    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<D>) -> f32 {
         1f32
     }
 
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration {
+    fn duration(&self, _ctx: Context<D>) -> TaskDuration {
         1
     }
 
-    fn execute(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRefMut<D>,
-        _agent: AgentId,
-    ) -> Option<Box<dyn Task<D>>> {
+    fn execute(&self, _ctx: ContextMut<D>) -> Option<Box<dyn Task<D>>> {
         None
     }
 
-    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<D>) -> bool {
         true
     }
 
@@ -115,24 +105,19 @@ pub struct PlanningTask(
 );
 
 impl<D: Domain> Task<D> for PlanningTask {
-    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<D>) -> f32 {
         1f32
     }
 
-    fn duration(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> TaskDuration {
+    fn duration(&self, _ctx: Context<D>) -> TaskDuration {
         self.0.get()
     }
 
-    fn execute(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRefMut<D>,
-        _agent: AgentId,
-    ) -> Option<Box<dyn Task<D>>> {
+    fn execute(&self, _ctx: ContextMut<D>) -> Option<Box<dyn Task<D>>> {
         None
     }
 
-    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<D>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<D>) -> bool {
         true
     }
 

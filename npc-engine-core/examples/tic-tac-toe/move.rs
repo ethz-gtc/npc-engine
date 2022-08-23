@@ -6,8 +6,7 @@
 use std::fmt;
 
 use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, Behavior, IdleTask, StateDiffRef, StateDiffRefMut, Task,
-    TaskDuration,
+    impl_task_boxed_methods, Behavior, Context, ContextMut, IdleTask, Task, TaskDuration,
 };
 
 use crate::{
@@ -28,30 +27,20 @@ impl std::fmt::Display for Move {
 }
 
 impl Task<TicTacToe> for Move {
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<TicTacToe>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<TicTacToe>) -> TaskDuration {
         // Moves affect the board instantly
         0
     }
 
-    fn execute(
-        &self,
-        _tick: u64,
-        state_diff: StateDiffRefMut<TicTacToe>,
-        agent: AgentId,
-    ) -> Option<Box<dyn Task<TicTacToe>>> {
-        let diff = if let Some(diff) = state_diff.diff {
+    fn execute(&self, ctx: ContextMut<TicTacToe>) -> Option<Box<dyn Task<TicTacToe>>> {
+        let diff = if let Some(diff) = ctx.state_diff.diff {
             diff
         } else {
-            *state_diff.diff = Some(0);
-            &mut *state_diff.diff.as_mut().unwrap()
+            *ctx.state_diff.diff = Some(0);
+            &mut *ctx.state_diff.diff.as_mut().unwrap()
         };
-        diff.set(self.x, self.y, Cell::Player(Player::from_agent(agent)));
-        assert!(state_diff.diff.is_some());
+        diff.set(self.x, self.y, Cell::Player(Player::from_agent(ctx.agent)));
+        assert!(ctx.state_diff.diff.is_some());
         // After every move, one has to wait one's next turn
         Some(Box::new(IdleTask))
     }
@@ -60,8 +49,8 @@ impl Task<TicTacToe> for Move {
         DisplayAction(Some(self.clone()))
     }
 
-    fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> bool {
-        let state = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
+    fn is_valid(&self, ctx: Context<TicTacToe>) -> bool {
+        let state = *ctx.state_diff.initial_state | ctx.state_diff.diff.unwrap_or(0);
         state.winner().is_none() && state.get(self.x, self.y) == Cell::Empty
     }
 
@@ -79,29 +68,23 @@ impl fmt::Debug for Move {
 
 pub struct MoveBehavior;
 impl Behavior<TicTacToe> for MoveBehavior {
-    fn add_own_tasks(
-        &self,
-        tick: u64,
-        state_diff: StateDiffRef<TicTacToe>,
-        agent: AgentId,
-        tasks: &mut Vec<Box<dyn Task<TicTacToe>>>,
-    ) {
+    fn add_own_tasks(&self, ctx: Context<TicTacToe>, tasks: &mut Vec<Box<dyn Task<TicTacToe>>>) {
         // if the game is already ended, no move are valid
-        let board = *state_diff.initial_state | state_diff.diff.unwrap_or(0);
+        let board = *ctx.state_diff.initial_state | ctx.state_diff.diff.unwrap_or(0);
         if board.winner().is_some() {
             return;
         }
         for x in C_RANGE {
             for y in C_RANGE {
                 let task = Move { x, y };
-                if task.is_valid(tick, state_diff, agent) {
+                if task.is_valid(ctx) {
                     tasks.push(Box::new(task));
                 }
             }
         }
     }
 
-    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TicTacToe>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<TicTacToe>) -> bool {
         true
     }
 }

@@ -6,8 +6,7 @@
 use std::hash::Hash;
 
 use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
-    TaskDuration,
+    impl_task_boxed_methods, Context, ContextMut, Domain, IdleTask, Task, TaskDuration,
 };
 
 use crate::{config, Action, Lumberjacks, WorldStateMut};
@@ -16,25 +15,16 @@ use crate::{config, Action, Lumberjacks, WorldStateMut};
 pub struct Wait;
 
 impl Task<Lumberjacks> for Wait {
-    fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<Lumberjacks>) -> f32 {
         config().action_weights.wait
     }
 
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<Lumberjacks>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<Lumberjacks>) -> TaskDuration {
         0
     }
 
-    fn execute(
-        &self,
-        _tick: u64,
-        mut state_diff: StateDiffRefMut<Lumberjacks>,
-        _agent: AgentId,
-    ) -> Option<Box<dyn Task<Lumberjacks>>> {
+    fn execute(&self, ctx: ContextMut<Lumberjacks>) -> Option<Box<dyn Task<Lumberjacks>>> {
+        let ContextMut { mut state_diff, .. } = ctx;
         state_diff.increment_time();
 
         Some(Box::new(IdleTask))
@@ -44,7 +34,7 @@ impl Task<Lumberjacks> for Wait {
         Action::Wait
     }
 
-    fn is_valid(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<Lumberjacks>) -> bool {
         true
     }
 

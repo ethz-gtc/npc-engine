@@ -14,8 +14,8 @@ use ggez::graphics::{Image, Text};
 use ggez::input::keyboard::KeyCode;
 use ggez::{graphics, input::keyboard};
 use ggez::{Context, GameResult};
+use npc_engine_core::ContextMut;
 use npc_engine_core::MCTSConfiguration;
-use npc_engine_core::StateDiffRefMut;
 use npc_engine_core::{AgentId, Task, MCTS};
 use npc_engine_utils::GlobalDomain;
 
@@ -286,11 +286,8 @@ impl GameState {
         });
 
         let mut diff = WorldDiff::default();
-        let new_objective = objective.execute(
-            0,
-            StateDiffRefMut::new(mcts.initial_state(), &mut diff),
-            agent,
-        );
+        let mcts_ctx = ContextMut::with_state_and_diff(0, mcts.initial_state(), &mut diff, agent);
+        let new_objective = objective.execute(mcts_ctx);
         Lumberjacks::apply(world, mcts.initial_state(), &diff);
         world.actions.insert(agent, objective.display_action());
         new_objective.map(|objective| self.objectives.insert(agent, objective));

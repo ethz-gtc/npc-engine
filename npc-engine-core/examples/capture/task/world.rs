@@ -3,9 +3,7 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, StateDiffRef, StateDiffRefMut, Task, TaskDuration,
-};
+use npc_engine_core::{impl_task_boxed_methods, Context, ContextMut, Task, TaskDuration};
 use npc_engine_utils::OptionDiffDomain;
 
 use crate::{
@@ -18,22 +16,12 @@ use crate::{
 pub struct WorldStep;
 
 impl Task<CaptureDomain> for WorldStep {
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<CaptureDomain>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<CaptureDomain>) -> TaskDuration {
         1
     }
 
-    fn execute(
-        &self,
-        tick: u64,
-        state_diff: StateDiffRefMut<CaptureDomain>,
-        _agent: AgentId,
-    ) -> Option<Box<dyn Task<CaptureDomain>>> {
-        let diff = CaptureDomain::get_cur_state_mut(state_diff);
+    fn execute(&self, ctx: ContextMut<CaptureDomain>) -> Option<Box<dyn Task<CaptureDomain>>> {
+        let diff = CaptureDomain::get_cur_state_mut(ctx.state_diff);
         // for each captured point, increment the score of the corresponding agent
         for capture_point in &diff.capture_points {
             if let CapturePointState::Captured(agent) = capture_point {
@@ -43,7 +31,7 @@ impl Task<CaptureDomain> for WorldStep {
             }
         }
         // respawn if timeout
-        let now = (tick & 0xff) as u8;
+        let now = (ctx.tick & 0xff) as u8;
         if respawn_timeout_ammo(now, diff.ammo_tick) {
             diff.ammo = 1;
             diff.ammo_tick = now;
@@ -60,12 +48,7 @@ impl Task<CaptureDomain> for WorldStep {
         DisplayAction::WorldStep
     }
 
-    fn is_valid(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<CaptureDomain>,
-        _agent: AgentId,
-    ) -> bool {
+    fn is_valid(&self, _ctx: Context<CaptureDomain>) -> bool {
         true
     }
 

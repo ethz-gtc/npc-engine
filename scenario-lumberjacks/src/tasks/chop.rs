@@ -7,8 +7,7 @@ use std::hash::Hash;
 use std::num::NonZeroU8;
 
 use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
-    TaskDuration,
+    impl_task_boxed_methods, Context, ContextMut, Domain, IdleTask, Task, TaskDuration,
 };
 use npc_engine_utils::{Direction, DIRECTIONS};
 
@@ -25,25 +24,20 @@ pub struct Chop {
 }
 
 impl Task<Lumberjacks> for Chop {
-    fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<Lumberjacks>) -> f32 {
         config().action_weights.chop
     }
 
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<Lumberjacks>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<Lumberjacks>) -> TaskDuration {
         0
     }
 
-    fn execute(
-        &self,
-        _tick: u64,
-        mut state_diff: StateDiffRefMut<Lumberjacks>,
-        agent: AgentId,
-    ) -> Option<Box<dyn Task<Lumberjacks>>> {
+    fn execute(&self, ctx: ContextMut<Lumberjacks>) -> Option<Box<dyn Task<Lumberjacks>>> {
+        let ContextMut {
+            mut state_diff,
+            agent,
+            ..
+        } = ctx;
         state_diff.increment_time();
 
         if let Some((x, y)) = state_diff.find_agent(agent) {
@@ -80,7 +74,10 @@ impl Task<Lumberjacks> for Chop {
         Action::Chop(self.direction)
     }
 
-    fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, ctx: Context<Lumberjacks>) -> bool {
+        let Context {
+            state_diff, agent, ..
+        } = ctx;
         if let Some((x, y)) = state_diff.find_agent(agent) {
             let (x, y) = apply_direction(self.direction, x, y);
             matches!(state_diff.get_tile(x, y), Some(Tile::Tree(_)))

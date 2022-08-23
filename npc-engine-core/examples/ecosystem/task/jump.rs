@@ -5,9 +5,7 @@
 
 // use std::fmt::{self, Formatter};
 
-use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, StateDiffRef, StateDiffRefMut, Task, TaskDuration,
-};
+use npc_engine_core::{impl_task_boxed_methods, Context, ContextMut, Task, TaskDuration};
 use npc_engine_utils::Direction;
 
 use crate::{
@@ -21,31 +19,19 @@ use crate::{
 pub struct Jump(pub Direction);
 
 impl Task<EcosystemDomain> for Jump {
-    fn weight(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<EcosystemDomain>,
-        _agent: AgentId,
-    ) -> f32 {
+    fn weight(&self, _ctx: Context<EcosystemDomain>) -> f32 {
         JUMP_WEIGHT
     }
 
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<EcosystemDomain>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<EcosystemDomain>) -> TaskDuration {
         0
     }
 
     fn execute(
         &self,
-        _tick: u64,
-        mut state_diff: StateDiffRefMut<EcosystemDomain>,
-        agent: AgentId,
+        mut ctx: ContextMut<EcosystemDomain>,
     ) -> Option<Box<dyn Task<EcosystemDomain>>> {
-        let agent_state = state_diff.get_agent_mut(agent).unwrap();
+        let agent_state = ctx.state_diff.get_agent_mut(ctx.agent).unwrap();
         let passage_pos = DirConv::apply(self.0, agent_state.position);
         let target_pos = DirConv::apply(self.0, passage_pos);
         agent_state.position = target_pos;
@@ -53,13 +39,8 @@ impl Task<EcosystemDomain> for Jump {
         None
     }
 
-    fn is_valid(
-        &self,
-        _tick: u64,
-        state_diff: StateDiffRef<EcosystemDomain>,
-        agent: AgentId,
-    ) -> bool {
-        let agent_state = state_diff.get_agent(agent).unwrap();
+    fn is_valid(&self, ctx: Context<EcosystemDomain>) -> bool {
+        let agent_state = ctx.state_diff.get_agent(ctx.agent).unwrap();
         debug_assert!(
             agent_state.alive(),
             "Task validity check called on a dead agent"
@@ -70,7 +51,7 @@ impl Task<EcosystemDomain> for Jump {
 
         let passage_pos = DirConv::apply(self.0, agent_state.position);
         let target_pos = DirConv::apply(self.0, passage_pos);
-        state_diff.is_tile_passable(passage_pos) && state_diff.is_position_free(target_pos)
+        ctx.state_diff.is_tile_passable(passage_pos) && ctx.state_diff.is_position_free(target_pos)
     }
 
     fn display_action(&self) -> DisplayAction {

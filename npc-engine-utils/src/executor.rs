@@ -5,9 +5,9 @@
 
 use ansi_term::Style;
 use npc_engine_core::{
-    ActiveTask, ActiveTasks, AgentId, DefaultPolicyEstimator, Domain, DomainWithPlanningTask,
-    EarlyStopCondition, IdleTask, MCTSConfiguration, PlanningTask, StateDiffRef, StateDiffRefMut,
-    StateValueEstimator, Task, MCTS,
+    ActiveTask, ActiveTasks, AgentId, Context, ContextMut, DefaultPolicyEstimator, Domain,
+    DomainWithPlanningTask, EarlyStopCondition, IdleTask, MCTSConfiguration, PlanningTask,
+    StateDiffRef, StateValueEstimator, Task, MCTS,
 };
 use std::{
     collections::HashMap,
@@ -59,7 +59,7 @@ impl<
 /// If you have no special need, you can just implement this trait on an empty struct:
 /// ```
 /// # struct MyDomain;
-/// # use npc_engine_core::{Domain, Behavior, StateDiffRef, AgentId, AgentValue};
+/// # use npc_engine_core::{Domain, Behavior, StateDiffRef, AgentId, AgentValue, Context};
 /// # use std::collections::BTreeSet;
 /// # impl Domain for MyDomain {
 /// #     type State = ();
@@ -67,7 +67,7 @@ impl<
 /// #     type DisplayAction = ();
 /// #     fn list_behaviors() -> &'static [&'static dyn Behavior<Self>] { &[] }
 /// #     fn get_current_value(_tick: u64, _state_diff: StateDiffRef<Self>, _agent: AgentId) -> AgentValue { AgentValue::new(0.).unwrap() }
-/// #     fn update_visible_agents(_start_tick: u64, _tick: u64, _state_diff: StateDiffRef<Self>, agent: AgentId, agents: &mut BTreeSet<AgentId>) {}
+/// #     fn update_visible_agents(_start_tick: u64, _ctx: Context<Self>, agents: &mut BTreeSet<AgentId>) {}
 /// # }
 /// # use npc_engine_utils::ExecutorState;
 /// struct MyExecutorState;
@@ -201,11 +201,13 @@ where
         }
 
         // Execute task
-        let is_task_valid = active_task.task.is_valid(tick, state_diff, active_agent);
+        let ctx = Context::new(tick, state_diff, active_agent);
+        let is_task_valid = active_task.task.is_valid(ctx);
         if is_task_valid {
             log::info!("Valid task, executing...");
-            let state_diff_mut = StateDiffRefMut::new(state, &mut diff);
-            let new_task = active_task.task.execute(tick, state_diff_mut, active_agent);
+            let ctx_mut =
+                ContextMut::with_rest_and_state_and_diff(ctx.drop_state_diff(), state, &mut diff);
+            let new_task = active_task.task.execute(ctx_mut);
             // Get the new agents and create idle tasks for them,
             let mut new_agents_tasks = D::get_new_agents(StateDiffRef::new(state, &diff))
                 .into_iter()
@@ -237,9 +239,9 @@ where
         state: &D::State,
     ) -> ActiveTask<D> {
         let diff = D::Diff::default();
-        let state_diff = StateDiffRef::new(state, &diff);
+        let ctx = Context::with_state_and_diff(tick, state, &diff, active_agent);
         if log::log_enabled!(log::Level::Info) {
-            let new_active_task = ActiveTask::new(active_agent, new_task.clone(), tick, state_diff);
+            let new_active_task = ActiveTask::new(new_task.clone(), ctx);
             log::info!(
                 "Queuing new task for {} until {}: {:?}",
                 highlight_agent(active_agent),
@@ -247,7 +249,7 @@ where
                 new_task
             );
         }
-        let new_active_task = ActiveTask::new(active_agent, new_task, tick, state_diff);
+        let new_active_task = ActiveTask::new(new_task, ctx);
         self.task_queue.insert(new_active_task.clone());
         new_active_task
     }
@@ -689,12 +691,10 @@ mod tests {
 
             fn update_visible_agents(
                 _start_tick: u64,
-                _tick: u64,
-                _state_diff: StateDiffRef<Self>,
-                agent: AgentId,
+                ctx: Context<Self>,
                 agents: &mut BTreeSet<AgentId>,
             ) {
-                agents.insert(agent);
+                agents.insert(ctx.agent);
             }
 
             fn display_action_task_planning() -> Self::DisplayAction {
@@ -722,20 +722,13 @@ mod tests {
         impl Behavior<TrivialDomain> for TrivialBehavior {
             fn add_own_tasks(
                 &self,
-                _tick: u64,
-                _state_diff: StateDiffRef<TrivialDomain>,
-                _agent: AgentId,
+                _ctx: Context<TrivialDomain>,
                 tasks: &mut Vec<Box<dyn Task<TrivialDomain>>>,
             ) {
                 tasks.push(Box::new(IdleTask));
             }
 
-            fn is_valid(
-                &self,
-                _tick: u64,
-                _state_diff: StateDiffRef<TrivialDomain>,
-                _agent: AgentId,
-            ) -> bool {
+            fn is_valid(&self, _ctx: Context<TrivialDomain>) -> bool {
                 true
             }
         }

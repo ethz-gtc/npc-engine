@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 use npc_engine_core::{
-    AgentId, AgentValue, Behavior, Domain, DomainWithPlanningTask, StateDiffRef,
+    AgentId, AgentValue, Behavior, Context, Domain, DomainWithPlanningTask, StateDiffRef,
 };
 use npc_engine_utils::{Coord2D, Direction, GlobalDomain};
 use num_traits::Zero;
@@ -64,23 +64,21 @@ impl Domain for EcosystemDomain {
 
     fn update_visible_agents(
         _start_tick: u64,
-        _tick: u64,
-        state_diff: StateDiffRef<Self>,
-        _agent: AgentId,
+        ctx: Context<EcosystemDomain>,
         agents: &mut BTreeSet<AgentId>,
     ) {
         // clear the list
         agents.clear();
         // add all agents from the state
-        agents.extend(state_diff.initial_state.agents.keys());
+        agents.extend(ctx.state_diff.initial_state.agents.keys());
         // remove dead agents
-        for (agent, agent_state) in state_diff.diff.cur_agents.iter() {
+        for (agent, agent_state) in ctx.state_diff.diff.cur_agents.iter() {
             if !agent_state.alive() {
                 agents.remove(agent);
             }
         }
         // add alive new agents only in the diff
-        for (agent, agent_state) in state_diff.diff.new_agents.iter() {
+        for (agent, agent_state) in ctx.state_diff.diff.new_agents.iter() {
             if agent_state.alive() {
                 agents.insert(*agent);
             }

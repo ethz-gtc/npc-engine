@@ -9,7 +9,9 @@ use std::hash::Hash;
 use ordered_float::NotNan;
 use rand_chacha::ChaCha8Rng;
 
-use crate::{AgentId, Behavior, Edges, IdleTask, MCTSConfiguration, Node, StateDiffRef, Task};
+use crate::{
+    AgentId, Behavior, Context, Edges, IdleTask, MCTSConfiguration, Node, StateDiffRef, Task,
+};
 
 /// The "current" value an agent has in a given state.
 pub type AgentValue = NotNan<f32>;
@@ -31,24 +33,14 @@ pub trait Domain: Sized + 'static {
     fn get_current_value(tick: u64, state_diff: StateDiffRef<Self>, agent: AgentId) -> AgentValue;
 
     /// Updates the list of agents which are in the horizon of the given agent in the given tick and world state.
-    fn update_visible_agents(
-        start_tick: u64,
-        tick: u64,
-        state_diff: StateDiffRef<Self>,
-        agent: AgentId,
-        agents: &mut BTreeSet<AgentId>,
-    );
+    fn update_visible_agents(start_tick: u64, ctx: Context<Self>, agents: &mut BTreeSet<AgentId>);
 
     /// Gets all possible valid tasks for a given agent in a given tick and world state.
-    fn get_tasks(
-        tick: u64,
-        state_diff: StateDiffRef<'_, Self>,
-        agent: AgentId,
-    ) -> Vec<Box<dyn Task<Self>>> {
+    fn get_tasks(ctx: Context<Self>) -> Vec<Box<dyn Task<Self>>> {
         let mut actions = Vec::new();
         Self::list_behaviors()
             .iter()
-            .for_each(|behavior| behavior.add_tasks(tick, state_diff, agent, &mut actions));
+            .for_each(|behavior| behavior.add_tasks(ctx, &mut actions));
 
         actions.dedup();
         actions

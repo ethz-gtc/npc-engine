@@ -3,9 +3,7 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, IdleTask, StateDiffRef, StateDiffRefMut, Task, TaskDuration,
-};
+use npc_engine_core::{impl_task_boxed_methods, Context, ContextMut, IdleTask, Task, TaskDuration};
 use npc_engine_utils::OptionDiffDomain;
 
 use crate::{
@@ -16,39 +14,29 @@ use crate::{
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 pub struct Pick;
 impl Task<CaptureDomain> for Pick {
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<CaptureDomain>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<CaptureDomain>) -> TaskDuration {
         // Pick is instantaneous
         0
     }
 
-    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<CaptureDomain>, _agent: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<CaptureDomain>) -> f32 {
         10.0
     }
 
-    fn execute(
-        &self,
-        tick: u64,
-        state_diff: StateDiffRefMut<CaptureDomain>,
-        agent: AgentId,
-    ) -> Option<Box<dyn Task<CaptureDomain>>> {
-        let diff = CaptureDomain::get_cur_state_mut(state_diff);
-        let agent_state = diff.agents.get_mut(&agent).unwrap();
+    fn execute(&self, ctx: ContextMut<CaptureDomain>) -> Option<Box<dyn Task<CaptureDomain>>> {
+        let diff = CaptureDomain::get_cur_state_mut(ctx.state_diff);
+        let agent_state = diff.agents.get_mut(&ctx.agent).unwrap();
         let location = agent_state.cur_or_last_location;
         match location {
             _ if location == MAP.ammo_location() => {
                 agent_state.ammo = (agent_state.ammo + 1).min(MAX_AMMO);
                 diff.ammo = 0;
-                diff.ammo_tick = (tick & 0xff) as u8;
+                diff.ammo_tick = (ctx.tick & 0xff) as u8;
             }
             _ if location == MAP.medkit_location() => {
                 agent_state.hp = (agent_state.hp + 1).min(MAX_HP);
                 diff.medkit = 0;
-                diff.medkit_tick = (tick & 0xff) as u8;
+                diff.medkit_tick = (ctx.tick & 0xff) as u8;
             }
             _ => unimplemented!(),
         }
@@ -60,14 +48,9 @@ impl Task<CaptureDomain> for Pick {
         DisplayAction::Pick
     }
 
-    fn is_valid(
-        &self,
-        _tick: u64,
-        state_diff: StateDiffRef<CaptureDomain>,
-        agent: AgentId,
-    ) -> bool {
-        let state = CaptureDomain::get_cur_state(state_diff);
-        state.agents.get(&agent).map_or(false, |agent_state| {
+    fn is_valid(&self, ctx: Context<CaptureDomain>) -> bool {
+        let state = CaptureDomain::get_cur_state(ctx.state_diff);
+        state.agents.get(&ctx.agent).map_or(false, |agent_state| {
             // We cannot pick while moving.
             if agent_state.next_location.is_some() {
                 false

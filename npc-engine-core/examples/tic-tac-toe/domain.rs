@@ -5,7 +5,7 @@
 
 use std::{collections::BTreeSet, fmt};
 
-use npc_engine_core::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
+use npc_engine_core::{AgentId, AgentValue, Behavior, Context, Domain, StateDiffRef};
 
 use crate::{
     board::{Board, CellArray2D, Diff, State},
@@ -58,9 +58,7 @@ impl Domain for TicTacToe {
 
     fn update_visible_agents(
         _start_tick: u64,
-        _tick: u64,
-        _state_diff: StateDiffRef<Self>,
-        _agent: AgentId,
+        _ctx: Context<Self>,
         agents: &mut BTreeSet<AgentId>,
     ) {
         agents.insert(AgentId(0));

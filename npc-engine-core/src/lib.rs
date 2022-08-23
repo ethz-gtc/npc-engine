@@ -31,6 +31,7 @@
 mod active_task;
 mod behavior;
 mod config;
+mod context;
 mod domain;
 mod edge;
 mod mcts;
@@ -42,6 +43,7 @@ mod util;
 pub use active_task::*;
 pub use behavior::*;
 pub use config::*;
+pub use context::*;
 pub use domain::*;
 pub use edge::*;
 pub use mcts::*;

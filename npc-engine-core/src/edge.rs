@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use crate::{AgentId, AgentValue, Domain, Node, SeededHashMap, StateDiffRef, Task, WeakNode};
+use crate::{AgentId, AgentValue, Context, Domain, Node, SeededHashMap, Task, WeakNode};
 
 use rand::distributions::WeightedIndex;
 
@@ -49,14 +49,10 @@ impl<D: Domain> Edges<D> {
         initial_state: &D::State,
         next_task: Option<Box<dyn Task<D>>>,
     ) -> Self {
+        let ctx =
+            Context::with_state_and_diff(node.tick, initial_state, &node.diff, node.active_agent);
         let unexpanded_tasks = match next_task {
-            Some(task)
-                if task.is_valid(
-                    node.tick,
-                    StateDiffRef::new(initial_state, &node.diff),
-                    node.active_agent,
-                ) =>
-            {
+            Some(task) if task.is_valid(ctx) => {
                 let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
 
                 // Set existing child weights, only option
@@ -64,11 +60,7 @@ impl<D: Domain> Edges<D> {
             }
             _ => {
                 // Get possible tasks
-                let tasks = D::get_tasks(
-                    node.tick,
-                    StateDiffRef::new(initial_state, &node.diff),
-                    node.active_agent,
-                );
+                let tasks = D::get_tasks(ctx);
                 if tasks.is_empty() {
                     // no task, return empty edges
                     return Edges {
@@ -78,18 +70,13 @@ impl<D: Domain> Edges<D> {
                 }
 
                 // Safety-check that all tasks are valid
-                let state_diff = StateDiffRef::new(initial_state, &node.diff);
                 for task in &tasks {
-                    debug_assert!(task.is_valid(node.tick, state_diff, node.active_agent));
+                    debug_assert!(task.is_valid(ctx));
                 }
 
                 // Get the weight for each task
-                let weights = WeightedIndex::new(
-                    tasks
-                        .iter()
-                        .map(|task| task.weight(node.tick, state_diff, node.active_agent)),
-                )
-                .unwrap();
+                let weights =
+                    WeightedIndex::new(tasks.iter().map(|task| task.weight(ctx))).unwrap();
 
                 Some((weights, tasks))
             }

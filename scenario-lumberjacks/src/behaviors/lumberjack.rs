@@ -7,7 +7,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::fmt;
 
-use npc_engine_core::{AgentId, Behavior, StateDiffRef, Task};
+use npc_engine_core::{Behavior, Context, Task};
 use npc_engine_utils::DIRECTIONS;
 
 use crate::{
@@ -161,16 +161,17 @@ fn wavefront_pathfind(
 }
 
 impl Behavior<Lumberjacks> for Lumberjack {
-    fn is_valid(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<Lumberjacks>) -> bool {
         true
     }
     fn add_own_tasks(
         &self,
-        tick: u64,
-        state_diff: StateDiffRef<Lumberjacks>,
-        agent: AgentId,
+        ctx: Context<Lumberjacks>,
         tasks: &mut Vec<Box<dyn Task<Lumberjacks>>>,
     ) {
+        let Context {
+            state_diff, agent, ..
+        } = ctx;
         if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.tasks {
                 // Movement
@@ -214,7 +215,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
                                 y: target_y as _,
                             };
 
-                            if task.is_valid(tick, state_diff, agent) {
+                            if task.is_valid(ctx) {
                                 tasks.push(Box::new(task));
                             }
                         }
@@ -240,7 +241,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
 
             // Chopping
             for direction in DIRECTIONS {
-                if (Chop { direction }).is_valid(tick, state_diff, agent) {
+                if (Chop { direction }).is_valid(ctx) {
                     tasks.push(Box::new(Chop { direction }));
                 }
             }
@@ -248,7 +249,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
             // Barriers
             if config().features.barriers && state_diff.get_inventory(agent) > 0 {
                 for direction in DIRECTIONS {
-                    if (Barrier { direction }).is_valid(tick, state_diff, agent) {
+                    if (Barrier { direction }).is_valid(ctx) {
                         tasks.push(Box::new(Barrier { direction }));
                     }
                 }
@@ -258,11 +259,11 @@ impl Behavior<Lumberjacks> for Lumberjack {
             if config().features.watering {
                 if state_diff.get_water(agent) {
                     for direction in DIRECTIONS {
-                        if (Water { direction }.is_valid(tick, state_diff, agent)) {
+                        if (Water { direction }.is_valid(ctx)) {
                             tasks.push(Box::new(Water { direction }));
                         }
                     }
-                } else if Refill.is_valid(tick, state_diff, agent) {
+                } else if Refill.is_valid(ctx) {
                     tasks.push(Box::new(Refill))
                 }
             }
@@ -270,7 +271,7 @@ impl Behavior<Lumberjacks> for Lumberjack {
             // Planting
             if config().features.planting && state_diff.get_inventory(agent) > 0 {
                 for direction in DIRECTIONS {
-                    if (Plant { direction }).is_valid(tick, state_diff, agent) {
+                    if (Plant { direction }).is_valid(ctx) {
                         tasks.push(Box::new(Plant { direction }));
                     }
                 }

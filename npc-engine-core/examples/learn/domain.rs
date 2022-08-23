@@ -3,7 +3,7 @@
  *  © 2020-2022 ETH Zurich and other contributors, see AUTHORS.txt for details
  */
 
-use npc_engine_core::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
+use npc_engine_core::{AgentId, AgentValue, Behavior, Context, Domain, StateDiffRef};
 use npc_engine_utils::OptionDiffDomain;
 
 use crate::{behavior::DefaultBehaviour, state::State};
@@ -46,12 +46,10 @@ impl Domain for LearnDomain {
 
     fn update_visible_agents(
         _start_tick: u64,
-        _tick: u64,
-        _state_diff: StateDiffRef<Self>,
-        agent: AgentId,
+        ctx: Context<Self>,
         agents: &mut std::collections::BTreeSet<AgentId>,
     ) {
-        agents.insert(agent);
+        agents.insert(ctx.agent);
     }
 
     fn get_state_description(state_diff: StateDiffRef<Self>) -> String {

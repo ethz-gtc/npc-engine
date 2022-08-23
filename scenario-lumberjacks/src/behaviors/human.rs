@@ -5,7 +5,7 @@
 
 use std::fmt;
 
-use npc_engine_core::{AgentId, Behavior, StateDiffRef};
+use npc_engine_core::{Behavior, Context};
 
 use crate::Lumberjacks;
 
@@ -18,15 +18,13 @@ impl fmt::Display for Human {
 }
 
 impl Behavior<Lumberjacks> for Human {
-    fn is_valid(&self, _tick: u64, _state: StateDiffRef<Lumberjacks>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<Lumberjacks>) -> bool {
         true
     }
 
     fn add_own_tasks(
         &self,
-        _tick: u64,
-        _state: StateDiffRef<Lumberjacks>,
-        _agent: AgentId,
+        _ctx: Context<Lumberjacks>,
         _tasks: &mut Vec<Box<dyn npc_engine_core::Task<Lumberjacks>>>,
     ) {
     }

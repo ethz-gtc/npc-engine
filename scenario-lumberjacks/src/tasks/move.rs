@@ -6,8 +6,7 @@
 use std::hash::Hash;
 
 use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, Domain, IdleTask, StateDiffRef, StateDiffRefMut, Task,
-    TaskDuration,
+    impl_task_boxed_methods, Context, ContextMut, Domain, IdleTask, Task, TaskDuration,
 };
 use npc_engine_utils::Direction;
 
@@ -21,25 +20,20 @@ pub struct Move {
 }
 
 impl Task<Lumberjacks> for Move {
-    fn weight(&self, _: u64, _: StateDiffRef<Lumberjacks>, _: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<Lumberjacks>) -> f32 {
         config().action_weights.r#move
     }
 
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<Lumberjacks>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<Lumberjacks>) -> TaskDuration {
         0
     }
 
-    fn execute(
-        &self,
-        _tick: u64,
-        mut state_diff: StateDiffRefMut<Lumberjacks>,
-        agent: AgentId,
-    ) -> Option<Box<dyn Task<Lumberjacks>>> {
+    fn execute(&self, ctx: ContextMut<Lumberjacks>) -> Option<Box<dyn Task<Lumberjacks>>> {
+        let ContextMut {
+            mut state_diff,
+            agent,
+            ..
+        } = ctx;
         state_diff.increment_time();
 
         if let Some((x, y)) = state_diff.find_agent(agent) {
@@ -71,7 +65,10 @@ impl Task<Lumberjacks> for Move {
         Action::Walk(*self.path.first().unwrap())
     }
 
-    fn is_valid(&self, _tick: u64, state_diff: StateDiffRef<Lumberjacks>, agent: AgentId) -> bool {
+    fn is_valid(&self, ctx: Context<Lumberjacks>) -> bool {
+        let Context {
+            state_diff, agent, ..
+        } = ctx;
         if let Some((mut x, mut y)) = state_diff.find_agent(agent) {
             self.path.iter().enumerate().all(|(idx, direction)| {
                 let tmp = apply_direction(*direction, x, y);

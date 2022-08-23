@@ -5,7 +5,7 @@
 
 use std::collections::BTreeSet;
 
-use npc_engine_core::{AgentId, AgentValue, Behavior, Domain, StateDiffRef};
+use npc_engine_core::{AgentId, AgentValue, Behavior, Context, Domain, StateDiffRef};
 use npc_engine_utils::GlobalDomain;
 
 use crate::{
@@ -33,13 +33,10 @@ impl Domain for Lumberjacks {
         AgentValue::new(value).unwrap()
     }
 
-    fn update_visible_agents(
-        _start_tick: u64,
-        _tick: u64,
-        state_diff: StateDiffRef<Self>,
-        agent: AgentId,
-        agents: &mut BTreeSet<AgentId>,
-    ) {
+    fn update_visible_agents(_start_tick: u64, ctx: Context<Self>, agents: &mut BTreeSet<AgentId>) {
+        let Context {
+            state_diff, agent, ..
+        } = ctx;
         if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.plan_others {
                 agents.extend(

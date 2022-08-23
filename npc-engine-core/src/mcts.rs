@@ -316,8 +316,13 @@ impl<D: Domain> MCTS<D> {
                 // Select expansion task randomly
                 let idx = weights.sample(&mut self.rng);
                 let task = tasks[idx].clone();
-                let state_diff = StateDiffRef::new(&self.initial_state, &diff);
-                debug_assert!(task.is_valid(node.tick, state_diff, node.active_agent));
+                let ctx = Context::with_state_and_diff(
+                    node.tick,
+                    &self.initial_state,
+                    &diff,
+                    node.active_agent,
+                );
+                debug_assert!(task.is_valid(ctx));
                 log::debug!(
                     "T{}\t{:?} - Expand task: {:?}",
                     node.tick,
@@ -341,8 +346,7 @@ impl<D: Domain> MCTS<D> {
                     .cloned()
                     .collect::<BTreeSet<_>>();
                 // Create and insert new active task for the active agent and the selected task
-                let active_task =
-                    ActiveTask::new(node.active_agent, task.clone(), node.tick, state_diff);
+                let active_task = ActiveTask::new(task.clone(), ctx);
                 child_tasks.insert(active_task);
                 log::trace!("\tActive Tasks ({}):", child_tasks.len());
                 for active_task in &child_tasks {
@@ -364,23 +368,21 @@ impl<D: Domain> MCTS<D> {
                 );
 
                 // If it is not valid, abort this expansion
-                let is_task_valid = next_active_task.task.is_valid(
-                    next_active_task.end,
-                    state_diff,
-                    next_active_task.agent,
-                );
+                let next_ctx =
+                    ctx.replace_tick_and_agent(next_active_task.end, next_active_task.agent);
+                let is_task_valid = next_active_task.task.is_valid(next_ctx);
                 if !is_task_valid && !self.config.allow_invalid_tasks {
                     log::debug!("T{}\tNext active task {:?} is invalid and that is not allowed, aborting expansion", next_active_task.end, next_active_task.task);
                     return TreePolicyOutcome::NoValidTask(depth, path);
                 }
                 // Execute the task which finishes in the next node
                 let after_next_task = if is_task_valid {
-                    let state_diff_mut = StateDiffRefMut::new(&self.initial_state, &mut diff);
-                    next_active_task.task.execute(
-                        next_active_task.end,
-                        state_diff_mut,
-                        next_active_task.agent,
-                    )
+                    let next_ctx_mut = ContextMut::with_rest_and_state_and_diff(
+                        next_ctx.drop_state_diff(),
+                        &self.initial_state,
+                        &mut diff,
+                    );
+                    next_active_task.task.execute(next_ctx_mut)
                 } else {
                     None
                 };
@@ -696,12 +698,8 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 return None;
             }
         };
-        let new_active_task = ActiveTask::new(
-            node.active_agent,
-            task,
-            node.tick,
-            StateDiffRef::new(initial_state, &diff),
-        );
+        let ctx = Context::with_state_and_diff(node.tick, initial_state, &diff, node.active_agent);
+        let new_active_task = ActiveTask::new(task, ctx);
         tasks.insert(new_active_task);
         let mut agents_with_tasks = tasks
             .iter()
@@ -737,7 +735,8 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
             tick = active_task.end;
 
             // If task is invalid, stop rollout
-            let is_task_valid = active_task.task.is_valid(tick, state_diff, active_agent);
+            let ctx = Context::new(tick, state_diff, active_agent);
+            let is_task_valid = active_task.task.is_valid(ctx);
             if !is_task_valid && !config.allow_invalid_tasks {
                 log::debug!(
                     "! T{} Not allowed invalid task {:?} by {:?} in state\n{}",
@@ -767,12 +766,16 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
 
             // Execute the task
             let new_task = if is_task_valid {
-                let state_diff_mut = StateDiffRefMut::new(initial_state, &mut diff);
-                active_task.task.execute(tick, state_diff_mut, active_agent)
+                let ctx_mut = ContextMut::with_rest_and_state_and_diff(
+                    ctx.drop_state_diff(),
+                    initial_state,
+                    &mut diff,
+                );
+                active_task.task.execute(ctx_mut)
             } else {
                 None
             };
-            let new_state_diff = StateDiffRef::new(initial_state, &diff);
+            let new_ctx = Context::with_state_and_diff(tick, initial_state, &diff, active_agent);
 
             // If we do not have a forced follow-up task...
             let new_task = if new_task.is_none() {
@@ -801,14 +804,15 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                     MCTS::<D>::discount_factor(active_task.end - rollout_start_tick, config);
 
                 // Update estimated value with discounted difference in current values
-                let new_current_value = D::get_current_value(tick, new_state_diff, active_agent);
+                let new_current_value =
+                    D::get_current_value(tick, new_ctx.state_diff, active_agent);
                 *estimated_value += *(new_current_value - *current_value) * discount;
                 *current_value = new_current_value;
             }
 
             // Update the list of tasks, only considering visible agents,
             // excluding the active agent (a new task for it will be added later)
-            D::update_visible_agents(start_tick, tick, new_state_diff, active_agent, &mut agents);
+            D::update_visible_agents(start_tick, new_ctx, &mut agents);
             for agent in agents.iter() {
                 if *agent != active_agent && !agents_with_tasks.contains(agent) {
                     tasks.insert(ActiveTask::new_idle(tick, *agent, active_agent));
@@ -821,21 +825,17 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 // If no new task is available, select one randomly
                 let new_task = new_task.or_else(|| {
                     // Get possible tasks
-                    let tasks = D::get_tasks(tick, new_state_diff, active_agent);
+                    let tasks = D::get_tasks(new_ctx);
                     if tasks.is_empty() {
                         return None;
                     }
                     // Safety-check that all tasks are valid
                     for task in &tasks {
-                        debug_assert!(task.is_valid(tick, new_state_diff, active_agent));
+                        debug_assert!(task.is_valid(new_ctx));
                     }
                     // Get the weight for each task
-                    let weights = WeightedIndex::new(
-                        tasks
-                            .iter()
-                            .map(|task| task.weight(tick, new_state_diff, active_agent)),
-                    )
-                    .unwrap();
+                    let weights =
+                        WeightedIndex::new(tasks.iter().map(|task| task.weight(new_ctx))).unwrap();
                     // Select task randomly
                     let idx = weights.sample(rng);
                     Some(tasks[idx].clone())
@@ -844,12 +844,7 @@ impl<D: Domain> StateValueEstimator<D> for DefaultPolicyEstimator {
                 // If still none is available, stop caring about this agent
                 if let Some(new_task) = new_task {
                     // Insert new task
-                    let new_active_task = ActiveTask::new(
-                        active_agent,
-                        new_task,
-                        tick,
-                        StateDiffRef::new(initial_state, &diff),
-                    );
+                    let new_active_task = ActiveTask::new(new_task, new_ctx);
                     tasks.insert(new_active_task);
                     agents_with_tasks.insert(active_agent);
                 }

@@ -13,7 +13,7 @@ use std::{
 
 use crate::{
     active_task::{ActiveTask, ActiveTasks},
-    get_task_for_agent, AgentId, AgentValue, Domain, StateDiffRef, Task,
+    get_task_for_agent, AgentId, AgentValue, Context, Domain, StateDiffRef, Task,
 };
 
 /// Strong atomic reference counted node.
@@ -54,10 +54,10 @@ impl<D: Domain> NodeInner<D> {
         tick: u64,
         tasks: BTreeSet<ActiveTask<D>>,
     ) -> Self {
-        let state_diff = StateDiffRef::new(initial_state, &diff);
+        let ctx = Context::with_state_and_diff(tick, initial_state, &diff, active_agent);
         // Get list of agents we consider in planning
         let mut agents = tasks.iter().map(|task| task.agent).collect();
-        D::update_visible_agents(start_tick, tick, state_diff, active_agent, &mut agents);
+        D::update_visible_agents(start_tick, ctx, &mut agents);
 
         // Assign idle tasks to agents without a task
         let (tasks, current_values): (ActiveTasks<D>, _) = agents
@@ -71,7 +71,10 @@ impl<D: Domain> NodeInner<D> {
             // Set child current values
             .map(|task| {
                 let agent = task.agent;
-                (task, (agent, D::get_current_value(tick, state_diff, agent)))
+                (
+                    task,
+                    (agent, D::get_current_value(ctx.tick, ctx.state_diff, agent)),
+                )
             })
             .unzip();
 

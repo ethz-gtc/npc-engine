@@ -24,7 +24,7 @@ fn init_logger() {
 }
 
 mod deferment {
-    use npc_engine_core::{AgentValue, TaskDuration};
+    use npc_engine_core::{AgentValue, Context, ContextMut, TaskDuration};
 
     use super::*;
 
@@ -59,12 +59,10 @@ mod deferment {
 
         fn update_visible_agents(
             _start_tick: u64,
-            _tick: u64,
-            _state: StateDiffRef<Self>,
-            agent: AgentId,
+            ctx: Context<TestEngine>,
             agents: &mut BTreeSet<AgentId>,
         ) {
-            agents.insert(agent);
+            agents.insert(ctx.agent);
         }
     }
 
@@ -105,16 +103,14 @@ mod deferment {
     impl Behavior<TestEngine> for TestBehavior {
         fn add_own_tasks(
             &self,
-            _tick: u64,
-            _state: StateDiffRef<TestEngine>,
-            _agent: AgentId,
+            _ctx: Context<TestEngine>,
             tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
         ) {
             tasks.push(Box::new(TestTaskDirect) as _);
             tasks.push(Box::new(TestTaskDefer) as _);
         }
 
-        fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
             true
         }
     }
@@ -123,31 +119,21 @@ mod deferment {
     struct TestTaskDirect;
 
     impl Task<TestEngine> for TestTaskDirect {
-        fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+        fn weight(&self, _ctx: Context<TestEngine>) -> f32 {
             1.
         }
 
-        fn duration(
-            &self,
-            _tick: u64,
-            _state_diff: StateDiffRef<TestEngine>,
-            _agent: AgentId,
-        ) -> TaskDuration {
+        fn duration(&self, _ctx: Context<TestEngine>) -> TaskDuration {
             1
         }
 
-        fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
             true
         }
 
-        fn execute(
-            &self,
-            _tick: u64,
-            mut state: StateDiffRefMut<TestEngine>,
-            _agent: AgentId,
-        ) -> Option<Box<dyn Task<TestEngine>>> {
-            state.redeem_deferred();
-            state.add_value(1);
+        fn execute(&self, mut ctx: ContextMut<TestEngine>) -> Option<Box<dyn Task<TestEngine>>> {
+            ctx.state_diff.redeem_deferred();
+            ctx.state_diff.add_value(1);
             None
         }
 
@@ -162,31 +148,21 @@ mod deferment {
     struct TestTaskDefer;
 
     impl Task<TestEngine> for TestTaskDefer {
-        fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+        fn weight(&self, _ctx: Context<TestEngine>) -> f32 {
             1.
         }
 
-        fn duration(
-            &self,
-            _tick: u64,
-            _state_diff: StateDiffRef<TestEngine>,
-            _agent: AgentId,
-        ) -> TaskDuration {
+        fn duration(&self, _ctx: Context<TestEngine>) -> TaskDuration {
             1
         }
 
-        fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
             true
         }
 
-        fn execute(
-            &self,
-            _tick: u64,
-            mut state: StateDiffRefMut<TestEngine>,
-            _agent: AgentId,
-        ) -> Option<Box<dyn Task<TestEngine>>> {
-            state.redeem_deferred();
-            state.add_investment(1);
+        fn execute(&self, mut ctx: ContextMut<TestEngine>) -> Option<Box<dyn Task<TestEngine>>> {
+            ctx.state_diff.redeem_deferred();
+            ctx.state_diff.add_investment(1);
             None
         }
 
@@ -224,7 +200,7 @@ mod deferment {
 }
 
 mod negative {
-    use npc_engine_core::{AgentValue, TaskDuration};
+    use npc_engine_core::{AgentValue, Context, ContextMut, TaskDuration};
 
     use super::*;
 
@@ -257,12 +233,10 @@ mod negative {
 
         fn update_visible_agents(
             _start_tick: u64,
-            _tick: u64,
-            _state: StateDiffRef<Self>,
-            agent: AgentId,
+            ctx: Context<TestEngine>,
             agents: &mut BTreeSet<AgentId>,
         ) {
-            agents.insert(agent);
+            agents.insert(ctx.agent);
         }
     }
 
@@ -292,16 +266,14 @@ mod negative {
     impl Behavior<TestEngine> for TestBehavior {
         fn add_own_tasks(
             &self,
-            _tick: u64,
-            _state: StateDiffRef<TestEngine>,
-            _agent: AgentId,
+            _ctx: Context<TestEngine>,
             tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
         ) {
             tasks.push(Box::new(TestTaskNoop) as _);
             tasks.push(Box::new(TestTaskNegative) as _);
         }
 
-        fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
             true
         }
     }
@@ -310,29 +282,19 @@ mod negative {
     struct TestTaskNoop;
 
     impl Task<TestEngine> for TestTaskNoop {
-        fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+        fn weight(&self, _ctx: Context<TestEngine>) -> f32 {
             1.
         }
 
-        fn duration(
-            &self,
-            _tick: u64,
-            _state_diff: StateDiffRef<TestEngine>,
-            _agent: AgentId,
-        ) -> TaskDuration {
+        fn duration(&self, _ctx: Context<TestEngine>) -> TaskDuration {
             1
         }
 
-        fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
             true
         }
 
-        fn execute(
-            &self,
-            _tick: u64,
-            _state: StateDiffRefMut<TestEngine>,
-            _agent: AgentId,
-        ) -> Option<Box<dyn Task<TestEngine>>> {
+        fn execute(&self, _ctx: ContextMut<TestEngine>) -> Option<Box<dyn Task<TestEngine>>> {
             None
         }
 
@@ -347,30 +309,20 @@ mod negative {
     struct TestTaskNegative;
 
     impl Task<TestEngine> for TestTaskNegative {
-        fn weight(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+        fn weight(&self, _ctx: Context<TestEngine>) -> f32 {
             1.
         }
 
-        fn duration(
-            &self,
-            _tick: u64,
-            _state_diff: StateDiffRef<TestEngine>,
-            _agent: AgentId,
-        ) -> TaskDuration {
+        fn duration(&self, _ctx: Context<TestEngine>) -> TaskDuration {
             1
         }
 
-        fn is_valid(&self, _tick: u64, _state: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+        fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
             true
         }
 
-        fn execute(
-            &self,
-            _tick: u64,
-            mut state: StateDiffRefMut<TestEngine>,
-            _agent: AgentId,
-        ) -> Option<Box<dyn Task<TestEngine>>> {
-            state.add_value(-1);
+        fn execute(&self, mut ctx: ContextMut<TestEngine>) -> Option<Box<dyn Task<TestEngine>>> {
+            ctx.state_diff.add_value(-1);
             None
         }
 

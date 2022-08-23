@@ -6,8 +6,8 @@
 use std::{collections::BTreeSet, fmt, hash::Hash, ops::Range};
 
 use npc_engine_core::{
-    impl_task_boxed_methods, AgentId, AgentValue, Behavior, Domain, MCTSConfiguration,
-    StateDiffRef, StateDiffRefMut, Task, TaskDuration, MCTS,
+    impl_task_boxed_methods, AgentId, AgentValue, Behavior, Context, ContextMut, Domain,
+    MCTSConfiguration, StateDiffRef, Task, TaskDuration, MCTS,
 };
 struct TestEngine;
 
@@ -44,12 +44,10 @@ impl Domain for TestEngine {
 
     fn update_visible_agents(
         _start_tick: u64,
-        _tick: u64,
-        _state_diff: StateDiffRef<Self>,
-        agent: AgentId,
+        ctx: Context<TestEngine>,
         agents: &mut BTreeSet<AgentId>,
     ) {
-        agents.insert(agent);
+        agents.insert(ctx.agent);
     }
 }
 
@@ -57,17 +55,11 @@ impl Domain for TestEngine {
 struct TestBehaviorA;
 
 impl Behavior<TestEngine> for TestBehaviorA {
-    fn add_own_tasks(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<TestEngine>,
-        _agent: AgentId,
-        tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
-    ) {
+    fn add_own_tasks(&self, _ctx: Context<TestEngine>, tasks: &mut Vec<Box<dyn Task<TestEngine>>>) {
         tasks.push(Box::new(TestTask(true)) as _);
     }
 
-    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
         true
     }
 }
@@ -76,17 +68,11 @@ impl Behavior<TestEngine> for TestBehaviorA {
 struct TestBehaviorB;
 
 impl Behavior<TestEngine> for TestBehaviorB {
-    fn add_own_tasks(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<TestEngine>,
-        _agent: AgentId,
-        tasks: &mut Vec<Box<dyn Task<TestEngine>>>,
-    ) {
+    fn add_own_tasks(&self, _ctx: Context<TestEngine>, tasks: &mut Vec<Box<dyn Task<TestEngine>>>) {
         tasks.push(Box::new(TestTask(false)) as _);
     }
 
-    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
         true
     }
 }
@@ -95,30 +81,20 @@ impl Behavior<TestEngine> for TestBehaviorB {
 struct TestTask(bool);
 
 impl Task<TestEngine> for TestTask {
-    fn weight(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> f32 {
+    fn weight(&self, _ctx: Context<TestEngine>) -> f32 {
         1.
     }
 
-    fn duration(
-        &self,
-        _tick: u64,
-        _state_diff: StateDiffRef<TestEngine>,
-        _agent: AgentId,
-    ) -> TaskDuration {
+    fn duration(&self, _ctx: Context<TestEngine>) -> TaskDuration {
         1
     }
 
-    fn is_valid(&self, _tick: u64, _state_diff: StateDiffRef<TestEngine>, _agent: AgentId) -> bool {
+    fn is_valid(&self, _ctx: Context<TestEngine>) -> bool {
         true
     }
 
-    fn execute(
-        &self,
-        _tick: u64,
-        mut state_diff: StateDiffRefMut<TestEngine>,
-        _agent: AgentId,
-    ) -> Option<Box<dyn Task<TestEngine>>> {
-        state_diff.diff.0 += 1;
+    fn execute(&self, mut ctx: ContextMut<TestEngine>) -> Option<Box<dyn Task<TestEngine>>> {
+        ctx.state_diff.diff.0 += 1;
         None
     }
 
