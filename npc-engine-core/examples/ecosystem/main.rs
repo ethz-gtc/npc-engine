@@ -35,6 +35,7 @@ mod task;
 struct EcosystemExecutorState {
     herbivore_eat_count: u32,
     carnivore_eat_count: u32,
+    mcts_visits: Vec<usize>,
     stat_file: Option<File>,
 }
 impl Default for EcosystemExecutorState {
@@ -42,6 +43,7 @@ impl Default for EcosystemExecutorState {
         Self {
             herbivore_eat_count: 0,
             carnivore_eat_count: 0,
+            mcts_visits: Default::default(),
             stat_file: File::create("stats.txt").ok(),
         }
     }
@@ -177,14 +179,22 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         // show screen
         let agents_count = state.agents_alive_count();
         let grass_count = state.map.grass_count();
+        let mcts_visit_count = self.mcts_visits.len();
+        let mcts_visit = if mcts_visit_count > 0 {
+            self.mcts_visits.iter().sum::<usize>() as f32 / mcts_visit_count as f32
+        } else {
+            0.
+        };
+        self.mcts_visits.clear();
         print!(
             "\x1B[H\
-            T{tick}   🌿: {grass_count}, 🐄: {} ({}🌿), 🐅: {} ({}🍖)   Next: A{}  \n\
+            T{tick}   🌿:{grass_count}  🐄:{} ({}🌿)  🐅:{} ({}🍖)   Visits: {:.2}, Next: A{}  \n\
             {}",
             agents_count.0,
             self.herbivore_eat_count,
             agents_count.1,
             self.carnivore_eat_count,
+            mcts_visit,
             state.next_agent_id,
             *state
         );
@@ -192,8 +202,8 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         if let Some(file) = &mut self.stat_file {
             writeln!(
                 file,
-                "{}, {}, {}",
-                grass_count, agents_count.0, agents_count.1
+                "{}, {}, {}, {}",
+                grass_count, agents_count.0, agents_count.1, mcts_visit
             )
             .expect("Cannot happened stats to file");
         }
@@ -224,6 +234,7 @@ impl ExecutorState<EcosystemDomain> for EcosystemExecutorState {
         if let Err(e) = plot_tree_in_tmp_with_task_name(mcts, "ecosystem", last_active_task) {
             println!("Cannot write search tree: {e}");
         }
+        self.mcts_visits.push(mcts.node_count());
     }
 }
 
