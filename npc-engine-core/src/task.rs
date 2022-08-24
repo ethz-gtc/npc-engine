@@ -75,7 +75,7 @@ pub trait Task<D: Domain>: std::fmt::Debug + Downcast + Send + Sync {
 }
 
 /// An idle task of duration 1 that is used by the planner when the task of an agent is not known.
-#[derive(Debug, Hash, Clone, PartialEq)]
+#[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct IdleTask;
 
 impl<D: Domain> Task<D> for IdleTask {

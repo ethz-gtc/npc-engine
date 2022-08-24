@@ -29,6 +29,10 @@ use crate::{
     PreWorldHookArgs, PreWorldHookFn, TileMap, WorldGlobalState, SPRITE_SIZE,
 };
 
+type PerWorldHooks = Vec<Box<dyn FnMut(PreWorldHookArgs)>>;
+type PostWorldHooks = Vec<Box<dyn FnMut(PostWorldHookArgs)>>;
+type PostMCTSHooks = Vec<Box<dyn FnMut(PostMCTSHookArgs)>>;
+
 pub struct GameState {
     interactive: bool,
     seed: u64,
@@ -39,9 +43,9 @@ pub struct GameState {
     config: MCTSConfiguration,
     agents: Vec<AgentId>,
     objectives: BTreeMap<AgentId, Box<dyn Task<Lumberjacks>>>,
-    pre_world_hooks: Vec<Box<dyn FnMut(PreWorldHookArgs)>>,
-    post_world_hooks: Vec<Box<dyn FnMut(PostWorldHookArgs)>>,
-    post_mcts_hooks: Vec<Box<dyn FnMut(PostMCTSHookArgs)>>,
+    pre_world_hooks: PerWorldHooks,
+    post_world_hooks: PostWorldHooks,
+    post_mcts_hooks: PostMCTSHooks,
     assets: BTreeMap<String, Image>,
 }
 
