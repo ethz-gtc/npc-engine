@@ -53,7 +53,7 @@ impl<D: Domain> Edges<D> {
             Context::with_state_and_diff(node.tick, initial_state, &node.diff, node.active_agent);
         let unexpanded_tasks = match next_task {
             Some(task) if task.is_valid(ctx) => {
-                let weights = WeightedIndex::new((&[1.]).iter().map(Clone::clone)).unwrap();
+                let weights = WeightedIndex::new([1.].iter().map(Clone::clone)).unwrap();
 
                 // Set existing child weights, only option
                 Some((weights, vec![task.clone()]))

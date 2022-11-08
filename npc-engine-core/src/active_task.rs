@@ -58,12 +58,7 @@ pub(crate) fn get_task_for_agent<D: Domain>(
     set: &ActiveTasks<D>,
     agent: AgentId,
 ) -> Option<&ActiveTask<D>> {
-    for task in set {
-        if task.agent == agent {
-            return Some(task);
-        }
-    }
-    None
+    set.iter().find(|&task| task.agent == agent)
 }
 
 impl<D: Domain> fmt::Debug for ActiveTask<D> {

@@ -38,8 +38,7 @@ lazy_static! {
                 .insert(start, length);
         }
         let capture_locations = capture_locations
-            .map(|location|
-                Location::new(location)
+            .map(Location::new
             )
             .into();
         Map { links, capture_locations }

@@ -18,14 +18,10 @@ pub type TaskDuration = u64;
 /// Transforms the debug string of a task to a string that can safely be used for filenames.
 pub fn debug_name_to_filename_safe(debug_name: &str) -> String {
     debug_name
-        .replace(' ', "")
-        .replace('(', "")
-        .replace(')', "")
+        .replace([' ', '(', ')'], "")
         .replace('{', "_")
         .replace('}', "")
-        .replace(' ', "_")
-        .replace(':', "_")
-        .replace(',', "_")
+        .replace([' ', ':', ','], "_")
 }
 
 /// A task that modifies the state.
