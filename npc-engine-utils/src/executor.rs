@@ -139,7 +139,7 @@ pub trait ExecutorStateGlobal<D: GlobalDomain> {
 ///
 /// This can be used directly to build your own executor,
 /// or indirectly through [SimpleExecutor] or [ThreadedExecutor].
-struct ExecutionQueue<D>
+pub struct ExecutionQueue<D>
 where
     D: Domain,
 {
