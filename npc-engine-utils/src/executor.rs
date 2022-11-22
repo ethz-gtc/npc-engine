@@ -253,6 +253,11 @@ where
         self.task_queue.insert(new_active_task.clone());
         new_active_task
     }
+
+    /// Get the active task, read only.
+    pub fn task_queue(&self) -> &ActiveTasks<D> {
+        &self.task_queue
+    }
 }
 
 /// A single-threaded generic executor.
@@ -615,6 +620,11 @@ where
     /// Gets the global state, read-only.
     pub fn state(&self) -> &D::GlobalState {
         &self.state
+    }
+
+    // Get the active tasks, read only.
+    pub fn active_tasks(&self) -> &ActiveTasks<D> {
+        self.queue.task_queue()
     }
 
     /// Gets the number of active agents in the execution queue.
