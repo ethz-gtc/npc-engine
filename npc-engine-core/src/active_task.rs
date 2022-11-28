@@ -11,6 +11,8 @@ use std::{fmt, mem};
 
 /// A task associated to an agent and that is being processed by the planner.
 pub struct ActiveTask<D: Domain> {
+    /// the start tick of this task
+    pub start: u64,
     /// the end tick of this task
     pub end: u64,
     /// the agent executing this task
@@ -27,16 +29,22 @@ impl<D: Domain> ActiveTask<D> {
     /// Creates a new active task, computes the end from task and the state_diff.
     pub fn new(task: Box<dyn Task<D>>, ctx: Context<D>) -> Self {
         let end = ctx.tick + task.duration(ctx);
-        Self::new_with_end(end, ctx.agent, task)
+        Self::new_with_end(ctx.tick, end, ctx.agent, task)
     }
     /// Creates a new active task with a specified end.
-    pub fn new_with_end(end: u64, agent: AgentId, task: Box<dyn Task<D>>) -> Self {
-        Self { end, agent, task }
+    pub fn new_with_end(start: u64, end: u64, agent: AgentId, task: Box<dyn Task<D>>) -> Self {
+        Self {
+            start,
+            end,
+            agent,
+            task,
+        }
     }
     /// Creates a new idle task for agent at a given tick, make sure that it will
     /// execute in the future considering that we are currently processing active_agent.
     pub fn new_idle(tick: u64, agent: AgentId, active_agent: AgentId) -> Self {
         Self {
+            start: tick,
             // Make sure the idle tasks of added agents will not be
             // executed before the active agent.
             end: if agent < active_agent { tick + 1 } else { tick },
@@ -88,6 +96,7 @@ impl<D: Domain> Hash for ActiveTask<D> {
 impl<D: Domain> Clone for ActiveTask<D> {
     fn clone(&self) -> Self {
         ActiveTask {
+            start: self.start,
             end: self.end,
             agent: self.agent,
             task: self.task.box_clone(),

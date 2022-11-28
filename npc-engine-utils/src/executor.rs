@@ -748,9 +748,14 @@ mod tests {
             const MINIMUM_VISITS: u32 = 0;
             fn create_initial_state(&self) {}
             fn init_task_queue(&self, _: &()) -> ActiveTasks<TrivialDomain> {
-                vec![ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask))]
-                    .into_iter()
-                    .collect()
+                vec![ActiveTask::new_with_end(
+                    0,
+                    0,
+                    AgentId(0),
+                    Box::new(IdleTask),
+                )]
+                .into_iter()
+                .collect()
             }
         }
         impl ExecutorState<TrivialDomain> for TrivialExecutorState {}

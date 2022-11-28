@@ -57,9 +57,14 @@ impl ExecutorStateLocal<LearnDomain> for LearnExecutorState {
     }
 
     fn init_task_queue(&self, _: &State) -> ActiveTasks<LearnDomain> {
-        vec![ActiveTask::new_with_end(0, AgentId(0), Box::new(IdleTask))]
-            .into_iter()
-            .collect()
+        vec![ActiveTask::new_with_end(
+            0,
+            0,
+            AgentId(0),
+            Box::new(IdleTask),
+        )]
+        .into_iter()
+        .collect()
     }
 
     fn keep_agent(&self, tick: u64, _state: &State, _agent: AgentId) -> bool {

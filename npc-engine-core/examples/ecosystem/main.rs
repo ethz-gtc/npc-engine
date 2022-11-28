@@ -147,8 +147,9 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
         state
             .agents
             .iter()
-            .map(|(id, _)| ActiveTask::new_with_end(0, *id, Box::new(IdleTask)))
+            .map(|(id, _)| ActiveTask::new_with_end(0, 0, *id, Box::new(IdleTask)))
             .chain(iter::once(ActiveTask::new_with_end(
+                0,
                 10,
                 WORLD_AGENT_ID,
                 Box::new(WorldStep),
