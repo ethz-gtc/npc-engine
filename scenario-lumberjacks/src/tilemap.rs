@@ -175,7 +175,7 @@ impl fmt::Debug for TileMapSnapshot {
     }
 }
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, Serialize)]
+#[derive(Copy, Clone, Debug, Default, Hash, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Tile {
     Tree(NonZeroU8),
@@ -183,13 +183,8 @@ pub enum Tile {
     Impassable,
     Barrier,
     Well,
+    #[default]
     Empty,
-}
-
-impl Default for Tile {
-    fn default() -> Self {
-        Tile::Empty
-    }
 }
 
 impl Tile {

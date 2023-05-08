@@ -22,8 +22,9 @@ use crate::{
     state::{Access, AgentType, Diff, GlobalState, LocalState},
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub enum DisplayAction {
+    #[default]
     Idle,
     Plan,
     Move(Direction),
@@ -31,11 +32,6 @@ pub enum DisplayAction {
     EatGrass,
     EatHerbivore(Direction),
     WorldStep,
-}
-impl Default for DisplayAction {
-    fn default() -> Self {
-        DisplayAction::Idle
-    }
 }
 
 pub struct EcosystemDomain;

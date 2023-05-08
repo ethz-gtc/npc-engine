@@ -10,6 +10,7 @@ homepage = "https://github.com/ethz-gtc/npc-engine"
 readme = "README.md"
 keywords = ["MCTS", "AI", "multi-agent", "simulation", "game"]
 categories = ["algorithms", "science", "simulation", "game-development"]
+rust-version = "1.62"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

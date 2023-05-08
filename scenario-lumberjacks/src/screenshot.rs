@@ -50,7 +50,7 @@ pub fn screenshot(
         path.pop();
         path.to_str().unwrap().to_owned()
     };
-    fs::create_dir_all(&dir).unwrap();
+    fs::create_dir_all(dir).unwrap();
 
     let file = fs::OpenOptions::new()
         .create(true)

@@ -114,7 +114,7 @@ pub fn from_direction(start: (isize, isize), end: (isize, isize)) -> Direction {
     DirectionConverterYDown::from(start, end)
 }
 
-#[derive(Copy, Clone, Debug, Serialize)]
+#[derive(Copy, Clone, Debug, Default, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Action {
     Walk(Direction),
@@ -123,17 +123,13 @@ pub enum Action {
     Plant(Direction),
     Water(Direction),
     Refill,
+    #[default]
     Wait,
 }
 
 impl fmt::Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{:?}", self)
-    }
-}
-impl Default for Action {
-    fn default() -> Self {
-        Action::Wait
     }
 }
 

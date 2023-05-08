@@ -200,7 +200,7 @@ pub struct LocalState {
 }
 impl LocalState {
     pub(crate) fn get_agents_ids(&self) -> impl Iterator<Item = AgentId> + '_ {
-        self.agents.iter().map(|(agent, _)| *agent)
+        self.agents.keys().copied()
     }
 }
 impl Display for LocalState {

@@ -84,10 +84,10 @@ impl GlobalDomain for Lumberjacks {
                 if (src_y >= 0 && src_y < state.map.height as isize)
                     && (src_x >= 0 && src_x < state.map.width as isize)
                 {
-                    map.tiles[y as usize][x as usize] =
+                    map.tiles[y][x] =
                         state.map.tiles[(top + y as isize) as usize][(left + x as isize) as usize];
                 } else {
-                    map.tiles[y as usize][x as usize] = Tile::Impassable;
+                    map.tiles[y][x] = Tile::Impassable;
                 }
             }
         }
