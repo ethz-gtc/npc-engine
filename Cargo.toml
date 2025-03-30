@@ -5,3 +5,6 @@ members = [
     "npc-engine-utils",
     "scenario-lumberjacks"
 ] 
+
+[profile.bench]
+debug = true

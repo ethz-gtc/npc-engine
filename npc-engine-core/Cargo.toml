@@ -35,6 +35,7 @@ lazy_static = "1.4"
 ansi_term = "0.12"
 clearscreen = "1.0.10"
 num-traits = { version = "0.2.1", default-features = false }
+criterion = "0.5"
 
 [features]
 default = []
@@ -43,3 +44,7 @@ graphviz = [ "dot", "palette" ]
 [[example]]
 name = "tic-tac-toe"
 required-features = ["graphviz"]
+
+[[bench]]
+name = "mcts"
+harness = false
