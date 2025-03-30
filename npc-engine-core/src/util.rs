@@ -4,7 +4,9 @@
  */
 
 #[allow(deprecated)]
-use std::hash::{BuildHasher, SipHasher};
+use std::hash::BuildHasher;
+
+use rustc_hash::FxHasher;
 
 /// A seed for seeded hash maps and sets.
 const SEED: u64 = 6364136223846793005;
@@ -23,10 +25,10 @@ impl Default for SeededRandomState {
 
 #[allow(deprecated)]
 impl BuildHasher for SeededRandomState {
-    type Hasher = SipHasher;
+    type Hasher = FxHasher;
 
     fn build_hasher(&self) -> Self::Hasher {
-        SipHasher::new_with_keys(self.seed, self.seed)
+        FxHasher::with_seed(self.seed as usize)
     }
 }
 
