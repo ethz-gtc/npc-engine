@@ -19,7 +19,7 @@
 [utils-docs-badge]: https://img.shields.io/docsrs/npc-engine-utils
 [utils-docs-url]: https://docs.rs/npc-engine-utils
 
-[ci-badge]: https://img.shields.io/github/workflow/status/ethz-gtc/npc-engine/CI
+[ci-badge]: https://img.shields.io/github/actions/workflow/status/ethz-gtc/npc-engine/ci.yml?branch=main
 [ci-url]: https://github.com/ethz-gtc/npc-engine/actions
 
 © 2020-2022 ETH Zurich and other contributors. See [AUTHORS.txt](AUTHORS.txt) for more details.
