@@ -159,6 +159,6 @@ fn main() {
 
     children
         .into_iter()
-        .fold(Ok(()), |res, mut child| res.and(child.wait().map(|_| ())))
+        .try_fold((), |_res, mut child| child.wait().map(|_| ()))
         .expect("some experiment didn't exit successfully");
 }

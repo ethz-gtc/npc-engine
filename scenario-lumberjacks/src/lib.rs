@@ -208,6 +208,7 @@ pub fn name() -> &'static String {
     unsafe {
         init();
         // Safe to transmute, initialized
+        #[allow(static_mut_refs)]
         mem::transmute(&NAME)
     }
 }
@@ -216,6 +217,7 @@ pub fn config() -> &'static Config {
     unsafe {
         init();
         // Safe to transmute, initialized
+        #[allow(static_mut_refs)]
         mem::transmute(&CONFIG)
     }
 }
@@ -224,6 +226,7 @@ pub fn working_dir() -> &'static String {
     unsafe {
         init();
         // Safe to transmute, initialized
+        #[allow(static_mut_refs)]
         mem::transmute(&WORKING_DIR)
     }
 }
@@ -232,6 +235,7 @@ pub fn output_path() -> &'static String {
     unsafe {
         init();
         // Safe to transmute, initialized
+        #[allow(static_mut_refs)]
         mem::transmute(&OUTPUT_PATH)
     }
 }
@@ -240,6 +244,7 @@ pub fn batch() -> bool {
     unsafe {
         init();
         // Safe to transmute, initialized
+        #[allow(static_mut_refs)]
         mem::transmute(BATCH)
     }
 }

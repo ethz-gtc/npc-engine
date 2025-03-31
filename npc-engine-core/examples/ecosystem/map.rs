@@ -115,7 +115,10 @@ pub enum ParseGridError<T: FromStr> {
     TileError(T::Err),
     InconsistentLines,
 }
-fn parse_map_str<T: FromStr>(s: &str) -> Result<Box<[Box<[T]>]>, ParseGridError<T>> {
+
+type Map2D<T> = Box<[Box<[T]>]>;
+
+fn parse_map_str<T: FromStr>(s: &str) -> Result<Map2D<T>, ParseGridError<T>> {
     let mut map = Vec::new();
     let mut previous_length: Option<usize> = None;
     for line in s.split('\n') {

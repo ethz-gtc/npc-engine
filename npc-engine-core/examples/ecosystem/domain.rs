@@ -23,6 +23,7 @@ use crate::{
 };
 
 #[derive(Debug, Default)]
+#[allow(dead_code)]
 pub enum DisplayAction {
     #[default]
     Idle,

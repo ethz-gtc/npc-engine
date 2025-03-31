@@ -4,7 +4,6 @@
  */
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::usize;
 
 use ggez::graphics;
 use ggez::graphics::Image;

@@ -146,8 +146,8 @@ impl ExecutorStateGlobal<EcosystemDomain> for EcosystemExecutorState {
     fn init_task_queue(&self, state: &GlobalState) -> ActiveTasks<EcosystemDomain> {
         state
             .agents
-            .iter()
-            .map(|(id, _)| ActiveTask::new_with_end(0, 0, *id, Box::new(IdleTask)))
+            .keys()
+            .map(|id| ActiveTask::new_with_end(0, 0, *id, Box::new(IdleTask)))
             .chain(iter::once(ActiveTask::new_with_end(
                 0,
                 10,

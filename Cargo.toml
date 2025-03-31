@@ -1,10 +1,10 @@
 [workspace]
-
 members = [
     "npc-engine-core",
     "npc-engine-utils",
     "scenario-lumberjacks"
-] 
+]
+resolver = "2"
 
 [profile.bench]
 debug = true

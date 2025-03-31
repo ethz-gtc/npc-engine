@@ -26,9 +26,9 @@ use crate::*;
 // SAFETY: 0 is not NaN
 const VALUE_ZERO: AgentValue = unsafe { AgentValue::new_unchecked(0.) };
 // SAFETY: INFINITY is not NaN
-const VALUE_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(std::f32::INFINITY) };
+const VALUE_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(f32::INFINITY) };
 // SAFETY: NEG_INFINITY is not NaN
-const VALUE_NEG_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(std::f32::NEG_INFINITY) };
+const VALUE_NEG_INFINITE: AgentValue = unsafe { AgentValue::new_unchecked(f32::NEG_INFINITY) };
 
 /// The state of a running planner instance.
 pub struct MCTS<D: Domain> {
@@ -60,6 +60,7 @@ pub struct MCTS<D: Domain> {
 }
 
 /// The possible outcomes from a tree policy pass.
+#[allow(dead_code)]
 enum TreePolicyOutcome<D: Domain> {
     NodeCreated(u32, Node<D>, Vec<Edge<D>>), // depth, new node, path
     NoValidTask(u32, Vec<Edge<D>>),          // depth, path
@@ -303,7 +304,7 @@ impl<D: Domain> MCTS<D> {
         // Execute selection until at most `depth`, expressed as number of ticks
         let mut depth = 0;
         while depth < self.config.depth {
-            let mut edges = self.nodes.get_mut(&node).unwrap();
+            let edges = self.nodes.get_mut(&node).unwrap();
 
             // -------------------------
             // Expansion

@@ -17,7 +17,7 @@ pub struct StateDiffRef<'a, D: Domain> {
 impl<D: Domain> Copy for StateDiffRef<'_, D> {}
 impl<D: Domain> Clone for StateDiffRef<'_, D> {
     fn clone(&self) -> Self {
-        StateDiffRef::new(self.initial_state, self.diff)
+        *self
     }
 }
 impl<'a, D: Domain> StateDiffRef<'a, D> {

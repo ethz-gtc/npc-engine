@@ -39,11 +39,7 @@ impl Domain for Lumberjacks {
         } = ctx;
         if let Some((x, y)) = state_diff.find_agent(agent) {
             if config().agents.plan_others {
-                agents.extend(
-                    state_diff
-                        .find_nearby_agents(x, y, config().agents.horizon_radius)
-                        .into_iter(),
-                );
+                agents.extend(state_diff.find_nearby_agents(x, y, config().agents.horizon_radius));
             } else {
                 agents.insert(agent);
             }

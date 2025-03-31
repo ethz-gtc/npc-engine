@@ -84,7 +84,7 @@ impl Task<TestEngine> for TestTask {
         true
     }
 
-    fn execute(&self, mut ctx: ContextMut<TestEngine>) -> Option<Box<dyn Task<TestEngine>>> {
+    fn execute(&self, ctx: ContextMut<TestEngine>) -> Option<Box<dyn Task<TestEngine>>> {
         ctx.state_diff.diff.0 += self.0.min(1);
         None
     }

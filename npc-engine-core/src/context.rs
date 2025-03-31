@@ -17,11 +17,7 @@ pub struct Context<'a, D: Domain> {
 impl<D: Domain> Copy for Context<'_, D> {}
 impl<D: Domain> Clone for Context<'_, D> {
     fn clone(&self) -> Self {
-        Self {
-            tick: self.tick,
-            state_diff: self.state_diff,
-            agent: self.agent,
-        }
+        *self
     }
 }
 impl<'a, D: Domain> Context<'a, D> {

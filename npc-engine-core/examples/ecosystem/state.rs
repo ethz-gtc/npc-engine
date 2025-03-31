@@ -280,6 +280,7 @@ pub trait Access {
     fn list_agents(&self) -> Vec<AgentId>;
     fn get_agent(&self, agent: AgentId) -> Option<&AgentState>;
     fn get_agent_at(&self, position: Coord2D) -> Option<(AgentId, &AgentState)>;
+    #[allow(dead_code)]
     fn get_first_adjacent_agent(&self, position: Coord2D, n: u8) -> Option<(AgentId, &AgentState)> {
         self.get_agent_at(position + Coord2D::new(-(n as i32), 0))
             .or_else(|| self.get_agent_at(position + Coord2D::new(n as i32, 0)))
@@ -364,6 +365,7 @@ where
 {
     fn get_agent_mut(&mut self, agent: AgentId) -> Option<&mut AgentState>;
     fn set_tile(&mut self, position: Coord2D, tile: Tile);
+    #[allow(dead_code)]
     fn get_agent_pos_mut(&mut self, agent: AgentId) -> Option<&mut Coord2D> {
         self.get_agent_mut(agent).map(|state| &mut state.position)
     }
